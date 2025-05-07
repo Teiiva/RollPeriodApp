@@ -99,7 +99,7 @@ class _SensorPageState extends State<SensorPage> {
             ),
           ),
         ),
-        backgroundColor: Colors.grey,
+        backgroundColor: Color(0xFF012169),
       ),
       body: Column(
         children: [
@@ -108,9 +108,9 @@ class _SensorPageState extends State<SensorPage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                sensorTile('Accelerometer', _accelerometer, Icons.speed, Colors.grey),
-                sensorTile('Gyroscope', _gyroscope, Icons.rotate_right, Colors.grey),
-                sensorTile('Magnetometer', _magnetometer, Icons.compass_calibration, Colors.grey),
+                sensorTile('Accelerometer', _accelerometer, Icons.speed, Color(0xFF012169)),
+                sensorTile('Gyroscope', _gyroscope, Icons.rotate_right, Color(0xFF012169)),
+                sensorTile('Magnetometer', _magnetometer, Icons.compass_calibration, Color(0xFF012169)),
               ],
             ),
           ),
@@ -128,7 +128,7 @@ class _SensorPageState extends State<SensorPage> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey, // Couleur de fond du bouton
+                backgroundColor: Color(0xFF012169), // Couleur de fond du bouton
                 padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
               ),
             ),
