@@ -32,6 +32,7 @@ dependencies:
     sdk: flutter
   sensors_plus: ^6.1.1 # pour les capteurs de mouvement
   flutter_riverpod: ^2.0.0 # optionnel, pour la gestion d'état
+  fl_chart: ^0.71.0
 
 
   # The following adds the Cupertino Icons font to your application.
