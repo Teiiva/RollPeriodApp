@@ -18,17 +18,17 @@ class _SensorPageState extends State<SensorPage> {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
 
-  Timer? _timer;
   bool _isCollectingData = false;
   double? _rollAngle;
   List<FlSpot> _rollData = [];
-  int _time = 0;
   AccelerometerEvent? _lastAccelerometer;
 
-  @override
-  void initState() {
-    super.initState();
-  }
+  List<double> _periods = [];
+  double? _lastZeroCrossingTime;
+  double? _averagePeriod;
+  double _previousRoll = 0.0;
+  final int _maxPeriods = 5;
+  final Stopwatch _stopwatch = Stopwatch();
 
   @override
   void dispose() {
@@ -40,25 +40,38 @@ class _SensorPageState extends State<SensorPage> {
     setState(() => _isCollectingData = !_isCollectingData);
 
     if (_isCollectingData) {
+      _rollData.clear();
+      _stopwatch.reset();
+      _stopwatch.start();
+
       _accelerometerSubscription = accelerometerEvents.listen((event) {
         _lastAccelerometer = event;
+
+        final double timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
+        _rollAngle = calculateRoll(event);
+        _rollData.add(FlSpot(timestamp, _rollAngle!));
+
+        // Passage par zéro croissant
+        if (_previousRoll < 0 && _rollAngle! >= 0) {
+          if (_lastZeroCrossingTime != null) {
+            double period = timestamp - _lastZeroCrossingTime!;
+            _periods.add(period);
+            if (_periods.length > _maxPeriods) {
+              _periods.removeAt(0);
+            }
+            _averagePeriod = _periods.reduce((a, b) => a + b) / _periods.length;
+          }
+          _lastZeroCrossingTime = timestamp;
+        }
+
+        _previousRoll = _rollAngle!;
+        setState(() {
+          _accelerometer = event;
+        });
       });
 
       _gyroscopeSubscription = gyroscopeEvents.listen((event) {
         setState(() => _gyroscope = event);
-      });
-
-      _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-        if (_lastAccelerometer != null) {
-          setState(() {
-            _accelerometer = _lastAccelerometer;
-            _rollAngle = calculateRoll(_lastAccelerometer!);
-
-            // Ajouter un point toutes les 50 ms (50 ms = 0.05 secondes)
-            _rollData.add(FlSpot(_time / 20.0, _rollAngle!));  // Diviser par 20 pour obtenir un affichage en secondes (50 ms = 0.05 s)
-            _time++;
-          });
-        }
       });
     } else {
       _stopDataCollection();
@@ -68,14 +81,17 @@ class _SensorPageState extends State<SensorPage> {
   void _stopDataCollection() {
     _accelerometerSubscription?.cancel();
     _gyroscopeSubscription?.cancel();
-    _timer?.cancel();
+    _stopwatch.stop();
   }
 
   void _clearData() {
     setState(() {
       _rollData.clear();
       _rollAngle = null;
-      _time = 0;
+      _averagePeriod = null;
+      _lastZeroCrossingTime = null;
+      _previousRoll = 0.0;
+      _periods.clear();
     });
   }
 
@@ -96,14 +112,42 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
+  Color getSmoothColorForRoll(double? angle) {
+    if (angle == null) return Color(0xFF012169);
+
+    double absAngle = angle.abs().clamp(0, 90);
+
+    if (absAngle <= 40) {
+      return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
+    } else if (absAngle <= 70) {
+      return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
+    } else {
+      return Colors.red;
+    }
+  }
+
   Widget rollTile(double? angle) {
     return Card(
-      color: const Color(0xFF012169),
+      color: getSmoothColorForRoll(angle),
       child: ListTile(
         leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
         title: const Text('Roll (\u03b8)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: Text(
           angle != null ? '${angle.toStringAsFixed(2)}\u00b0' : 'Press Start',
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget rollingPeriodTile(double? period) {
+    return Card(
+      color: Colors.teal,
+      child: ListTile(
+        leading: const Icon(Icons.access_time, color: Colors.white, size: 40),
+        title: const Text('Rolling Period (s)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Text(
+          period != null ? '${period.toStringAsFixed(2)} s' : 'Calculating...',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
@@ -117,13 +161,14 @@ class _SensorPageState extends State<SensorPage> {
         height: 270,
         child: LineChart(
           LineChartData(
-            minY: -180,
-            maxY: 180,
+            minY: -90,
+            maxY: 90,
+            clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
                 spots: _rollData,
                 isCurved: true,
-                color: Color(0xFF012169),
+                color: const Color(0xFF012169),
                 barWidth: 2,
                 belowBarData: BarAreaData(show: false),
                 dotData: FlDotData(show: false),
@@ -141,11 +186,14 @@ class _SensorPageState extends State<SensorPage> {
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: 5,  // Afficher toutes les secondes
-                  getTitlesWidget: (value, meta) {
-                    // Ajuster l'intervalle de l'axe des abscisses pour une plage de 10 secondes
-                    return Text('${value.toInt()}s');
-                  },
+                  interval: () {
+                    int seconds = _stopwatch.elapsed.inSeconds;
+                    if (seconds >= 300) return 60.0;
+                    if (seconds >= 120) return 30.0;
+                    if (seconds >= 60) return 10.0;
+                    return 5.0;
+                  }(),
+                  getTitlesWidget: (value, meta) => Text('${value.toInt()}s'),
                 ),
               ),
               topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -158,8 +206,6 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -179,6 +225,7 @@ class _SensorPageState extends State<SensorPage> {
                 sensorTile('Accelerometer', _accelerometer, Icons.speed, const Color(0xFF012169)),
                 sensorTile('Gyroscope', _gyroscope, Icons.rotate_right, const Color(0xFF012169)),
                 rollTile(_rollAngle),
+                rollingPeriodTile(_averagePeriod),
                 buildChart(),
               ],
             ),
