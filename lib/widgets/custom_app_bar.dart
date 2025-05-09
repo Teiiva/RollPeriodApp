@@ -22,16 +22,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       backgroundColor: const Color(0xFF012169),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Image.network(
-            'https://example.com/logo.png', // Remplace par l'URL de ton logo
-            height: 30, // Ajuste la taille du logo
-            width: 30,
-          ),
-        ),
-      ],
     );
   }
 }
