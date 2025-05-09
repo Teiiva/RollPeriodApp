@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'widgets/custom_app_bar.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -210,12 +212,7 @@ class _SensorPageState extends State<SensorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Center(
-          child: Text("Data Sensors", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24.0, color: Colors.white)),
-        ),
-        backgroundColor: const Color(0xFF012169),
-      ),
+      appBar: const CustomAppBar(title: "Data Sensors"),
       body: Column(
         children: [
           Expanded(
