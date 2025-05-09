@@ -3,6 +3,7 @@ import 'widgets/custom_app_bar.dart';
 import 'sensor_page.dart'; // Page qu’on va créer juste après
 import 'info.dart'; // Page qu’on va créer juste après
 import 'alert.dart'; // Page qu’on va créer juste après
+import 'navigation.dart'; // Page qu’on va créer juste après
 
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
@@ -87,10 +88,18 @@ class MenuPage extends StatelessWidget {
             ),
             sensorTileWithDescription(
               context,
+              "Navigation",
+              Icons.explore,
+              Color(0xFF012169),
+              "This page displays the different roll zones, whether parametric or resonant, based on the data measured in the Data Sensors page and the parameters entered in the Vessel & Waves page. Based on the analysis, it can also provide heading recommendations to help minimize roll-related risks.",
+              const NavigationPage(), // Remplacez par votre page cible
+            ),
+            sensorTileWithDescription(
+              context,
               "Alert",
               Icons.notifications_active,
               Color(0xFF012169),
-              "Alert page",
+              "This page allows you to configure personalized alerts when excessive roll is detected. You can choose the type of alert to trigger: sound, visual, and/or mobile notification. You can also view the alert history to keep track of past events.",
               const AlertPage(), // Remplacez par votre page cible
             ),
             // Ajoutez d'autres tuiles cliquables ici
