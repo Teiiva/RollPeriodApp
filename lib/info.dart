@@ -32,7 +32,8 @@ class VesselWavePage extends StatelessWidget {
         children: [
           const SizedBox(height: 20),
           _buildInputCard(
-            const Icon(Icons.directions_boat, size: 40, color: Color(0xFF002868)),
+            const Icon(
+                Icons.directions_boat, size: 40, color: Color(0xFF012169)),
             "Length of vessel",
             "in meters",
             lengthController,
@@ -66,14 +67,18 @@ class VesselWavePage extends StatelessWidget {
               print('Wave Period: $wavePeriod');
               print('Direction: $direction');
             },
-            child: const Text("Send"),
+            child: const Text(
+              "Send",
+              style: TextStyle(color: Colors.white),
+            ),
+
           ),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.only(bottom: 20.0),
             //child: Image.asset(
-              //'assets/ship.png', // Assure-toi que cette image est dans ton dossier assets
-              //height: 180,
+            //'assets/ship.png', // Assure-toi que cette image est dans ton dossier assets
+            //height: 180,
             //),
           )
         ],
@@ -81,28 +86,49 @@ class VesselWavePage extends StatelessWidget {
     );
   }
 
-  Widget _buildInputCard(Widget iconWidget, String label, String hint, TextEditingController controller) {
+  Widget _buildInputCard(Widget iconWidget, String label, String hint,
+      TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               iconWidget,
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(label, style: const TextStyle(fontSize: 14)),
-                    TextField(
-                      controller: controller,
-                      decoration: InputDecoration(
-                        hintText: hint,
-                        border: InputBorder.none,
+                    Expanded(
+                      flex: 2,
+                      child: Center(
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            hintText: hint,
+                            border: InputBorder.none,
+                          ),
+                        ),
                       ),
                     ),
                   ],
