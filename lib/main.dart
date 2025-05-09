@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'sensor_page.dart'; // Page qu’on va créer juste après
+import 'menu.dart';
 
 void main() {
   runApp(const MyApp());
