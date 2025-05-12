@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
-import 'sensor_page.dart';
-import 'info.dart';
 
 class AlertPage extends StatefulWidget {
   const AlertPage({super.key});
@@ -16,23 +14,41 @@ class _AlertPageState extends State<AlertPage> {
   String? selectedFlash;
   String? selectedNotif;
 
-  final List<String> alarmoptions = [
-    'Alarm 1',
-    'Alarm 2',
-    'Alarm 3',
-    'Alarm 4'
-  ];
+  final List<String> alarmoptions = ['Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
+  final List<String> flashoptions = ['Enable', 'Disable'];
+  final List<String> notifoptions = ['Enable', 'Disable'];
 
-  final List<String> flashoptions = [
-    'Enable',
-    'Disable'
+  // Données pour l'historique des alertes
+  final List<Map<String, String>> alertHistory = [
+    {
+      'time': '14:30:45',
+      'date': '2023-11-15',
+      'latitude': '48.8566° N',
+      'longitude': '2.3522° E',
+      'rollPeriod': '25°'
+    },
+    {
+      'time': '09:15:22',
+      'date': '2023-11-14',
+      'latitude': '40.7128° N',
+      'longitude': '74.0060° W',
+      'rollPeriod': '30°'
+    },
+    {
+      'time': '18:45:33',
+      'date': '2023-11-13',
+      'latitude': '35.6762° N',
+      'longitude': '139.6503° E',
+      'rollPeriod': '18°'
+    },
+    {
+      'time': '22:10:57',
+      'date': '2023-11-12',
+      'latitude': '51.5074° N',
+      'longitude': '0.1278° W',
+      'rollPeriod': '22°'
+    },
   ];
-
-  final List<String> notifoptions = [
-    'Enable',
-    'Disable'
-  ];
-
 
   @override
   void initState() {
@@ -50,58 +66,204 @@ class _AlertPageState extends State<AlertPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: "Alert"),
-      body: Column(
-        children: [
-          const SizedBox(height: 20),
-          _buildInputCard(
-            const Icon(Icons.warning_rounded, size: 40, color: Color(0xFF012169)),
-            "Threshold for roll period",
-            "in degres",
-            thresholdController,
-          ),
-          _buildDropdownCard(
-            const Icon(Icons.notifications_active, size: 40, color: Color(0xFF002868)),
-            "Alarm",
-            selectedAlarme,
-            alarmoptions,
-                (value) {
-              setState(() {
-                selectedAlarme = value;
-              });
-            },
-          ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            _buildInputCard(
+              const Icon(Icons.warning_rounded, size: 40, color: Color(0xFF012169)),
+              "Threshold for roll period",
+              "in degres",
+              thresholdController,
+            ),
+            _buildDropdownCard(
+              const Icon(Icons.notifications_active, size: 40, color: Color(0xFF002868)),
+              "Alarm",
+              selectedAlarme,
+              alarmoptions,
+                  (value) {
+                setState(() {
+                  selectedAlarme = value;
+                });
+              },
+            ),
+            _buildDropdownCard(
+              const Icon(Icons.flash_on, size: 40, color: Color(0xFF002868)),
+              "Flash",
+              selectedFlash,
+              flashoptions,
+                  (value) {
+                setState(() {
+                  selectedFlash = value;
+                });
+              },
+            ),
+            _buildDropdownCard(
+              const Icon(Icons.mail_outline_outlined, size: 40, color: Color(0xFF002868)),
+              "Notification",
+              selectedNotif,
+              notifoptions,
+                  (value) {
+                setState(() {
+                  selectedNotif = value;
+                });
+              },
+            ),
 
-          _buildDropdownCard(
-            const Icon(Icons.flash_on, size: 40, color: Color(0xFF002868)),
-            "Flash",
-            selectedFlash,
-            flashoptions,
-                (value) {
-              setState(() {
-                selectedFlash = value;
-              });
-            },
-          ),
+            // Section Alert History
+            Padding(
+              padding: const EdgeInsets.only(top: 30, left: 40, right: 20, bottom: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.history, size: 40, color: Color(0xFF012169)),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Alert History',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _buildAlertHistoryTable(),
 
-          _buildDropdownCard(
-            const Icon(Icons.mail_outline_outlined, size: 40, color: Color(0xFF002868)),
-            "Notification",
-            selectedNotif,
-            notifoptions,
-                (value) {
-              setState(() {
-                selectedNotif = value;
-              });
-            },
-          ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const Spacer(),
-          // Vous pouvez ajouter une image ici si nécessaire
-          // Padding(
-          //   padding: const EdgeInsets.only(bottom: 20.0),
-          //   child: Image.asset('assets/alert.png', height: 180),
-          // )
-        ],
+  Widget _buildAlertHistoryTable() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // En-tête du tableau
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF012169).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                child: const Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text('Date/Time', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text('Position', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text('Roll Period', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Contenu du tableau
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: alertHistory.length,
+                itemBuilder: (context, index) {
+                  final alert = alertHistory[index];
+                  final rollPeriod = alert['rollPeriod'] ?? 'N/A';
+                  final rollPeriodValue = double.tryParse(rollPeriod.replaceAll('°', '')) ?? 0;
+
+                  return Column(
+                    children: [
+                      Divider(height: 1, color: Colors.grey[300]),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        child: Row(
+                          children: [
+                            // Colonne Date/Heure
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    alert['time'] ?? '--:--:--',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    alert['date'] ?? '----/--/--',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Colonne Position
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Lat: ${alert['latitude'] ?? 'N/A'}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  Text(
+                                    'Long: ${alert['longitude'] ?? 'N/A'}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Colonne Roll Period
+                            Expanded(
+                              flex: 2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: rollPeriodValue > 25
+                                      ? Colors.red.withOpacity(0.2)
+                                      : Colors.green.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  rollPeriod,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: rollPeriodValue > 25
+                                        ? Colors.red
+                                        : Colors.green,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -167,6 +329,7 @@ class _AlertPageState extends State<AlertPage> {
       ),
     );
   }
+
   Widget _buildDropdownCard(
       Widget iconWidget,
       String label,

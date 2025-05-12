@@ -1,10 +1,13 @@
+// Imports inchangés
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'widgets/custom_app_bar.dart';
+import 'fft_processor.dart';
 
 import 'dart:async';
 import 'dart:math';
+import 'dart:collection';
 
 class SensorPage extends StatefulWidget {
   const SensorPage({super.key});
@@ -23,7 +26,7 @@ class _SensorPageState extends State<SensorPage> {
   bool _isCollectingData = false;
   double? _rollAngle;
   List<FlSpot> _rollData = [];
-  AccelerometerEvent? _lastAccelerometer;
+  static const int _maxRollDataPoints = 1000;
 
   List<double> _periods = [];
   double? _lastZeroCrossingTime;
@@ -32,8 +35,20 @@ class _SensorPageState extends State<SensorPage> {
   final int _maxPeriods = 5;
   final Stopwatch _stopwatch = Stopwatch();
 
+  // FFT
+  double? _fftPeriod;
+  final List<double> _fftSamples = [];
+  static const _fftSampleRate = 20; // Hz
+  static const _fftWindowSize = 200;
+  Timer? _fftTimer;
+
+  int? _lastTimestamp;
+  final List<double> _samplingRates = [];
+
+
   @override
   void dispose() {
+    _fftTimer?.cancel();
     _stopDataCollection();
     super.dispose();
   }
@@ -42,18 +57,37 @@ class _SensorPageState extends State<SensorPage> {
     setState(() => _isCollectingData = !_isCollectingData);
 
     if (_isCollectingData) {
+      _startFFTTimer();
       _rollData.clear();
       _stopwatch.reset();
       _stopwatch.start();
 
       _accelerometerSubscription = accelerometerEvents.listen((event) {
-        _lastAccelerometer = event;
+        // 🟨 Calcul du vrai taux d'échantillonnage
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (_lastTimestamp != null) {
+          final deltaT = (now - _lastTimestamp!) / 1000.0;
+          _samplingRates.add(1 / deltaT);
+        }
+        _lastTimestamp = now;
 
-        final double timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
+        if (_samplingRates.length > 100) {
+          final avgRate = _samplingRates.reduce((a, b) => a + b) / _samplingRates.length;
+          debugPrint('Sampling rate: ${avgRate.toStringAsFixed(2)} Hz');
+          _samplingRates.clear();
+        }
+
+        // 🟦 Calcul du timestamp
+        final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
         _rollAngle = calculateRoll(event);
-        _rollData.add(FlSpot(timestamp, _rollAngle!));
+        if (_rollAngle == null) return;
 
-        // Passage par zéro croissant
+        _rollData.add(FlSpot(timestamp, _rollAngle!));
+        if (_rollData.length > _maxRollDataPoints) {
+          _rollData.removeAt(0);
+        }
+
+        // 🟦 Détection du passage par zéro (montée)
         if (_previousRoll < 0 && _rollAngle! >= 0) {
           if (_lastZeroCrossingTime != null) {
             double period = timestamp - _lastZeroCrossingTime!;
@@ -70,12 +104,16 @@ class _SensorPageState extends State<SensorPage> {
         setState(() {
           _accelerometer = event;
         });
+
+        // 🟦 Stockage pour FFT
+        _fftSamples.add(_rollAngle!);
+        if (_fftSamples.length > _fftWindowSize) {
+          _fftSamples.removeAt(0);
+        }
       });
 
-      _gyroscopeSubscription = gyroscopeEvents.listen((event) {
-        setState(() => _gyroscope = event);
-      });
     } else {
+      _fftTimer?.cancel();
       _stopDataCollection();
     }
   }
@@ -94,12 +132,43 @@ class _SensorPageState extends State<SensorPage> {
       _lastZeroCrossingTime = null;
       _previousRoll = 0.0;
       _periods.clear();
+      _clearFFTData();
     });
   }
 
-  double calculateRoll(AccelerometerEvent acc) {
-    double radians = atan2(acc.x, acc.z);
-    return radians * 180 / pi;
+  double? calculateRoll(AccelerometerEvent acc) {
+    if (acc.x == 0 && acc.z == 0) return null;
+    return atan2(acc.x, acc.z) * 180 / pi;
+  }
+
+  void _startFFTTimer() {
+    _fftTimer?.cancel();
+    _fftTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _computeFFTPeriod();
+    });
+  }
+
+  void _computeFFTPeriod() {
+    try {
+      if (_fftSamples.length >= _fftWindowSize) {
+        final frequency = FFTProcessor.findDominantFrequency(
+          _fftSamples,
+          _fftSampleRate,
+        );
+
+        setState(() {
+          _fftPeriod = (frequency != null && frequency > 0) ? 1 / frequency : null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur FFT: $e');
+      setState(() => _fftPeriod = null);
+    }
+  }
+
+  void _clearFFTData() {
+    _fftSamples.clear();
+    _fftPeriod = null;
   }
 
   Widget sensorTile(String label, dynamic event, IconData icon, Color color) {
@@ -108,14 +177,14 @@ class _SensorPageState extends State<SensorPage> {
         leading: Icon(icon, color: color, size: 40.0),
         title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(event != null
-            ? 'x: ${event.x.toStringAsFixed(2)}\ny: ${event.y.toStringAsFixed(2)}\nz: ${event.z.toStringAsFixed(2)}'
+            ? 'x: ${event.x.toStringAsFixed(2)} y: ${event.y.toStringAsFixed(2)} z: ${event.z.toStringAsFixed(2)}'
             : 'Press Start'),
       ),
     );
   }
 
   Color getSmoothColorForRoll(double? angle) {
-    if (angle == null) return Color(0xFF012169);
+    if (angle == null) return const Color(0xFF012169);
 
     double absAngle = angle.abs().clamp(0, 90);
 
@@ -133,9 +202,9 @@ class _SensorPageState extends State<SensorPage> {
       color: getSmoothColorForRoll(angle),
       child: ListTile(
         leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
-        title: const Text('Roll (\u03b8)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Roll (θ)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: Text(
-          angle != null ? '${angle.toStringAsFixed(2)}\u00b0' : 'Press Start',
+          angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
@@ -151,6 +220,32 @@ class _SensorPageState extends State<SensorPage> {
         subtitle: Text(
           period != null ? '${period.toStringAsFixed(2)} s' : 'Calculating...',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget fftPeriodTile() {
+    return Card(
+      color: Colors.deepPurple,
+      child: ListTile(
+        leading: const Icon(Icons.insights, color: Colors.white, size: 40),
+        title: const Text('Period (FFT)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: _fftPeriod != null
+            ? Text('${_fftPeriod!.toStringAsFixed(2)} s',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
+            : Row(
+          children: [
+            Text('${_fftSamples.length ~/ _fftSampleRate}s/10s',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(width: 8),
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+          ],
         ),
       ),
     );
@@ -223,6 +318,7 @@ class _SensorPageState extends State<SensorPage> {
                 sensorTile('Gyroscope', _gyroscope, Icons.rotate_right, const Color(0xFF012169)),
                 rollTile(_rollAngle),
                 rollingPeriodTile(_averagePeriod),
+                fftPeriodTile(),
                 buildChart(),
               ],
             ),

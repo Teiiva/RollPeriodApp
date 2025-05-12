@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         fontFamily: 'CustomFont',  // Remplacez par le nom de votre famille de police
       ),
-      home: const SensorPage(),
+      home: const MenuPage(),
     );
   }
 }
