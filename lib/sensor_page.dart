@@ -143,7 +143,7 @@ class _SensorPageState extends State<SensorPage> {
 
   void _startFFTTimer() {
     _fftTimer?.cancel();
-    _fftTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _fftTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _computeFFTPeriod();
     });
   }
@@ -237,7 +237,7 @@ class _SensorPageState extends State<SensorPage> {
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
             : Row(
           children: [
-            Text('${_fftSamples.length ~/ _fftSampleRate}s/10s',
+            Text('${_fftSamples.length ~/ _fftSampleRate}s/30s',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(width: 8),
             const SizedBox(
