@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
+import 'package:vibration/vibration.dart';
 
 class AlertPage extends StatefulWidget {
   const AlertPage({super.key});
@@ -9,58 +10,92 @@ class AlertPage extends StatefulWidget {
 }
 
 class _AlertPageState extends State<AlertPage> {
+
   late final TextEditingController thresholdController;
   String? selectedAlarme;
+  String? selectedVibration;
   String? selectedFlash;
   String? selectedNotif;
 
   final List<String> alarmoptions = ['Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
+  final List<String> vibrationoptions = ['Enable', 'Disable'];
   final List<String> flashoptions = ['Enable', 'Disable'];
   final List<String> notifoptions = ['Enable', 'Disable'];
 
+  bool isVibrationEnabled = false;
+
   // Données pour l'historique des alertes
   final List<Map<String, String>> alertHistory = [
-    {
-      'time': '14:30:45',
-      'date': '2023-11-15',
-      'latitude': '48.8566° N',
-      'longitude': '2.3522° E',
-      'rollPeriod': '25°'
-    },
-    {
-      'time': '09:15:22',
-      'date': '2023-11-14',
-      'latitude': '40.7128° N',
-      'longitude': '74.0060° W',
-      'rollPeriod': '30°'
-    },
-    {
-      'time': '18:45:33',
-      'date': '2023-11-13',
-      'latitude': '35.6762° N',
-      'longitude': '139.6503° E',
-      'rollPeriod': '18°'
-    },
-    {
-      'time': '22:10:57',
-      'date': '2023-11-12',
-      'latitude': '51.5074° N',
-      'longitude': '0.1278° W',
-      'rollPeriod': '22°'
-    },
+
   ];
 
   @override
   void initState() {
     super.initState();
-    thresholdController = TextEditingController();
+    thresholdController = TextEditingController(text: "200");
+
+    // Initialiser uniquement avec des valeurs présentes dans les options
+    selectedVibration = 'Enable';
+    selectedFlash = 'Enable';
+    selectedNotif = 'Enable';
+    selectedAlarme = alarmoptions.first; // "Alarm 1"
   }
+
 
   @override
   void dispose() {
     thresholdController.dispose();
     super.dispose();
   }
+
+  void checkForAlert({
+
+    required String latitude,
+    required String longitude,
+  }) {
+    final threshold = double.tryParse(thresholdController.text) ?? 0;
+
+    if (_rollAngle > threshold) {
+      final now = DateTime.now();
+
+      // Ajouter une entrée dans l'historique
+      setState(() {
+        alertHistory.insert(0, {
+          'time': "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}",
+          'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+          'latitude': latitude,
+          'longitude': longitude,
+          'rollPeriod': "${rollPeriod.toStringAsFixed(1)}°"
+        });
+      });
+
+      // Vibration
+      if (selectedVibration == 'Enable') {
+        Vibration.hasVibrator().then((hasVibrator) {
+          if (hasVibrator ?? false) {
+            Vibration.vibrate(duration: 500);
+          }
+        });
+      }
+
+      // Flash (à implémenter avec le package flash si besoin)
+
+      // Notification (à implémenter avec flutter_local_notifications)
+
+      // Jouer l’alarme selon sélection
+      if (selectedAlarme != null) {
+        playAlarm(selectedAlarme!);
+      }
+    }
+  }
+
+  void playAlarm(String alarmName) {
+    // Simule un son selon le nom d'alarme sélectionné
+    // Utilise par exemple `assets/audio/alarm1.mp3` via audioplayers
+    print("Playing: $alarmName"); // Remplace par audio réelle
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +110,17 @@ class _AlertPageState extends State<AlertPage> {
               "Threshold for roll period",
               "in degres",
               thresholdController,
+            ),
+            _buildDropdownCard(
+              const Icon(Icons.vibration, size: 40, color: Color(0xFF002868)),
+              "Vibration",
+              selectedVibration,
+              vibrationoptions,
+                  (value) {
+                setState(() {
+                  selectedVibration = value;
+                });
+              },
             ),
             _buildDropdownCard(
               const Icon(Icons.notifications_active, size: 40, color: Color(0xFF002868)),
@@ -109,6 +155,8 @@ class _AlertPageState extends State<AlertPage> {
                 });
               },
             ),
+
+
 
             // Section Alert History
             Padding(
