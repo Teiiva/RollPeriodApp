@@ -40,6 +40,7 @@ dependencies:
   vibration : ^3.1.3
   torch_light: ^1.1.0  # Add this line
   geolocator: ^14.0.0
+  audioplayers: ^6.4.0
 
 
 
@@ -68,6 +69,10 @@ flutter:
   assets:
     - assets/fonts/
     - assets/images/
+    - assets/sounds/alarm1.mp3
+    - assets/sounds/alarm2.mp3
+    - assets/sounds/alarm3.mp3
+    - assets/sounds/alarm4.mp3
 
   fonts:
       - family: CustomFont

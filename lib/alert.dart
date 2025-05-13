@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';  // Import du package geolocator
 import 'package:vibration/vibration.dart';
 import 'package:torch_light/torch_light.dart';  // Import torch_light package
 import 'widgets/custom_app_bar.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 // 🔑 Clé globale pour accéder à l'état de AlertPage
 final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
@@ -27,6 +28,7 @@ class _AlertPageState extends State<AlertPage> {
   final List<String> vibrationoptions = ['Enable', 'Disable'];
   final List<String> flashoptions = ['Enable', 'Disable'];
   final List<String> notifoptions = ['Enable', 'Disable'];
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool isVibrationEnabled = false;
   final List<Map<String, String>> alertHistory = [];
@@ -44,6 +46,7 @@ class _AlertPageState extends State<AlertPage> {
 
   @override
   void dispose() {
+    _audioPlayer.dispose();
     thresholdController.dispose();
     super.dispose();
   }
@@ -144,9 +147,32 @@ class _AlertPageState extends State<AlertPage> {
     }
   }
 
-  void playAlarm(String alarmName) {
-    print("Playing: $alarmName");
-    // Ajouter la lecture réelle avec `audioplayers` si besoin
+  void playAlarm(String alarmName) async {
+    String? soundPath;
+
+    switch (alarmName) {
+      case 'Alarm 1':
+        soundPath = 'sounds/alarm1.mp3';
+        break;
+      case 'Alarm 2':
+        soundPath = 'sounds/alarm2.mp3';
+        break;
+      case 'Alarm 3':
+        soundPath = 'sounds/alarm3.mp3';
+        break;
+      case 'Alarm 4':
+        soundPath = 'sounds/alarm4.mp3';
+        break;
+      default:
+        return;
+    }
+
+    try {
+      await _audioPlayer.stop(); // Stop any previous alarm
+      await _audioPlayer.play(AssetSource(soundPath));
+    } catch (e) {
+      print("Erreur lors de la lecture de l'alarme: $e");
+    }
   }
 
   void _toggleFlash() async {
