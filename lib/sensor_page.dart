@@ -175,12 +175,42 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Future<void> _exportRollDataToDownloads() async {
-    final status = await Permission.storage.request();
-    if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Storage permission required')),
-      );
-      return;
+    if (Platform.isAndroid) {
+      var status = await Permission.manageExternalStorage.status;
+
+      if (!status.isGranted) {
+        // Demande de permission avec explication à l'utilisateur
+        bool shouldRequest = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Permission requise'),
+            content: const Text(
+              'Cette application a besoin de l\'accès au stockage pour exporter les données dans le dossier "Download". Souhaitez-vous autoriser cette permission ?',
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Annuler'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('Autoriser'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (shouldRequest) {
+          status = await Permission.manageExternalStorage.request();
+        }
+
+        if (!status.isGranted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission de stockage refusée')),
+          );
+          return;
+        }
+      }
     }
 
     try {
@@ -191,21 +221,25 @@ class _SensorPageState extends State<SensorPage> {
         buffer.writeln('${spot.x.toStringAsFixed(3)},${spot.y.toStringAsFixed(3)}');
       }
 
-      final directory = await getDownloadsDirectory();
-      if (directory == null) throw Exception("Cannot get downloads directory");
+      final directory = Directory('/storage/emulated/0/Download');
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
 
       final file = File('${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(buffer.toString());
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Exported to ${file.path}')),
+        SnackBar(content: Text('Données exportées : ${file.path}')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
+        SnackBar(content: Text('Échec de l\'export : $e')),
       );
     }
   }
+
+
 
 
 
@@ -304,7 +338,7 @@ class _SensorPageState extends State<SensorPage> {
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
-                spots: _rollData,
+                spots: _rollData.isNotEmpty ? _rollData : [FlSpot(0, 0)], // Make sure spots are not empty
                 isCurved: true,
                 color: const Color(0xFF012169),
                 barWidth: 2,
@@ -344,6 +378,7 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {

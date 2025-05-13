@@ -20,14 +20,12 @@ class _AlertPageState extends State<AlertPage> {
   String? selectedAlarme;
   String? selectedVibration;
   String? selectedFlash;
-  String? selectedNotif;
   DateTime? _lastAlertTime; // Pour le cooldown
   Position? _currentPosition; // Position actuelle de l'utilisateur
 
   final List<String> alarmoptions = ['Disable','Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
   final List<String> vibrationoptions = ['Enable', 'Disable'];
   final List<String> flashoptions = ['Enable', 'Disable'];
-  final List<String> notifoptions = ['Enable', 'Disable'];
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool isVibrationEnabled = false;
@@ -39,7 +37,6 @@ class _AlertPageState extends State<AlertPage> {
     thresholdController = TextEditingController(text: "200");
     selectedVibration = 'Enable';
     selectedFlash = 'Enable';
-    selectedNotif = 'Enable';
     selectedAlarme = alarmoptions.first;
     _getCurrentLocation();  // Récupère la position dès que l'app démarre
   }
@@ -196,7 +193,7 @@ class _AlertPageState extends State<AlertPage> {
             const SizedBox(height: 20),
             _buildInputCard(
               const Icon(Icons.warning_rounded, size: 40, color: Color(0xFF012169)),
-              "Threshold for roll period",
+              "Threshold for angle",
               "in degres",
               thresholdController,
             ),
@@ -233,19 +230,6 @@ class _AlertPageState extends State<AlertPage> {
                 });
               },
             ),
-            _buildDropdownCard(
-              const Icon(Icons.mail_outline_outlined, size: 40, color: Color(0xFF002868)),
-              "Notification",
-              selectedNotif,
-              notifoptions,
-                  (value) {
-                setState(() {
-                  selectedNotif = value;
-                });
-              },
-            ),
-
-
 
             // Section Alert History
             Padding(
@@ -303,7 +287,7 @@ class _AlertPageState extends State<AlertPage> {
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text('Roll Period', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
+                      child: Text('Roll angle', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
                     ),
                     SizedBox(width: 40), // espace pour l'icône de suppression
                   ],
