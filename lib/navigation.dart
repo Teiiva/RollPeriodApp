@@ -14,7 +14,7 @@ class NavigationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: "Navigation"),
+      appBar: const CustomAppBar(),
       body: Center( // Affiche un texte centré
         child: Text('Contenu de la page'),
       ),
