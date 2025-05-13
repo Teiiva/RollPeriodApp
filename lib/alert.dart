@@ -1,46 +1,45 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'package:vibration/vibration.dart';
+import 'package:torch_light/torch_light.dart';  // Import torch_light package
+
+
+// 🔑 Clé globale pour accéder à l'état de AlertPage
+final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
 
 class AlertPage extends StatefulWidget {
-  const AlertPage({super.key});
+  AlertPage({Key? key}) : super(key: alertPageKey);
+
 
   @override
   State<AlertPage> createState() => _AlertPageState();
 }
 
 class _AlertPageState extends State<AlertPage> {
-
   late final TextEditingController thresholdController;
   String? selectedAlarme;
   String? selectedVibration;
   String? selectedFlash;
   String? selectedNotif;
+  DateTime? _lastAlertTime; // Pour le cooldown
 
-  final List<String> alarmoptions = ['Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
+  final List<String> alarmoptions = ['Disable','Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
   final List<String> vibrationoptions = ['Enable', 'Disable'];
   final List<String> flashoptions = ['Enable', 'Disable'];
   final List<String> notifoptions = ['Enable', 'Disable'];
 
   bool isVibrationEnabled = false;
-
-  // Données pour l'historique des alertes
-  final List<Map<String, String>> alertHistory = [
-
-  ];
+  final List<Map<String, String>> alertHistory = [];
 
   @override
   void initState() {
     super.initState();
     thresholdController = TextEditingController(text: "200");
-
-    // Initialiser uniquement avec des valeurs présentes dans les options
     selectedVibration = 'Enable';
     selectedFlash = 'Enable';
     selectedNotif = 'Enable';
-    selectedAlarme = alarmoptions.first; // "Alarm 1"
+    selectedAlarme = alarmoptions.first;
   }
-
 
   @override
   void dispose() {
@@ -49,27 +48,39 @@ class _AlertPageState extends State<AlertPage> {
   }
 
   void checkForAlert({
-
-    required String latitude,
-    required String longitude,
+    required rollAngle,
   }) {
     final threshold = double.tryParse(thresholdController.text) ?? 0;
+    final now = DateTime.now();
 
-    if (_rollAngle > threshold) {
-      final now = DateTime.now();
+    // Récupérer le dernier roll enregistré
+    double? lastAlertRoll;
+    if (alertHistory.isNotEmpty) {
+      lastAlertRoll = double.tryParse(alertHistory.first['rollPeriod']?.replaceAll('°', '') ?? '0');
+    }
 
-      // Ajouter une entrée dans l'historique
+    // Vérifier si le roll actuel dépasse de 30% le dernier roll enregistré
+    final isSignificantRoll = lastAlertRoll != null &&
+        rollAngle.abs() > (lastAlertRoll.abs() * 1.3);
+
+    // Vérifier le cooldown de 30 secondes (sauf si roll significatif)
+    if (_lastAlertTime != null &&
+        DateTime.now().difference(_lastAlertTime!) < Duration(seconds: 30) &&
+        !isSignificantRoll) {
+      return; // Ignorer l'alerte si le cooldown n'est pas écoulé et que le roll n'est pas significatif
+    }
+
+    if (rollAngle.abs() > threshold) {
+      _lastAlertTime = now; // Enregistrer le moment de l'alerte
+
       setState(() {
         alertHistory.insert(0, {
           'time': "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}",
           'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
-          'latitude': latitude,
-          'longitude': longitude,
-          'rollPeriod': "${rollPeriod.toStringAsFixed(1)}°"
+          'rollPeriod': "${rollAngle.toStringAsFixed(1)}°"
         });
       });
 
-      // Vibration
       if (selectedVibration == 'Enable') {
         Vibration.hasVibrator().then((hasVibrator) {
           if (hasVibrator ?? false) {
@@ -78,21 +89,32 @@ class _AlertPageState extends State<AlertPage> {
         });
       }
 
-      // Flash (à implémenter avec le package flash si besoin)
-
-      // Notification (à implémenter avec flutter_local_notifications)
-
-      // Jouer l’alarme selon sélection
-      if (selectedAlarme != null) {
+      if (selectedAlarme != null && selectedAlarme != 'Disable') {
         playAlarm(selectedAlarme!);
       }
+
+      if (selectedFlash == 'Enable') {
+        _toggleFlash();
+      }
+
+
+
+      // Flash & Notification à implémenter plus tard
     }
   }
 
   void playAlarm(String alarmName) {
-    // Simule un son selon le nom d'alarme sélectionné
-    // Utilise par exemple `assets/audio/alarm1.mp3` via audioplayers
-    print("Playing: $alarmName"); // Remplace par audio réelle
+    print("Playing: $alarmName");
+    // Ajouter la lecture réelle avec `audioplayers` si besoin
+  }
+
+  void _toggleFlash() async {
+    for (int i = 0; i < 3; i++) {
+      await TorchLight.enableTorch();  // Allume le flash
+      await Future.delayed(const Duration(milliseconds: 500));  // Attend 500ms
+      await TorchLight.disableTorch(); // Éteint le flash
+      await Future.delayed(const Duration(milliseconds: 500));  // Attend 500ms avant de recommencer
+    }
   }
 
 
@@ -285,7 +307,7 @@ class _AlertPageState extends State<AlertPage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                                 decoration: BoxDecoration(
-                                  color: rollPeriodValue > 25
+                                  color: rollPeriodValue.abs() > 25
                                       ? Colors.red.withOpacity(0.2)
                                       : Colors.green.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(20),
@@ -295,7 +317,7 @@ class _AlertPageState extends State<AlertPage> {
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: rollPeriodValue > 25
+                                    color: rollPeriodValue.abs() > 25
                                         ? Colors.red
                                         : Colors.green,
                                   ),
