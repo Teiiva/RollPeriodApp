@@ -342,6 +342,17 @@ class _AlertPageState extends State<AlertPage> {
                                 });
                               },
                             ),
+
+                            // Bouton de suppression
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              tooltip: 'Supprimer',
+                              onPressed: () {
+                                setState(() {
+                                  alertHistory.removeAt(index);
+                                });
+                              },
+                            ),
                           ],
                         ),
                       ),
