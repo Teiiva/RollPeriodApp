@@ -238,6 +238,7 @@ class _AlertPageState extends State<AlertPage> {
                       flex: 2,
                       child: Text('Roll Period', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
+                    SizedBox(width: 40), // espace pour l'icône de suppression
                   ],
                 ),
               ),
@@ -258,8 +259,9 @@ class _AlertPageState extends State<AlertPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Colonne Date/Heure
+                            // Date/Heure
                             Expanded(
                               flex: 2,
                               child: Column(
@@ -283,7 +285,7 @@ class _AlertPageState extends State<AlertPage> {
                               ),
                             ),
 
-                            // Colonne Position
+                            // Position
                             Expanded(
                               flex: 3,
                               child: Column(
@@ -301,7 +303,7 @@ class _AlertPageState extends State<AlertPage> {
                               ),
                             ),
 
-                            // Colonne Roll Period
+                            // Roll Period
                             Expanded(
                               flex: 2,
                               child: Container(
@@ -323,6 +325,17 @@ class _AlertPageState extends State<AlertPage> {
                                   ),
                                 ),
                               ),
+                            ),
+
+                            // Bouton de suppression
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              tooltip: 'Supprimer',
+                              onPressed: () {
+                                setState(() {
+                                  alertHistory.removeAt(index);
+                                });
+                              },
                             ),
                           ],
                         ),
