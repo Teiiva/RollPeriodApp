@@ -228,16 +228,17 @@ class _AlertPageState extends State<AlertPage> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: Text('Date/Time', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Date/Time', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
                     ),
                     Expanded(
                       flex: 3,
-                      child: Text('Position', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Position', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text('Roll Period', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Roll Period', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
                     ),
+                    SizedBox(width: 40), // espace pour l'icône de suppression
                   ],
                 ),
               ),
@@ -258,18 +259,20 @@ class _AlertPageState extends State<AlertPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Colonne Date/Heure
+                            // Date/Heure
                             Expanded(
                               flex: 2,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
                                     alert['time'] ?? '--:--:--',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
+
                                     ),
                                   ),
                                   Text(
@@ -283,46 +286,61 @@ class _AlertPageState extends State<AlertPage> {
                               ),
                             ),
 
-                            // Colonne Position
+                            // Position
                             Expanded(
                               flex: 3,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
                                     'Lat: ${alert['latitude'] ?? 'N/A'}',
-                                    style: const TextStyle(fontSize: 13),
+                                    style: const TextStyle(fontSize: 13,),
+                                    textAlign: TextAlign.center, // Centrer le texte horizontalement
                                   ),
                                   Text(
                                     'Long: ${alert['longitude'] ?? 'N/A'}',
                                     style: const TextStyle(fontSize: 13),
+                                    textAlign: TextAlign.center, // Centrer le texte horizontalement
                                   ),
                                 ],
                               ),
                             ),
 
-                            // Colonne Roll Period
+                            // Roll Period
                             Expanded(
                               flex: 2,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                                decoration: BoxDecoration(
-                                  color: rollPeriodValue.abs() > 25
-                                      ? Colors.red.withOpacity(0.2)
-                                      : Colors.green.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  rollPeriod,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: rollPeriodValue.abs() > 25
-                                        ? Colors.red
-                                        : Colors.green,
+                                child:Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: rollPeriodValue.abs() > 25
+                                          ? Colors.red.withOpacity(0.2)
+                                          : Colors.green.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      rollPeriod,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: rollPeriodValue.abs() > 25
+                                            ? Colors.red
+                                            : Colors.green,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                            ),
+
+                            // Bouton de suppression
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              tooltip: 'Supprimer',
+                              onPressed: () {
+                                setState(() {
+                                  alertHistory.removeAt(index);
+                                });
+                              },
                             ),
                           ],
                         ),
