@@ -391,7 +391,7 @@ class _SensorPageState extends State<SensorPage> {
                 ElevatedButton(
                   onPressed: _exportRollDataToDownloads,
                   child: const Text(
-                    'Extraire',
+                    'Extract',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169)),
                   ),
                   style: ElevatedButton.styleFrom(

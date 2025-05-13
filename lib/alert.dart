@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'widgets/custom_app_bar.dart';
+import 'package:geolocator/geolocator.dart';  // Import du package geolocator
 import 'package:vibration/vibration.dart';
 import 'package:torch_light/torch_light.dart';  // Import torch_light package
-
+import 'widgets/custom_app_bar.dart';
 
 // 🔑 Clé globale pour accéder à l'état de AlertPage
 final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
 
 class AlertPage extends StatefulWidget {
   AlertPage({Key? key}) : super(key: alertPageKey);
-
 
   @override
   State<AlertPage> createState() => _AlertPageState();
@@ -22,6 +21,7 @@ class _AlertPageState extends State<AlertPage> {
   String? selectedFlash;
   String? selectedNotif;
   DateTime? _lastAlertTime; // Pour le cooldown
+  Position? _currentPosition; // Position actuelle de l'utilisateur
 
   final List<String> alarmoptions = ['Disable','Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
   final List<String> vibrationoptions = ['Enable', 'Disable'];
@@ -39,6 +39,7 @@ class _AlertPageState extends State<AlertPage> {
     selectedFlash = 'Enable';
     selectedNotif = 'Enable';
     selectedAlarme = alarmoptions.first;
+    _getCurrentLocation();  // Récupère la position dès que l'app démarre
   }
 
   @override
@@ -47,6 +48,43 @@ class _AlertPageState extends State<AlertPage> {
     super.dispose();
   }
 
+  // Méthode pour récupérer la position actuelle
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Vérifie si les services de localisation sont activés
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Si non, afficher un message d'erreur
+      print("Location services are disabled.");
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Si l'utilisateur n'accorde pas les permissions, afficher un message
+        print("Location permissions are denied");
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Si les permissions sont définitivement refusées, afficher un message
+      print("Location permissions are permanently denied");
+      return;
+    }
+
+    // Récupère la position actuelle de l'utilisateur
+    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    setState(() {
+      _currentPosition = position;
+    });
+  }
+
+  // Modifie cette méthode pour inclure la position dans l'historique des alertes
   void checkForAlert({
     required rollAngle,
   }) {
@@ -73,11 +111,14 @@ class _AlertPageState extends State<AlertPage> {
     if (rollAngle.abs() > threshold) {
       _lastAlertTime = now; // Enregistrer le moment de l'alerte
 
+      // Ajouter les informations de position à l'historique des alertes
       setState(() {
         alertHistory.insert(0, {
           'time': "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}",
           'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
-          'rollPeriod': "${rollAngle.toStringAsFixed(1)}°"
+          'rollPeriod': "${rollAngle.toStringAsFixed(1)}°",
+          'latitude': _currentPosition?.latitude.toString() ?? 'N/A',
+          'longitude': _currentPosition?.longitude.toString() ?? 'N/A',
         });
       });
 
@@ -265,7 +306,7 @@ class _AlertPageState extends State<AlertPage> {
                             Expanded(
                               flex: 2,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     alert['time'] ?? '--:--:--',
@@ -278,7 +319,7 @@ class _AlertPageState extends State<AlertPage> {
                                   Text(
                                     alert['date'] ?? '----/--/--',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 10,
                                       color: Colors.grey[600],
                                     ),
                                   ),
@@ -294,12 +335,12 @@ class _AlertPageState extends State<AlertPage> {
                                 children: [
                                   Text(
                                     'Lat: ${alert['latitude'] ?? 'N/A'}',
-                                    style: const TextStyle(fontSize: 13,),
+                                    style: const TextStyle(fontSize: 12,),
                                     textAlign: TextAlign.center, // Centrer le texte horizontalement
                                   ),
                                   Text(
-                                    'Long: ${alert['longitude'] ?? 'N/A'}',
-                                    style: const TextStyle(fontSize: 13),
+                                    'Lon: ${alert['longitude'] ?? 'N/A'}',
+                                    style: const TextStyle(fontSize: 12),
                                     textAlign: TextAlign.center, // Centrer le texte horizontalement
                                   ),
                                 ],
@@ -332,16 +373,6 @@ class _AlertPageState extends State<AlertPage> {
                                 ),
                             ),
 
-                            // Bouton de suppression
-                            IconButton(
-                              icon: const Icon(Icons.close, color: Colors.red),
-                              tooltip: 'Supprimer',
-                              onPressed: () {
-                                setState(() {
-                                  alertHistory.removeAt(index);
-                                });
-                              },
-                            ),
 
                             // Bouton de suppression
                             IconButton(
