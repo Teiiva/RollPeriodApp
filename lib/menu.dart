@@ -100,7 +100,7 @@ class MenuPage extends StatelessWidget {
               Icons.notifications_active,
               Color(0xFF012169),
               "This page allows you to configure personalized alerts when excessive roll is detected. You can choose the type of alert to trigger: sound, visual, and/or mobile notification. You can also view the alert history to keep track of past events.",
-              const AlertPage(), // Remplacez par votre page cible
+              AlertPage(), // Remplacez par votre page cible
             ),
             // Ajoutez d'autres tuiles cliquables ici
           ],

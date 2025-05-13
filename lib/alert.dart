@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
+import 'package:vibration/vibration.dart';
+import 'package:torch_light/torch_light.dart';  // Import torch_light package
+
+
+// 🔑 Clé globale pour accéder à l'état de AlertPage
+final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
 
 class AlertPage extends StatefulWidget {
-  const AlertPage({super.key});
+  AlertPage({Key? key}) : super(key: alertPageKey);
+
 
   @override
   State<AlertPage> createState() => _AlertPageState();
@@ -11,49 +18,27 @@ class AlertPage extends StatefulWidget {
 class _AlertPageState extends State<AlertPage> {
   late final TextEditingController thresholdController;
   String? selectedAlarme;
+  String? selectedVibration;
   String? selectedFlash;
   String? selectedNotif;
+  DateTime? _lastAlertTime; // Pour le cooldown
 
-  final List<String> alarmoptions = ['Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
+  final List<String> alarmoptions = ['Disable','Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
+  final List<String> vibrationoptions = ['Enable', 'Disable'];
   final List<String> flashoptions = ['Enable', 'Disable'];
   final List<String> notifoptions = ['Enable', 'Disable'];
 
-  // Données pour l'historique des alertes
-  final List<Map<String, String>> alertHistory = [
-    {
-      'time': '14:30:45',
-      'date': '2023-11-15',
-      'latitude': '48.8566° N',
-      'longitude': '2.3522° E',
-      'rollPeriod': '25°'
-    },
-    {
-      'time': '09:15:22',
-      'date': '2023-11-14',
-      'latitude': '40.7128° N',
-      'longitude': '74.0060° W',
-      'rollPeriod': '30°'
-    },
-    {
-      'time': '18:45:33',
-      'date': '2023-11-13',
-      'latitude': '35.6762° N',
-      'longitude': '139.6503° E',
-      'rollPeriod': '18°'
-    },
-    {
-      'time': '22:10:57',
-      'date': '2023-11-12',
-      'latitude': '51.5074° N',
-      'longitude': '0.1278° W',
-      'rollPeriod': '22°'
-    },
-  ];
+  bool isVibrationEnabled = false;
+  final List<Map<String, String>> alertHistory = [];
 
   @override
   void initState() {
     super.initState();
-    thresholdController = TextEditingController();
+    thresholdController = TextEditingController(text: "200");
+    selectedVibration = 'Enable';
+    selectedFlash = 'Enable';
+    selectedNotif = 'Enable';
+    selectedAlarme = alarmoptions.first;
   }
 
   @override
@@ -61,6 +46,78 @@ class _AlertPageState extends State<AlertPage> {
     thresholdController.dispose();
     super.dispose();
   }
+
+  void checkForAlert({
+    required rollAngle,
+  }) {
+    final threshold = double.tryParse(thresholdController.text) ?? 0;
+    final now = DateTime.now();
+
+    // Récupérer le dernier roll enregistré
+    double? lastAlertRoll;
+    if (alertHistory.isNotEmpty) {
+      lastAlertRoll = double.tryParse(alertHistory.first['rollPeriod']?.replaceAll('°', '') ?? '0');
+    }
+
+    // Vérifier si le roll actuel dépasse de 30% le dernier roll enregistré
+    final isSignificantRoll = lastAlertRoll != null &&
+        rollAngle.abs() > (lastAlertRoll.abs() * 1.3);
+
+    // Vérifier le cooldown de 30 secondes (sauf si roll significatif)
+    if (_lastAlertTime != null &&
+        DateTime.now().difference(_lastAlertTime!) < Duration(seconds: 30) &&
+        !isSignificantRoll) {
+      return; // Ignorer l'alerte si le cooldown n'est pas écoulé et que le roll n'est pas significatif
+    }
+
+    if (rollAngle.abs() > threshold) {
+      _lastAlertTime = now; // Enregistrer le moment de l'alerte
+
+      setState(() {
+        alertHistory.insert(0, {
+          'time': "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}",
+          'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+          'rollPeriod': "${rollAngle.toStringAsFixed(1)}°"
+        });
+      });
+
+      if (selectedVibration == 'Enable') {
+        Vibration.hasVibrator().then((hasVibrator) {
+          if (hasVibrator ?? false) {
+            Vibration.vibrate(duration: 500);
+          }
+        });
+      }
+
+      if (selectedAlarme != null && selectedAlarme != 'Disable') {
+        playAlarm(selectedAlarme!);
+      }
+
+      if (selectedFlash == 'Enable') {
+        _toggleFlash();
+      }
+
+
+
+      // Flash & Notification à implémenter plus tard
+    }
+  }
+
+  void playAlarm(String alarmName) {
+    print("Playing: $alarmName");
+    // Ajouter la lecture réelle avec `audioplayers` si besoin
+  }
+
+  void _toggleFlash() async {
+    for (int i = 0; i < 3; i++) {
+      await TorchLight.enableTorch();  // Allume le flash
+      await Future.delayed(const Duration(milliseconds: 500));  // Attend 500ms
+      await TorchLight.disableTorch(); // Éteint le flash
+      await Future.delayed(const Duration(milliseconds: 500));  // Attend 500ms avant de recommencer
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +132,17 @@ class _AlertPageState extends State<AlertPage> {
               "Threshold for roll period",
               "in degres",
               thresholdController,
+            ),
+            _buildDropdownCard(
+              const Icon(Icons.vibration, size: 40, color: Color(0xFF002868)),
+              "Vibration",
+              selectedVibration,
+              vibrationoptions,
+                  (value) {
+                setState(() {
+                  selectedVibration = value;
+                });
+              },
             ),
             _buildDropdownCard(
               const Icon(Icons.notifications_active, size: 40, color: Color(0xFF002868)),
@@ -109,6 +177,8 @@ class _AlertPageState extends State<AlertPage> {
                 });
               },
             ),
+
+
 
             // Section Alert History
             Padding(
@@ -237,7 +307,7 @@ class _AlertPageState extends State<AlertPage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                                 decoration: BoxDecoration(
-                                  color: rollPeriodValue > 25
+                                  color: rollPeriodValue.abs() > 25
                                       ? Colors.red.withOpacity(0.2)
                                       : Colors.green.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(20),
@@ -247,7 +317,7 @@ class _AlertPageState extends State<AlertPage> {
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: rollPeriodValue > 25
+                                    color: rollPeriodValue.abs() > 25
                                         ? Colors.red
                                         : Colors.green,
                                   ),

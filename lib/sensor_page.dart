@@ -4,13 +4,16 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'widgets/custom_app_bar.dart';
 import 'fft_processor.dart';
-
+import 'alert.dart';
+import 'dart:io';
 import 'dart:async';
 import 'dart:math';
-import 'dart:collection';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 class SensorPage extends StatefulWidget {
-  const SensorPage({super.key});
+  const SensorPage({Key? key}) : super(key: key);
 
   @override
   State<SensorPage> createState() => _SensorPageState();
@@ -18,12 +21,10 @@ class SensorPage extends StatefulWidget {
 
 class _SensorPageState extends State<SensorPage> {
   AccelerometerEvent? _accelerometer;
-  GyroscopeEvent? _gyroscope;
 
-  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
-  StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
+  static StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
 
-  bool _isCollectingData = false;
+  static bool _isCollectingData = false;
   double? _rollAngle;
   List<FlSpot> _rollData = [];
   static const int _maxRollDataPoints = 1000;
@@ -39,7 +40,7 @@ class _SensorPageState extends State<SensorPage> {
   double? _fftPeriod;
   final List<double> _fftSamples = [];
   static const _fftSampleRate = 20; // Hz
-  static const _fftWindowSize = 200;
+  static const _fftWindowSize = 1024;
   Timer? _fftTimer;
 
   int? _lastTimestamp;
@@ -48,8 +49,6 @@ class _SensorPageState extends State<SensorPage> {
 
   @override
   void dispose() {
-    _fftTimer?.cancel();
-    _stopDataCollection();
     super.dispose();
   }
 
@@ -57,7 +56,6 @@ class _SensorPageState extends State<SensorPage> {
     setState(() => _isCollectingData = !_isCollectingData);
 
     if (_isCollectingData) {
-      _startFFTTimer();
       _rollData.clear();
       _stopwatch.reset();
       _stopwatch.start();
@@ -81,6 +79,11 @@ class _SensorPageState extends State<SensorPage> {
         final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
         _rollAngle = calculateRoll(event);
         if (_rollAngle == null) return;
+
+        alertPageKey.currentState?.checkForAlert(
+          rollAngle: _rollAngle,
+        );
+
 
         _rollData.add(FlSpot(timestamp, _rollAngle!));
         if (_rollData.length > _maxRollDataPoints) {
@@ -110,6 +113,11 @@ class _SensorPageState extends State<SensorPage> {
         if (_fftSamples.length > _fftWindowSize) {
           _fftSamples.removeAt(0);
         }
+
+        // Calcul automatique quand on atteint la taille de fenêtre
+        if (_fftSamples.length == _fftWindowSize && _fftPeriod == null) {
+          _computeFFTPeriod();
+        }
       });
 
     } else {
@@ -120,7 +128,6 @@ class _SensorPageState extends State<SensorPage> {
 
   void _stopDataCollection() {
     _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
     _stopwatch.stop();
   }
 
@@ -141,12 +148,6 @@ class _SensorPageState extends State<SensorPage> {
     return atan2(acc.x, acc.z) * 180 / pi;
   }
 
-  void _startFFTTimer() {
-    _fftTimer?.cancel();
-    _fftTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      _computeFFTPeriod();
-    });
-  }
 
   void _computeFFTPeriod() {
     try {
@@ -168,8 +169,45 @@ class _SensorPageState extends State<SensorPage> {
 
   void _clearFFTData() {
     _fftSamples.clear();
-    _fftPeriod = null;
+    setState(() {
+      _fftPeriod = null;
+    });
   }
+
+  Future<void> _exportRollDataToDownloads() async {
+    final status = await Permission.storage.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Storage permission required')),
+      );
+      return;
+    }
+
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('time (s),roll (deg)');
+
+      for (final spot in _rollData) {
+        buffer.writeln('${spot.x.toStringAsFixed(3)},${spot.y.toStringAsFixed(3)}');
+      }
+
+      final directory = await getDownloadsDirectory();
+      if (directory == null) throw Exception("Cannot get downloads directory");
+
+      final file = File('${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
+      await file.writeAsString(buffer.toString());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exported to ${file.path}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+
+
 
   Widget sensorTile(String label, dynamic event, IconData icon, Color color) {
     return Card(
@@ -235,15 +273,18 @@ class _SensorPageState extends State<SensorPage> {
         subtitle: _fftPeriod != null
             ? Text('${_fftPeriod!.toStringAsFixed(2)} s',
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-            : Row(
+            : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${_fftSamples.length ~/ _fftSampleRate}s/30s',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(width: 8),
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            Text(
+              'Collecting samples (${_fftSamples.length}/$_fftWindowSize)',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 4),
+            LinearProgressIndicator(
+              value: _fftSamples.length / _fftWindowSize,
+              backgroundColor: Colors.deepPurple[300],
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ],
         ),
@@ -314,9 +355,7 @@ class _SensorPageState extends State<SensorPage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                sensorTile('Accelerometer', _accelerometer, Icons.speed, const Color(0xFF012169)),
-                sensorTile('Gyroscope', _gyroscope, Icons.rotate_right, const Color(0xFF012169)),
-                rollTile(_rollAngle),
+                sensorTile('Accelerometer', _accelerometer, Icons.speed, const Color(0xFF012169)), rollTile(_rollAngle),
                 rollingPeriodTile(_averagePeriod),
                 fftPeriodTile(),
                 buildChart(),
@@ -348,6 +387,19 @@ class _SensorPageState extends State<SensorPage> {
                     padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
                   ),
                 ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _exportRollDataToDownloads,
+                  child: const Text(
+                    'Extraire',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169)),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
+                  ),
+                ),
+
               ],
             ),
           ),
