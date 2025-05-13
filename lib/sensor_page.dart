@@ -267,8 +267,8 @@ class _SensorPageState extends State<SensorPage> {
     return Card(
       color: Colors.deepPurple,
       child: ListTile(
-        leading: const Icon(Icons.insights, color: Colors.white, size: 40),
-        title: const Text('Period (FFT)',
+        leading: const Icon(Icons.sync, color: Colors.white, size: 40),
+        title: const Text('Rolling Period (FFT)',
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: _fftPeriod != null
             ? Text('${_fftPeriod!.toStringAsFixed(2)} s',
@@ -348,7 +348,7 @@ class _SensorPageState extends State<SensorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: "Data Sensors"),
+      appBar: const CustomAppBar(),
       body: Column(
         children: [
           Expanded(
@@ -368,6 +368,15 @@ class _SensorPageState extends State<SensorPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
+                  onPressed: _clearData,
+                  child: const Text('Clear', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169))),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
                   onPressed: _toggleDataCollection,
                   child: Text(
                     _isCollectingData ? 'Pause' : 'Start',
@@ -375,15 +384,6 @@ class _SensorPageState extends State<SensorPage> {
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF012169),
-                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _clearData,
-                  child: const Text('Clear', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169))),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
                   ),
                 ),

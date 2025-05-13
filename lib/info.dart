@@ -27,7 +27,7 @@ class VesselWavePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: "Vessel & Waves"),
+      appBar: const CustomAppBar(),
       body: Column(
         children: [
           const SizedBox(height: 20),
