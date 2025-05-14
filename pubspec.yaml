@@ -41,6 +41,7 @@ dependencies:
   torch_light: ^1.1.0  # Add this line
   geolocator: ^14.0.0
   audioplayers: ^6.4.0
+  excel: ^4.0.6  # ou la dernière version disponible
 
 
 

@@ -9,6 +9,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:collection';
+import 'package:flutter/foundation.dart';  // Import this for the 'compute' function
+
+
 
 class SensorPage extends StatefulWidget {
   const SensorPage({Key? key}) : super(key: key);
@@ -42,6 +46,7 @@ class _SensorPageState extends State<SensorPage> {
 
   int? _lastTimestamp;
   final List<double> _samplingRates = [];
+  final Queue<DateTime> _timestampQueue = Queue<DateTime>();
 
   @override
   void dispose() {
@@ -58,16 +63,15 @@ class _SensorPageState extends State<SensorPage> {
       _rollData.clear();
       _stopwatch.reset();
       _stopwatch.start();
+      _timestampQueue.clear();
 
-      // Initialiser le timer pour les mises à jour toutes les 5 secondes
       _updateTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-        if (_accelerometer != null) {
+        if (_accelerometer != null && mounted) {
           _processAccelerometerData(_accelerometer!);
         }
       });
 
       _accelerometerSubscription = accelerometerEvents.listen((event) {
-        // Stocker la dernière valeur de l'accéléromètre
         _accelerometer = event;
       });
 
@@ -78,35 +82,42 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   void _processAccelerometerData(AccelerometerEvent event) {
-    // 🟨 Calcul du vrai taux d'échantillonnage
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (_lastTimestamp != null) {
-      final deltaT = (now - _lastTimestamp!) / 1000.0;
-      _samplingRates.add(1 / deltaT);
-    }
-    _lastTimestamp = now;
+    final now = DateTime.now();
+    _timestampQueue.add(now);
 
-    if (_samplingRates.length > 100) {
-      final avgRate = _samplingRates.reduce((a, b) => a + b) / _samplingRates.length;
-      debugPrint('Sampling rate: ${avgRate.toStringAsFixed(2)} Hz');
-      _samplingRates.clear();
+    if (_timestampQueue.length > 100) {
+      final first = _timestampQueue.first;
+      final last = _timestampQueue.last;
+      final duration = last.difference(first).inMilliseconds / 1000.0;
+      final rate = _timestampQueue.length / duration;
+      debugPrint('Average sampling rate: ${rate.toStringAsFixed(2)} Hz');
+      _timestampQueue.clear();
     }
 
-    // 🟦 Calcul du timestamp
     final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
     _rollAngle = calculateRoll(event);
     if (_rollAngle == null) return;
 
-    alertPageKey.currentState?.checkForAlert(
-      rollAngle: _rollAngle,
-    );
+    alertPageKey.currentState?.checkForAlert(rollAngle: _rollAngle);
 
-    _rollData.add(FlSpot(timestamp, _rollAngle!));
-    if (_rollData.length > _maxRollDataPoints) {
-      _rollData.removeAt(0);
+    // Vérifier si on a atteint 2048 échantillons
+    if (_rollData.length >= 2048) {
+      if (_isCollectingData) {
+        _toggleDataCollection(); // Arrête la collecte
+        debugPrint("2048 samples collected, data collection stopped.");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('2048 samples collected - Stopping data collection')),
+          );
+        }
+      }
+      return; // Ne pas ajouter plus de données
     }
 
-    // 🟦 Détection du passage par zéro (montée)
+    // Ajouter le nouvel échantillon
+    _rollData.add(FlSpot(timestamp, _rollAngle!));
+
+    // Calcul du passage par zéro (si nécessaire)
     if (_previousRoll < 0 && _rollAngle! >= 0) {
       if (_lastZeroCrossingTime != null) {
         double period = timestamp - _lastZeroCrossingTime!;
@@ -120,19 +131,19 @@ class _SensorPageState extends State<SensorPage> {
     }
 
     _previousRoll = _rollAngle!;
-    setState(() {});
+    if (mounted) setState(() {});
 
-    // 🟦 Stockage pour FFT
+    // Traitement FFT (si nécessaire)
     _fftSamples.add(_rollAngle!);
     if (_fftSamples.length > _fftWindowSize) {
       _fftSamples.removeAt(0);
     }
 
-    // Calcul automatique quand on atteint la taille de fenêtre
     if (_fftSamples.length == _fftWindowSize && _fftPeriod == null) {
       _computeFFTPeriod();
     }
   }
+
 
   void _stopDataCollection() {
     _accelerometerSubscription?.cancel();
@@ -140,80 +151,71 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   void _clearData() {
-    setState(() {
-      _rollData.clear();
-      _rollAngle = null;
-      _averagePeriod = null;
-      _lastZeroCrossingTime = null;
-      _previousRoll = 0.0;
-      _periods.clear();
-      _clearFFTData();
-    });
+    if (mounted) {
+      setState(() {
+        _rollData.clear();
+        _rollAngle = null;
+        _averagePeriod = null;
+        _lastZeroCrossingTime = null;
+        _previousRoll = 0.0;
+        _periods.clear();
+        _clearFFTData();
+      });
+    }
   }
 
   double? calculateRoll(AccelerometerEvent acc) {
-    if (acc.x == 0 && acc.z == 0) return null;
-    return atan2(acc.x, acc.z) * 180 / pi;
+    try {
+      if (acc.x == 0 && acc.z == 0) return null;
+      return atan2(acc.x, acc.z) * 180 / pi;
+    } catch (e) {
+      debugPrint('Error calculating roll: $e');
+      return null;
+    }
   }
 
-  void _computeFFTPeriod() {
-    try {
-      if (_fftSamples.length >= _fftWindowSize) {
-        final frequency = FFTProcessor.findDominantFrequency(
-          _fftSamples,
-          _fftSampleRate,
-        );
+  void _computeFFTPeriod() async {
+    if (_fftSamples.length >= _fftWindowSize) {
+      final period = await compute(_backgroundFFTCalculation, {
+        'samples': _fftSamples,
+        'sampleRate': _fftSampleRate,
+      });
 
+      if (mounted) {
         setState(() {
-          _fftPeriod = (frequency != null && frequency > 0) ? 1 / frequency : null;
+          _fftPeriod = period;
         });
       }
-    } catch (e) {
-      debugPrint('Erreur FFT: $e');
-      setState(() => _fftPeriod = null);
     }
+  }
+
+// Fonction de calcul dans un isolate
+  static double? _backgroundFFTCalculation(Map<String, dynamic> params) {
+    final samples = List<double>.from(params['samples']);
+    final sampleRate = params['sampleRate'] as int;
+    return FFTProcessor.findRollingPeriod(samples, sampleRate);
   }
 
   void _clearFFTData() {
     _fftSamples.clear();
-    setState(() {
-      _fftPeriod = null;
-    });
+    if (mounted) {
+      setState(() {
+        _fftPeriod = null;
+      });
+    }
   }
 
   Future<void> _exportRollDataToDownloads() async {
     if (Platform.isAndroid) {
       var status = await Permission.manageExternalStorage.status;
-
       if (!status.isGranted) {
-        bool shouldRequest = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Permission requise'),
-              content: const Text(
-                'Cette application a besoin de l\'accès au stockage pour exporter les données dans le dossier "Download". Souhaitez-vous autoriser cette permission ?',
-              ),
-              actions: [
-                TextButton(
-                  child: const Text('Annuler'),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: const Text('Autoriser'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            )) ??
-            false;
-
-        if (shouldRequest) {
-          status = await Permission.manageExternalStorage.request();
-        }
-
+        status = await Permission.manageExternalStorage.request();
         if (!status.isGranted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission de stockage refusée')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Storage permission denied')),
+            );
+          }
           return;
         }
       }
@@ -222,27 +224,27 @@ class _SensorPageState extends State<SensorPage> {
     try {
       final buffer = StringBuffer();
       buffer.writeln('time (s),roll (deg)');
-
       for (final spot in _rollData) {
         buffer.writeln('${spot.x.toStringAsFixed(3)},${spot.y.toStringAsFixed(3)}');
       }
 
       final directory = Directory('/storage/emulated/0/Download');
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
+      if (directory == null) throw Exception('Cannot access storage');
 
-      final file = File(
-          '${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
+      final file = File('${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(buffer.toString());
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Données exportées : ${file.path}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data exported: ${file.path}')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Échec de l\'export : $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
     }
   }
 
@@ -260,16 +262,10 @@ class _SensorPageState extends State<SensorPage> {
 
   Color getSmoothColorForRoll(double? angle) {
     if (angle == null) return const Color(0xFF012169);
-
     double absAngle = angle.abs().clamp(0, 90);
-
-    if (absAngle <= 40) {
-      return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
-    } else if (absAngle <= 70) {
-      return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
-    } else {
-      return Colors.red;
-    }
+    if (absAngle <= 40) return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
+    else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
+    else return Colors.red;
   }
 
   Widget rollTile(double? angle) {
@@ -313,6 +309,10 @@ class _SensorPageState extends State<SensorPage> {
             ? Text('${_fftPeriod!.toStringAsFixed(2)} s',
             style: const TextStyle(
                 fontWeight: FontWeight.bold, color: Colors.white))
+            : _fftSamples.length == _fftWindowSize
+            ? const Text('Calculating...',
+            style: TextStyle(
+                fontWeight: FontWeight.bold, color: Colors.white))
             : Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -346,9 +346,7 @@ class _SensorPageState extends State<SensorPage> {
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
-                spots: _rollData.isNotEmpty
-                    ? _rollData
-                    : [FlSpot(0, 0)], // Make sure spots are not empty
+                spots: _rollData.isNotEmpty ? _rollData : [FlSpot(0, 0)],
                 isCurved: true,
                 color: const Color(0xFF012169),
                 barWidth: 2,
@@ -368,13 +366,7 @@ class _SensorPageState extends State<SensorPage> {
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: () {
-                    int seconds = _stopwatch.elapsed.inSeconds;
-                    if (seconds >= 300) return 60.0;
-                    if (seconds >= 120) return 30.0;
-                    if (seconds >= 60) return 10.0;
-                    return 5.0;
-                  }(),
+                  interval: _getTimeInterval(),
                   getTitlesWidget: (value, meta) => Text('${value.toInt()}s'),
                 ),
               ),
@@ -387,6 +379,14 @@ class _SensorPageState extends State<SensorPage> {
         ),
       ),
     );
+  }
+
+  double _getTimeInterval() {
+    int seconds = _stopwatch.elapsed.inSeconds;
+    if (seconds >= 300) return 60.0;
+    if (seconds >= 120) return 30.0;
+    if (seconds >= 60) return 10.0;
+    return 5.0;
   }
 
   @override
