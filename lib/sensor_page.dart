@@ -1,4 +1,3 @@
-// Imports inchangés
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -11,7 +10,6 @@ import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-
 class SensorPage extends StatefulWidget {
   const SensorPage({Key? key}) : super(key: key);
 
@@ -21,13 +19,11 @@ class SensorPage extends StatefulWidget {
 
 class _SensorPageState extends State<SensorPage> {
   AccelerometerEvent? _accelerometer;
-
-  static StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
-
-  static bool _isCollectingData = false;
+  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  bool _isCollectingData = false;
   double? _rollAngle;
   List<FlSpot> _rollData = [];
-  static const int _maxRollDataPoints = 1000;
+  static const int _maxRollDataPoints = 2048;
 
   List<double> _periods = [];
   double? _lastZeroCrossingTime;
@@ -40,15 +36,18 @@ class _SensorPageState extends State<SensorPage> {
   double? _fftPeriod;
   final List<double> _fftSamples = [];
   static const _fftSampleRate = 20; // Hz
-  static const _fftWindowSize = 1024;
+  static const _fftWindowSize = 2048;
   Timer? _fftTimer;
+  Timer? _updateTimer;
 
   int? _lastTimestamp;
   final List<double> _samplingRates = [];
 
-
   @override
   void dispose() {
+    _updateTimer?.cancel();
+    _accelerometerSubscription?.cancel();
+    _fftTimer?.cancel();
     super.dispose();
   }
 
@@ -60,69 +59,78 @@ class _SensorPageState extends State<SensorPage> {
       _stopwatch.reset();
       _stopwatch.start();
 
-      _accelerometerSubscription = accelerometerEvents.listen((event) {
-        // 🟨 Calcul du vrai taux d'échantillonnage
-        final now = DateTime.now().millisecondsSinceEpoch;
-        if (_lastTimestamp != null) {
-          final deltaT = (now - _lastTimestamp!) / 1000.0;
-          _samplingRates.add(1 / deltaT);
-        }
-        _lastTimestamp = now;
-
-        if (_samplingRates.length > 100) {
-          final avgRate = _samplingRates.reduce((a, b) => a + b) / _samplingRates.length;
-          debugPrint('Sampling rate: ${avgRate.toStringAsFixed(2)} Hz');
-          _samplingRates.clear();
-        }
-
-        // 🟦 Calcul du timestamp
-        final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
-        _rollAngle = calculateRoll(event);
-        if (_rollAngle == null) return;
-
-        alertPageKey.currentState?.checkForAlert(
-          rollAngle: _rollAngle,
-        );
-
-
-        _rollData.add(FlSpot(timestamp, _rollAngle!));
-        if (_rollData.length > _maxRollDataPoints) {
-          _rollData.removeAt(0);
-        }
-
-        // 🟦 Détection du passage par zéro (montée)
-        if (_previousRoll < 0 && _rollAngle! >= 0) {
-          if (_lastZeroCrossingTime != null) {
-            double period = timestamp - _lastZeroCrossingTime!;
-            _periods.add(period);
-            if (_periods.length > _maxPeriods) {
-              _periods.removeAt(0);
-            }
-            _averagePeriod = _periods.reduce((a, b) => a + b) / _periods.length;
-          }
-          _lastZeroCrossingTime = timestamp;
-        }
-
-        _previousRoll = _rollAngle!;
-        setState(() {
-          _accelerometer = event;
-        });
-
-        // 🟦 Stockage pour FFT
-        _fftSamples.add(_rollAngle!);
-        if (_fftSamples.length > _fftWindowSize) {
-          _fftSamples.removeAt(0);
-        }
-
-        // Calcul automatique quand on atteint la taille de fenêtre
-        if (_fftSamples.length == _fftWindowSize && _fftPeriod == null) {
-          _computeFFTPeriod();
+      // Initialiser le timer pour les mises à jour toutes les 5 secondes
+      _updateTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+        if (_accelerometer != null) {
+          _processAccelerometerData(_accelerometer!);
         }
       });
 
+      _accelerometerSubscription = accelerometerEvents.listen((event) {
+        // Stocker la dernière valeur de l'accéléromètre
+        _accelerometer = event;
+      });
+
     } else {
-      _fftTimer?.cancel();
+      _updateTimer?.cancel();
       _stopDataCollection();
+    }
+  }
+
+  void _processAccelerometerData(AccelerometerEvent event) {
+    // 🟨 Calcul du vrai taux d'échantillonnage
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_lastTimestamp != null) {
+      final deltaT = (now - _lastTimestamp!) / 1000.0;
+      _samplingRates.add(1 / deltaT);
+    }
+    _lastTimestamp = now;
+
+    if (_samplingRates.length > 100) {
+      final avgRate = _samplingRates.reduce((a, b) => a + b) / _samplingRates.length;
+      debugPrint('Sampling rate: ${avgRate.toStringAsFixed(2)} Hz');
+      _samplingRates.clear();
+    }
+
+    // 🟦 Calcul du timestamp
+    final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
+    _rollAngle = calculateRoll(event);
+    if (_rollAngle == null) return;
+
+    alertPageKey.currentState?.checkForAlert(
+      rollAngle: _rollAngle,
+    );
+
+    _rollData.add(FlSpot(timestamp, _rollAngle!));
+    if (_rollData.length > _maxRollDataPoints) {
+      _rollData.removeAt(0);
+    }
+
+    // 🟦 Détection du passage par zéro (montée)
+    if (_previousRoll < 0 && _rollAngle! >= 0) {
+      if (_lastZeroCrossingTime != null) {
+        double period = timestamp - _lastZeroCrossingTime!;
+        _periods.add(period);
+        if (_periods.length > _maxPeriods) {
+          _periods.removeAt(0);
+        }
+        _averagePeriod = _periods.reduce((a, b) => a + b) / _periods.length;
+      }
+      _lastZeroCrossingTime = timestamp;
+    }
+
+    _previousRoll = _rollAngle!;
+    setState(() {});
+
+    // 🟦 Stockage pour FFT
+    _fftSamples.add(_rollAngle!);
+    if (_fftSamples.length > _fftWindowSize) {
+      _fftSamples.removeAt(0);
+    }
+
+    // Calcul automatique quand on atteint la taille de fenêtre
+    if (_fftSamples.length == _fftWindowSize && _fftPeriod == null) {
+      _computeFFTPeriod();
     }
   }
 
@@ -147,7 +155,6 @@ class _SensorPageState extends State<SensorPage> {
     if (acc.x == 0 && acc.z == 0) return null;
     return atan2(acc.x, acc.z) * 180 / pi;
   }
-
 
   void _computeFFTPeriod() {
     try {
@@ -179,26 +186,25 @@ class _SensorPageState extends State<SensorPage> {
       var status = await Permission.manageExternalStorage.status;
 
       if (!status.isGranted) {
-        // Demande de permission avec explication à l'utilisateur
         bool shouldRequest = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Permission requise'),
-            content: const Text(
-              'Cette application a besoin de l\'accès au stockage pour exporter les données dans le dossier "Download". Souhaitez-vous autoriser cette permission ?',
-            ),
-            actions: [
-              TextButton(
-                child: const Text('Annuler'),
-                onPressed: () => Navigator.of(context).pop(false),
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Permission requise'),
+              content: const Text(
+                'Cette application a besoin de l\'accès au stockage pour exporter les données dans le dossier "Download". Souhaitez-vous autoriser cette permission ?',
               ),
-              TextButton(
-                child: const Text('Autoriser'),
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-            ],
-          ),
-        ) ?? false;
+              actions: [
+                TextButton(
+                  child: const Text('Annuler'),
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                TextButton(
+                  child: const Text('Autoriser'),
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ],
+            )) ??
+            false;
 
         if (shouldRequest) {
           status = await Permission.manageExternalStorage.request();
@@ -226,7 +232,8 @@ class _SensorPageState extends State<SensorPage> {
         await directory.create(recursive: true);
       }
 
-      final file = File('${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
+      final file = File(
+          '${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(buffer.toString());
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -238,10 +245,6 @@ class _SensorPageState extends State<SensorPage> {
       );
     }
   }
-
-
-
-
 
   Widget sensorTile(String label, dynamic event, IconData icon, Color color) {
     return Card(
@@ -274,7 +277,8 @@ class _SensorPageState extends State<SensorPage> {
       color: getSmoothColorForRoll(angle),
       child: ListTile(
         leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
-        title: const Text('Roll (θ)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Roll (θ)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: Text(
           angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
@@ -288,7 +292,8 @@ class _SensorPageState extends State<SensorPage> {
       color: Colors.teal,
       child: ListTile(
         leading: const Icon(Icons.access_time, color: Colors.white, size: 40),
-        title: const Text('Rolling Period (s)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Rolling Period (s)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: Text(
           period != null ? '${period.toStringAsFixed(2)} s' : 'Calculating...',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
@@ -306,19 +311,22 @@ class _SensorPageState extends State<SensorPage> {
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: _fftPeriod != null
             ? Text('${_fftPeriod!.toStringAsFixed(2)} s',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: Colors.white))
             : Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Collecting samples (${_fftSamples.length}/$_fftWindowSize)',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 4),
             LinearProgressIndicator(
               value: _fftSamples.length / _fftWindowSize,
               backgroundColor: Colors.deepPurple[300],
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor:
+              const AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ],
         ),
@@ -338,7 +346,9 @@ class _SensorPageState extends State<SensorPage> {
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
-                spots: _rollData.isNotEmpty ? _rollData : [FlSpot(0, 0)], // Make sure spots are not empty
+                spots: _rollData.isNotEmpty
+                    ? _rollData
+                    : [FlSpot(0, 0)], // Make sure spots are not empty
                 isCurved: true,
                 color: const Color(0xFF012169),
                 barWidth: 2,
@@ -379,7 +389,6 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -390,7 +399,9 @@ class _SensorPageState extends State<SensorPage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                sensorTile('Accelerometer', _accelerometer, Icons.speed, const Color(0xFF012169)), rollTile(_rollAngle),
+                sensorTile('Accelerometer', _accelerometer, Icons.speed,
+                    const Color(0xFF012169)),
+                rollTile(_rollAngle),
                 rollingPeriodTile(_averagePeriod),
                 fftPeriodTile(),
                 buildChart(),
@@ -404,10 +415,15 @@ class _SensorPageState extends State<SensorPage> {
               children: [
                 ElevatedButton(
                   onPressed: _clearData,
-                  child: const Text('Clear', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169))),
+                  child: const Text('Clear',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Color(0xFF012169))),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12.0, horizontal: 30.0),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -415,11 +431,15 @@ class _SensorPageState extends State<SensorPage> {
                   onPressed: _toggleDataCollection,
                   child: Text(
                     _isCollectingData ? 'Pause' : 'Start',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF012169),
-                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12.0, horizontal: 30.0),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -427,14 +447,17 @@ class _SensorPageState extends State<SensorPage> {
                   onPressed: _exportRollDataToDownloads,
                   child: const Text(
                     'Extract',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Color(0xFF012169)),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12.0, horizontal: 30.0),
                   ),
                 ),
-
               ],
             ),
           ),

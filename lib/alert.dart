@@ -4,6 +4,10 @@ import 'package:vibration/vibration.dart';
 import 'package:torch_light/torch_light.dart';  // Import torch_light package
 import 'widgets/custom_app_bar.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 // 🔑 Clé globale pour accéder à l'état de AlertPage
 final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
@@ -30,15 +34,18 @@ class _AlertPageState extends State<AlertPage> {
 
   bool isVibrationEnabled = false;
   final List<Map<String, String>> alertHistory = [];
+  final List<FlSpot> _rollData = []; // Ajout du tableau de données pour l'export
+
 
   @override
   void initState() {
     super.initState();
     thresholdController = TextEditingController(text: "200");
-    selectedVibration = 'Enable';
-    selectedFlash = 'Enable';
+    selectedVibration = 'Disable';
+    selectedFlash = 'Disable';
     selectedAlarme = alarmoptions.first;
     _getCurrentLocation();  // Récupère la position dès que l'app démarre
+
   }
 
   @override
@@ -120,6 +127,7 @@ class _AlertPageState extends State<AlertPage> {
           'latitude': _currentPosition?.latitude.toString() ?? 'N/A',
           'longitude': _currentPosition?.longitude.toString() ?? 'N/A',
         });
+        _rollData.add(FlSpot(now.second.toDouble(), rollAngle));
       });
 
       if (selectedVibration == 'Enable') {
@@ -180,6 +188,90 @@ class _AlertPageState extends State<AlertPage> {
       await Future.delayed(const Duration(milliseconds: 500));  // Attend 500ms avant de recommencer
     }
   }
+
+  Future<void> _exportRollDataToDownloads() async {
+    if (Platform.isAndroid) {
+      var status = await Permission.manageExternalStorage.status;
+
+      if (!status.isGranted) {
+        bool shouldRequest = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Permission requise'),
+            content: const Text(
+              'Cette application a besoin de l\'accès au stockage pour exporter les données dans le dossier "Download". Souhaitez-vous autoriser cette permission ?',
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text('Annuler')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text('Autoriser')),
+            ],
+          ),
+        ) ??
+            false;
+
+        if (shouldRequest) {
+          status = await Permission.manageExternalStorage.request();
+        }
+
+        if (!status.isGranted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Permission de stockage refusée')),
+          );
+          return;
+        }
+      }
+    }
+
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln(
+          'jour,mois,année,heure,minute,seconde,longitude,latitude,roll (deg)');
+
+      // On suppose ici que alertHistory et _rollData sont synchrones
+      for (int i = 0; i < alertHistory.length && i < _rollData.length; i++) {
+        final alert = alertHistory[i];
+        final roll = _rollData[i];
+
+        final dateParts = alert['date']?.split('-') ?? ['----', '--', '--'];
+        final timeParts = alert['time']?.split(':') ?? ['--', '--', '--'];
+        final longitude = alert['longitude'] ?? 'N/A';
+        final latitude = alert['latitude'] ?? 'N/A';
+        final rollDeg = roll.y.toStringAsFixed(1);
+
+        final jour = dateParts[2];
+        final mois = dateParts[1];
+        final annee = dateParts[0];
+        final heure = timeParts[0];
+        final minute = timeParts[1];
+        final seconde = timeParts[2];
+
+        buffer.writeln(
+            '$jour,$mois,$annee,$heure,$minute,$seconde,$longitude,$latitude,$rollDeg');
+      }
+
+      final directory = Directory('/storage/emulated/0/Download');
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+
+      final file = File(
+          '${directory.path}/alert_data_${DateTime.now().millisecondsSinceEpoch}.csv');
+      await file.writeAsString(buffer.toString());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Données exportées : ${file.path}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Échec de l\'export : $e')),
+      );
+    }
+  }
+
 
 
 
@@ -252,6 +344,19 @@ class _AlertPageState extends State<AlertPage> {
             _buildAlertHistoryTable(),
 
             const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _exportRollDataToDownloads,
+              child: const Text(
+                'Extract',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169)),
+              ),
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.white), // Couleur de fond
+                padding: MaterialStateProperty.all<EdgeInsetsGeometry>(EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0)), // Padding
+                foregroundColor: MaterialStateProperty.all<Color>(Color(0xFF012169)), // Couleur du texte
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -275,21 +380,30 @@ class _AlertPageState extends State<AlertPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                child: const Row(
+                child: Row(
                   children: [
-                    Expanded(
+                    const Expanded(
                       flex: 2,
-                      child: Text('Date/Time', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
+                      child: Text('Date/Time', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                     ),
-                    Expanded(
+                    const Expanded(
                       flex: 3,
-                      child: Text('Position', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
+                      child: Text('Position', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                     ),
-                    Expanded(
+                    const Expanded(
                       flex: 2,
-                      child: Text('Roll angle', style: TextStyle(fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
+                      child: Text('Roll angle', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                     ),
-                    SizedBox(width: 40), // espace pour l'icône de suppression
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: const Color(0xFF012169)),
+                      tooltip: 'Tout supprimer',
+                      onPressed: () {
+                        setState(() {
+                          alertHistory.clear();
+                          _rollData.clear();
+                        });
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -360,33 +474,33 @@ class _AlertPageState extends State<AlertPage> {
                             // Roll Period
                             Expanded(
                               flex: 2,
-                                child:Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                                    decoration: BoxDecoration(
+                              child:Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: rollPeriodValue.abs() > 25
+                                        ? Colors.red.withOpacity(0.2)
+                                        : Colors.green.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    rollPeriod,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       color: rollPeriodValue.abs() > 25
-                                          ? Colors.red.withOpacity(0.2)
-                                          : Colors.green.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      rollPeriod,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: rollPeriodValue.abs() > 25
-                                            ? Colors.red
-                                            : Colors.green,
-                                      ),
+                                          ? Colors.red
+                                          : Colors.green,
                                     ),
                                   ),
                                 ),
+                              ),
                             ),
 
 
                             // Bouton de suppression
                             IconButton(
-                              icon: const Icon(Icons.close, color: Colors.red),
+                              icon: const Icon(Icons.close, color: const Color(0xFF012169)),
                               tooltip: 'Supprimer',
                               onPressed: () {
                                 setState(() {
