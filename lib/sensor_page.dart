@@ -11,8 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
 import 'package:flutter/foundation.dart';  // Import this for the 'compute' function
-
-
+// Ajoutez cette importation en haut du fichier
+import 'package:file_picker/file_picker.dart';
+import 'package:csv/csv.dart';
 
 class SensorPage extends StatefulWidget {
   const SensorPage({Key? key}) : super(key: key);
@@ -144,7 +145,6 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-
   void _stopDataCollection() {
     _accelerometerSubscription?.cancel();
     _stopwatch.stop();
@@ -189,7 +189,6 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-// Fonction de calcul dans un isolate
   static double? _backgroundFFTCalculation(Map<String, dynamic> params) {
     final samples = List<double>.from(params['samples']);
     final sampleRate = params['sampleRate'] as int;
@@ -245,6 +244,143 @@ class _SensorPageState extends State<SensorPage> {
           SnackBar(content: Text('Export failed: $e')),
         );
       }
+    }
+  }
+
+
+
+  void _handleImport() async {
+    try {
+      // Demander la permission de stockage si nécessaire (Android)
+      if (Platform.isAndroid) {
+        var status = await Permission.manageExternalStorage.status;
+        if (!status.isGranted) {
+          status = await Permission.manageExternalStorage.request();
+          if (!status.isGranted) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Storage permission denied')),
+              );
+            }
+            return;
+          }
+        }
+      }
+
+      // Ouvrir le sélecteur de fichiers avec file_picker
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.single.path == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucun fichier CSV sélectionné')),
+          );
+        }
+        return;
+      }
+
+      final file = File(result.files.single.path!);
+      final contents = await file.readAsString();
+
+      // Parser le CSV ligne par ligne (comme dans ta fonction d'origine)
+      final lines = contents.split('\n');
+      final List<FlSpot> importedData = [];
+      double? firstTimestamp;
+
+      for (final line in lines.skip(1)) { // sauter l'en-tête
+        if (line.trim().isEmpty) continue;
+        final parts = line.split(',');
+        if (parts.length >= 2) {
+          try {
+            final timestamp = double.parse(parts[0]);
+            final roll = double.parse(parts[1]);
+            firstTimestamp ??= timestamp;
+            importedData.add(FlSpot(timestamp - (firstTimestamp ?? 0), roll));
+          } catch (e) {
+            debugPrint('Erreur parsing ligne : $line, erreur : $e');
+          }
+        }
+      }
+
+      if (importedData.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucune donnée valide trouvée dans le CSV')),
+          );
+        }
+        return;
+      }
+
+      // Mise à jour interface
+      if (mounted) {
+        setState(() {
+          _rollData = importedData;
+          _isCollectingData = false;
+          _updateTimer?.cancel();
+          _stopDataCollection();
+
+          _calculatePeriodFromImportedData();
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import réussi : ${importedData.length} points depuis ${file.path.split('/').last}')),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('Import échoué : $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import échoué : $e')),
+        );
+      }
+    }
+  }
+
+
+  void _calculatePeriodFromImportedData() {
+    // Réinitialiser les variables de période
+    _periods.clear();
+    _lastZeroCrossingTime = null;
+    _averagePeriod = null;
+    _previousRoll = 0.0;
+
+    // Analyser les données importées pour trouver les passages par zéro
+    for (final spot in _rollData) {
+      final timestamp = spot.x;
+      final roll = spot.y;
+
+      // Détecter le passage par zéro (de négatif à positif)
+      if (_previousRoll < 0 && roll >= 0) {
+        if (_lastZeroCrossingTime != null) {
+          double period = timestamp - _lastZeroCrossingTime!;
+          _periods.add(period);
+          if (_periods.length > _maxPeriods) {
+            _periods.removeAt(0);
+          }
+          _averagePeriod = _periods.reduce((a, b) => a + b) / _periods.length;
+        }
+        _lastZeroCrossingTime = timestamp;
+      }
+
+      _previousRoll = roll;
+    }
+
+    // Calculer également la période via FFT
+    _fftSamples.clear();
+    _fftPeriod = null;
+    for (final spot in _rollData) {
+      _fftSamples.add(spot.y);
+    }
+
+    if (_fftSamples.length >= _fftWindowSize) {
+      _computeFFTPeriod();
     }
   }
 
@@ -443,21 +579,56 @@ class _SensorPageState extends State<SensorPage> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _exportRollDataToDownloads,
-                  child: const Text(
-                    'Extract',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFF012169)),
+                // Bouton splité en deux parties
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.24),  // plus opaque que 0.15
+                        blurRadius: 2,                           // un peu moins flou
+                        offset: const Offset(0, 2),              // léger décalage vertical
+                      ),
+                    ],
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12.0, horizontal: 30.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Partie Import
+                      InkWell(
+                        onTap: _handleImport,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0), // Même padding horizontal que Clear
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              right: BorderSide(color: Color(0xFF012169)),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.download,
+                            color: Color(0xFF012169),
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      // Partie Export
+                      InkWell(
+                        onTap: _exportRollDataToDownloads,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0), // Même padding horizontal que Clear
+                          child: const Icon(
+                            Icons.upload,
+                            color: Color(0xFF012169),
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+
+
               ],
             ),
           ),

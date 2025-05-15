@@ -42,6 +42,8 @@ dependencies:
   geolocator: ^14.0.0
   audioplayers: ^6.4.0
   excel: ^4.0.6  # ou la dernière version disponible
+  file_picker: 10.1.9
+  csv: 5.1.1
 
 
 
