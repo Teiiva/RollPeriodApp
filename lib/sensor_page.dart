@@ -37,10 +37,12 @@ class _SensorPageState extends State<SensorPage> {
   final int _maxPeriods = 5;
   final Stopwatch _stopwatch = Stopwatch();
 
+
   // FFT
   double? _fftPeriod;
   final List<double> _fftSamples = [];
   static const _fftSampleRate = 20; // Hz
+  double? _dynamicSampleRate; // Pour stocker le sample rate calculé à partir des données CSV
   static const _fftWindowSize = 2048;
   Timer? _fftTimer;
   Timer? _updateTimer;
@@ -178,8 +180,11 @@ class _SensorPageState extends State<SensorPage> {
     if (_fftSamples.length >= _fftWindowSize) {
       final period = await compute(_backgroundFFTCalculation, {
         'samples': _fftSamples,
-        'sampleRate': _fftSampleRate,
+        'sampleRate': _isCollectingData ? _fftSampleRate : (_dynamicSampleRate ?? _fftSampleRate).toInt(),
       });
+
+
+
 
       if (mounted) {
         setState(() {
@@ -315,6 +320,13 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
+      // Calculer le sample rate moyen à partir des timestamps
+      if (importedData.length > 1) {
+        double totalTime = importedData.last.x - importedData.first.x;
+        _dynamicSampleRate = (importedData.length - 1) / totalTime;
+        debugPrint('Calculated sample rate from CSV: ${_dynamicSampleRate!.toStringAsFixed(2)} Hz');
+      }
+
       // Mise à jour interface
       if (mounted) {
         setState(() {
@@ -389,6 +401,25 @@ class _SensorPageState extends State<SensorPage> {
     if (_fftSamples.length >= _fftWindowSize) {
       _computeFFTPeriod();
     }
+  }
+
+  Widget sampleRateTile() {
+    return Card(
+      color: Colors.blueGrey,
+      child: ListTile(
+        leading: const Icon(Icons.speed, color: Colors.white, size: 40),
+        title: const Text('Sample Rate',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Text(
+          _isCollectingData
+              ? '20.00 Hz (fixed)'
+              : _dynamicSampleRate != null
+              ? '${_dynamicSampleRate!.toStringAsFixed(2)} Hz (from CSV)'
+              : 'N/A',
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ),
+    );
   }
 
   Widget sensorTile(String label, dynamic event, IconData icon, Color color) {
@@ -478,19 +509,9 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Widget buildChart() {
-    double minY = -90;
-    double maxY = 90;
+    double minY = -30;
+    double maxY = 30;
 
-    if (_rollData.isNotEmpty) {
-      final yValues = _rollData.map((e) => e.y);
-      minY = yValues.reduce((a, b) => a < b ? a : b);
-      maxY = yValues.reduce((a, b) => a > b ? a : b);
-
-      // Ajouter une marge visuelle
-      const margin = 10.0;
-      minY -= margin;
-      maxY += margin;
-    }
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -542,6 +563,7 @@ class _SensorPageState extends State<SensorPage> {
   double _getTimeInterval() {
     double totalSeconds = _rollData.isNotEmpty ? _rollData.last.x : 0;
 
+    if (totalSeconds >= 10000) return 3000;
     if (totalSeconds >= 300) return 60.0;
     if (totalSeconds >= 120) return 40.0;
     if (totalSeconds >= 100) return 30.0;
@@ -560,9 +582,10 @@ class _SensorPageState extends State<SensorPage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                sensorTile('Accelerometer', _accelerometer, Icons.speed,
-                    const Color(0xFF012169)),
+                //sensorTile('Accelerometer', _accelerometer, Icons.speed,
+                //    const Color(0xFF012169)),
                 rollTile(_rollAngle),
+                sampleRateTile(), // Ajoutez cette ligne
                 rollingPeriodTile(_averagePeriod),
                 fftPeriodTile(),
                 buildChart(),

@@ -44,6 +44,10 @@ dependencies:
   excel: ^4.0.6  # ou la dernière version disponible
   file_picker: 10.1.9
   csv: 5.1.1
+  syncfusion_flutter_charts: ^20.4.48
+  image: ^3.2.2
+  scidart: 0.0.2-dev.12
+  fftea: 1.5.0+1
 
 
 
