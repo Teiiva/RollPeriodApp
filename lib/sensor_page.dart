@@ -471,14 +471,28 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Widget buildChart() {
+    double minY = -90;
+    double maxY = 90;
+
+    if (_rollData.isNotEmpty) {
+      final yValues = _rollData.map((spot) => spot.y);
+      minY = yValues.reduce((a, b) => a < b ? a : b);
+      maxY = yValues.reduce((a, b) => a > b ? a : b);
+
+      // Ajoute une marge pour une meilleure visibilité
+      const double margin = 10.0;
+      minY -= margin;
+      maxY += margin;
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: SizedBox(
         height: 270,
         child: LineChart(
           LineChartData(
-            minY: -90,
-            maxY: 90,
+            minY: minY,
+            maxY: maxY,
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
@@ -494,7 +508,7 @@ class _SensorPageState extends State<SensorPage> {
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: 90,
+                  interval: ((maxY - minY) / 2).abs().clamp(1, 90),
                   reservedSize: 48,
                   getTitlesWidget: (value, meta) => Text('${value.toInt()}°'),
                 ),
@@ -516,6 +530,7 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
   }
+
 
   double _getTimeInterval() {
     int seconds = _stopwatch.elapsed.inSeconds;
