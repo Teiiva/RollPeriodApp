@@ -346,10 +346,17 @@ class _SensorPageState extends State<SensorPage> {
 
   void _calculatePeriodFromImportedData() {
     // Réinitialiser les variables de période
+
     _periods.clear();
     _lastZeroCrossingTime = null;
     _averagePeriod = null;
     _previousRoll = 0.0;
+
+    // Initialiser le stopwatch avec la durée totale des données importées
+    _stopwatch.reset();
+    if (_rollData.isNotEmpty) {
+      _stopwatch.elapsedMicroseconds + (_rollData.last.x * 1000000).toInt();
+    }
 
     // Analyser les données importées pour trouver les passages par zéro
     for (final spot in _rollData) {
@@ -475,12 +482,12 @@ class _SensorPageState extends State<SensorPage> {
     double maxY = 90;
 
     if (_rollData.isNotEmpty) {
-      final yValues = _rollData.map((spot) => spot.y);
+      final yValues = _rollData.map((e) => e.y);
       minY = yValues.reduce((a, b) => a < b ? a : b);
       maxY = yValues.reduce((a, b) => a > b ? a : b);
 
-      // Ajoute une marge pour une meilleure visibilité
-      const double margin = 10.0;
+      // Ajouter une marge visuelle
+      const margin = 10.0;
       minY -= margin;
       maxY += margin;
     }
@@ -508,7 +515,7 @@ class _SensorPageState extends State<SensorPage> {
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: ((maxY - minY) / 2).abs().clamp(1, 90),
+                  interval: (maxY - minY) / 2,
                   reservedSize: 48,
                   getTitlesWidget: (value, meta) => Text('${value.toInt()}°'),
                 ),
@@ -533,10 +540,13 @@ class _SensorPageState extends State<SensorPage> {
 
 
   double _getTimeInterval() {
-    int seconds = _stopwatch.elapsed.inSeconds;
-    if (seconds >= 300) return 60.0;
-    if (seconds >= 120) return 30.0;
-    if (seconds >= 60) return 10.0;
+    double totalSeconds = _rollData.isNotEmpty ? _rollData.last.x : 0;
+
+    if (totalSeconds >= 300) return 60.0;
+    if (totalSeconds >= 120) return 40.0;
+    if (totalSeconds >= 100) return 30.0;
+    if (totalSeconds >= 60) return 20.0;
+    if (totalSeconds >= 30) return 10.0;
     return 5.0;
   }
 
