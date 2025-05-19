@@ -180,7 +180,7 @@ class _SensorPageState extends State<SensorPage> {
     if (_fftSamples.length >= _fftWindowSize) {
       final period = await compute(_backgroundFFTCalculation, {
         'samples': _fftSamples,
-        'sampleRate': _isCollectingData ? _fftSampleRate : (_dynamicSampleRate ?? _fftSampleRate).toInt(),
+        'sampleRate': _isCollectingData ? _fftSampleRate : (_dynamicSampleRate ?? _fftSampleRate),
       });
 
 
@@ -196,7 +196,7 @@ class _SensorPageState extends State<SensorPage> {
 
   static double? _backgroundFFTCalculation(Map<String, dynamic> params) {
     final samples = List<double>.from(params['samples']);
-    final sampleRate = params['sampleRate'] as int;
+    final sampleRate = params['sampleRate'] as double;
     return FFTProcessor.findRollingPeriod(samples, sampleRate);
   }
 
