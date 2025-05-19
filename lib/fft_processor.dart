@@ -23,38 +23,6 @@ class FFTProcessor {
     });
   }
 
-  static List<double> _zeroPadToPowerOfTwo(List<double> input) {
-    if (input.isEmpty) return [0.0];
-
-    // Fonction utilitaire pour vérifier si un nombre est une puissance de deux
-    bool _isPowerOfTwo(int n) {
-      return n > 0 && (n & (n - 1)) == 0;
-    }
-
-    // Vérifie si la longueur est déjà une puissance de deux
-    if (_isPowerOfTwo(input.length)) {
-      print('[PAD] Signal déjà de longueur puissance de deux (${input.length})');
-      return input;
-    }
-
-    // Calcule la prochaine puissance de deux
-    int _nextPowerOfTwo(int n) {
-      if (n <= 0) return 1;
-      n--;
-      n |= n >> 1;
-      n |= n >> 2;
-      n |= n >> 4;
-      n |= n >> 8;
-      n |= n >> 16;
-      return n + 1;
-    }
-
-    final targetLength = _nextPowerOfTwo(input.length);
-
-    print('[PAD] Zéro-padding de ${input.length} à $targetLength');
-    return input + List.filled(targetLength - input.length, 0.0);
-  }
-
   static List<double> computePowerSpectrum(List<double> samples, {bool applyWindow = true}) {
     if (samples.isEmpty) return [];
 
@@ -73,7 +41,6 @@ class FFTProcessor {
 
     return powerSpectrum;
   }
-
 
   static List<double> _applyHannWindow(List<double> samples) {
     final window = _getHannWindow(samples.length);

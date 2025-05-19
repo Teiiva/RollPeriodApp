@@ -132,8 +132,10 @@ class _CompassPainter extends CustomPainter {
     canvas.clipPath(clipPath); // Appliquer le masque
 
     // Direction et espacement de la houle
-    final waveAngle = waveDirection * pi / 180;
-    final perpAngle = waveAngle + pi / 2;
+    final waveAngleForWaves = (waveDirection - 90) * pi / 180;
+    final waveAngleForArrow = waveDirection * pi / 180; // flèche inchangée
+    final perpAngle = waveAngleForWaves + pi / 2;
+
     final dx = cos(perpAngle);
     final dy = sin(perpAngle);
 
@@ -150,12 +152,12 @@ class _CompassPainter extends CustomPainter {
       final cy = center.dy + dy * offset;
 
       final start = Offset(
-        cx - cos(waveAngle) * lineLength / 2,
-        cy - sin(waveAngle) * lineLength / 2,
+        cx - cos(waveAngleForWaves) * lineLength / 2,
+        cy - sin(waveAngleForWaves) * lineLength / 2,
       );
       final end = Offset(
-        cx + cos(waveAngle) * lineLength / 2,
-        cy + sin(waveAngle) * lineLength / 2,
+        cx + cos(waveAngleForWaves) * lineLength / 2,
+        cy + sin(waveAngleForWaves) * lineLength / 2,
       );
 
       canvas.drawLine(start, end, paintWaveLines);
@@ -180,18 +182,18 @@ class _CompassPainter extends CustomPainter {
 
     // Flèche de direction de la houle
     final arrowLength = 20.0;
-    final arrowX = center.dx + cos(waveAngle) * radius;
-    final arrowY = center.dy + sin(waveAngle) * radius;
+    final arrowX = center.dx + cos(waveAngleForArrow) * radius;
+    final arrowY = center.dy + sin(waveAngleForArrow) * radius;
 
     final arrowPath = Path()
       ..moveTo(arrowX, arrowY)
       ..lineTo(
-        arrowX + arrowLength * cos(waveAngle - pi / 6),
-        arrowY + arrowLength * sin(waveAngle - pi / 6),
+        arrowX + arrowLength * cos(waveAngleForArrow - pi / 6),
+        arrowY + arrowLength * sin(waveAngleForArrow - pi / 6),
       )
       ..lineTo(
-        arrowX + arrowLength * cos(waveAngle + pi / 6),
-        arrowY + arrowLength * sin(waveAngle + pi / 6),
+        arrowX + arrowLength * cos(waveAngleForArrow + pi / 6),
+        arrowY + arrowLength * sin(waveAngleForArrow + pi / 6),
       )
       ..close();
 
