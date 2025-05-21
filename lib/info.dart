@@ -39,11 +39,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
           const Spacer(),
           Padding(
             padding: const EdgeInsets.only(bottom: 20.0),
-            child: VesselWavePainter(
-              waveLength: _length,
-              waveDirection: _direction,
-              wavePeriod : _wavePeriod,
-
+            child: Transform.rotate(
+              angle: -90 * (3.14159265359 / 180), // Rotation de -90 degrés (en radians)
+              child: VesselWavePainter(
+                waveLength: _length,
+                waveDirection: _direction,
+                wavePeriod: _wavePeriod,
+              ),
             ),
           ),
           const SizedBox(height: 20),

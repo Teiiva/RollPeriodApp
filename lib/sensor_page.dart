@@ -38,6 +38,7 @@ class _SensorPageState extends State<SensorPage> {
   final Stopwatch _stopwatch = Stopwatch();
 
 
+
   // FFT
   double? _fftPeriod;
   final List<double> _fftSamples = [];
@@ -183,9 +184,6 @@ class _SensorPageState extends State<SensorPage> {
         'sampleRate': _isCollectingData ? _fftSampleRate : (_dynamicSampleRate ?? _fftSampleRate),
       });
 
-
-
-
       if (mounted) {
         setState(() {
           _fftPeriod = period;
@@ -195,10 +193,12 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   static double? _backgroundFFTCalculation(Map<String, dynamic> params) {
+    debugPrint('_backgroundFFTCalculation');
     final samples = List<double>.from(params['samples']);
-    final sampleRate = params['sampleRate'] as double;
+    final sampleRate = (params['sampleRate'] as num).toDouble();
     return FFTProcessor.findRollingPeriod(samples, sampleRate);
   }
+
 
   void _clearFFTData() {
     _fftSamples.clear();
@@ -387,17 +387,14 @@ class _SensorPageState extends State<SensorPage> {
         }
         _lastZeroCrossingTime = timestamp;
       }
-
       _previousRoll = roll;
     }
-
     // Calculer également la période via FFT
     _fftSamples.clear();
     _fftPeriod = null;
     for (final spot in _rollData) {
       _fftSamples.add(spot.y);
     }
-
     if (_fftSamples.length >= _fftWindowSize) {
       _computeFFTPeriod();
     }
@@ -481,37 +478,52 @@ class _SensorPageState extends State<SensorPage> {
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: _fftPeriod != null
             ? Text('${_fftPeriod!.toStringAsFixed(2)} s',
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.white))
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
             : _fftSamples.length == _fftWindowSize
             ? const Text('Calculating...',
-            style: TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.white))
-            : Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
+            : Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Collecting samples (${_fftSamples.length}/$_fftWindowSize)',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.white),
-            ),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),),
             const SizedBox(height: 4),
-            LinearProgressIndicator(
-              value: _fftSamples.length / _fftWindowSize,
-              backgroundColor: Colors.deepPurple[300],
-              valueColor:
-              const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
+            LinearProgressIndicator(value: _fftSamples.length / _fftWindowSize, backgroundColor: Colors.deepPurple[300], valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),),
           ],
         ),
       ),
     );
   }
 
-  Widget buildChart() {
-    double minY = -30;
-    double maxY = 30;
+  List<FlSpot> _getInterpolatedData() {
+    if (_rollData.length < 2) return _rollData;
 
+    final interpolated = <FlSpot>[];
+    const interpolationFactor = 5;
+
+    for (int i = 0; i < _rollData.length - 1; i++) {
+      final current = _rollData[i];
+      final next = _rollData[i + 1];
+
+      interpolated.add(current);
+
+      for (int j = 1; j < interpolationFactor; j++) {
+        final ratio = j / interpolationFactor;
+        final x = current.x + (next.x - current.x) * ratio; // Conserve les x originaux
+        final y = current.y + (next.y - current.y) * (0.5 - 0.5 * cos(ratio * pi));
+        interpolated.add(FlSpot(x, y));
+      }
+    }
+
+    interpolated.add(_rollData.last);
+    return interpolated;
+  }
+
+  Widget buildChart() {
+    final chartData = _getInterpolatedData();
+    final maxAbsY = chartData.isNotEmpty
+        ? chartData.map((e) => e.y.abs()).reduce(max) * 1.2
+        : 30;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -519,45 +531,66 @@ class _SensorPageState extends State<SensorPage> {
         height: 270,
         child: LineChart(
           LineChartData(
-            minY: minY,
-            maxY: maxY,
+            minX: chartData.isNotEmpty ? chartData.first.x : 0,
+            maxX: chartData.isNotEmpty ? chartData.last.x : 10,
+            minY: -maxAbsY.toDouble(),
+            maxY: maxAbsY.toDouble(),
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
-                spots: _rollData.isNotEmpty ? _rollData : [FlSpot(0, 0)],
-                isCurved: true,
-                color: const Color(0xFF012169),
+                spots: chartData,
+                color: Colors.blue,
                 barWidth: 2,
-                belowBarData: BarAreaData(show: false),
+                isCurved: true,
+                curveSmoothness: 0.15,
                 dotData: FlDotData(show: false),
+                belowBarData: BarAreaData(show: false),
               ),
             ],
             titlesData: FlTitlesData(
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: (maxY - minY) / 2,
-                  reservedSize: 48,
-                  getTitlesWidget: (value, meta) => Text('${value.toInt()}°'),
+                  interval: ((maxAbsY * 2) / 3).toDouble(),
+                  reservedSize: 40,
+                  getTitlesWidget: (value, meta) => Text(
+                    '${value.toInt()}°',
+                    style: const TextStyle(fontSize: 10),
+                  ),
                 ),
               ),
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: _getTimeInterval(),
-                  getTitlesWidget: (value, meta) => Text('${value.toInt()}s'),
+                  interval: _getTimeInterval().toDouble(),
+                  getTitlesWidget: (value, meta) => Text(
+                    '${value.toInt()}s',
+                    style: const TextStyle(fontSize: 10),
+                  ),
                 ),
               ),
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              rightTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
             ),
-            gridData: FlGridData(show: true),
-            borderData: FlBorderData(show: true),
+            gridData: FlGridData(
+              show: true,
+              horizontalInterval: (maxAbsY / 3).toDouble(),
+              verticalInterval: _getTimeInterval().toDouble(),
+            ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+            ),
           ),
         ),
       ),
     );
   }
+
 
 
   double _getTimeInterval() {
@@ -600,30 +633,21 @@ class _SensorPageState extends State<SensorPage> {
                 ElevatedButton(
                   onPressed: _clearData,
                   child: const Text('Clear',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: Color(0xFF012169))),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169))),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12.0, horizontal: 30.0),
-                  ),
+                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
                   onPressed: _toggleDataCollection,
                   child: Text(
                     _isCollectingData ? 'Pause' : 'Start',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.white),
+                    style: const TextStyle(fontWeight: FontWeight.bold,fontSize: 18,color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF012169),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12.0, horizontal: 30.0),
+                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -632,13 +656,7 @@ class _SensorPageState extends State<SensorPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(30.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.24),  // plus opaque que 0.15
-                        blurRadius: 2,                           // un peu moins flou
-                        offset: const Offset(0, 2),              // léger décalage vertical
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.24),blurRadius: 2,offset: const Offset(0, 2),),],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -653,11 +671,7 @@ class _SensorPageState extends State<SensorPage> {
                               right: BorderSide(color: Color(0xFF012169)),
                             ),
                           ),
-                          child: const Icon(
-                            Icons.download,
-                            color: Color(0xFF012169),
-                            size: 24,
-                          ),
+                          child: const Icon(Icons.download, color: Color(0xFF012169), size: 24,),
                         ),
                       ),
                       // Partie Export
@@ -665,18 +679,12 @@ class _SensorPageState extends State<SensorPage> {
                         onTap: _exportRollDataToDownloads,
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0), // Même padding horizontal que Clear
-                          child: const Icon(
-                            Icons.upload,
-                            color: Color(0xFF012169),
-                            size: 24,
-                          ),
+                          child: const Icon(Icons.upload, color: Color(0xFF012169), size: 24,),
                         ),
                       ),
                     ],
                   ),
                 ),
-
-
               ],
             ),
           ),

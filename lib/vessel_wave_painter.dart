@@ -120,10 +120,17 @@ class _CompassPainter extends CustomPainter {
         ),
       );
       textPainter.layout();
+
+      // Pour compenser la rotation globale, on applique une rotation inverse au texte
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(pi / 2); // Rotation inverse de 90°
+      canvas.translate(-x, -y);
       textPainter.paint(
         canvas,
         Offset(x - textPainter.width / 2, y - textPainter.height / 2),
       );
+      canvas.restore();
     }
 
     // Masque circulaire pour les lignes de houle
@@ -139,8 +146,8 @@ class _CompassPainter extends CustomPainter {
     final dx = cos(perpAngle);
     final dy = sin(perpAngle);
 
-    const minSpacing = 8.0;
-    const maxSpacing = 30.0;
+    const minSpacing = 3.0;
+    const maxSpacing = 60.0;
     final normalizedPeriod = (wavePeriod - 1) / 59;
     final spacing = minSpacing + normalizedPeriod * (maxSpacing - minSpacing);
 
