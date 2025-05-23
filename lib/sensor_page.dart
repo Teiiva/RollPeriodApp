@@ -558,7 +558,17 @@ class _SensorPageState extends State<SensorPage> {
     interpolated.add(originalData.last);
     return interpolated;
   }
-  double _getVisibleDuration() {
+  double _getminVisibleDuration() {
+    if (_showRollData && _rollData.isNotEmpty) {
+      return _rollData.first.x;
+    } else if (_showPitchData && _pitchData.isNotEmpty) {
+      return _pitchData.first.x;
+    } else {
+      return 0; // valeur par défaut si aucune donnée
+    }
+  }
+
+  double _getmaxVisibleDuration() {
     if (_showRollData && _rollData.isNotEmpty) {
       return _rollData.last.x;
     } else if (_showPitchData && _pitchData.isNotEmpty) {
@@ -591,8 +601,8 @@ class _SensorPageState extends State<SensorPage> {
         height: 270,
         child: LineChart(
           LineChartData(
-            minX: rollChartData.isNotEmpty ? rollChartData.first.x : 0,
-            maxX: _getVisibleDuration(),
+            minX: _getminVisibleDuration(),
+            maxX: _getmaxVisibleDuration(),
             minY: -maxAbsY.toDouble(),
             maxY: maxAbsY.toDouble(),
             clipData: FlClipData.all(),
