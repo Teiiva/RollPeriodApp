@@ -1,3 +1,4 @@
+// menu.dart
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'sensor_page.dart';
@@ -14,13 +15,11 @@ class MenuPage extends StatefulWidget {
 
 class _MenuPageState extends State<MenuPage> {
   int _selectedIndex = 0;
-
-  // ✅ Instancier une seule fois chaque page
-  final SensorPage _sensorPage = const SensorPage();
-  final AlertPage _alertPage = AlertPage();
-  final VesselWaveApp _vesselWaveApp = const VesselWaveApp();
-  final NavigationPage _navigationPage = const NavigationPage();
-
+  double _boatlength = 0;
+  double _wavePeriod = 20;
+  double _waveDirection = 0;
+  double _boatspeed = 0;
+  double _course = 0; // Nouvelle variable pour la course
 
   late final List<Widget> _pages;
 
@@ -28,11 +27,26 @@ class _MenuPageState extends State<MenuPage> {
   void initState() {
     super.initState();
     _pages = [
-      _sensorPage,
-      _alertPage,
-      _vesselWaveApp,
-      _navigationPage,
-
+      const SensorPage(),
+      AlertPage(),
+      VesselWavePage(
+        onValuesChanged: (length, period, direction, speed, course) {
+          setState(() {
+            _boatlength = length;
+            _wavePeriod = period;
+            _waveDirection = direction;
+            _boatspeed = speed;
+            _course = course;
+          });
+        },
+      ),
+      NavigationPage(
+        boatlength: _boatlength,
+        wavePeriod: _wavePeriod,
+        waveDirection: _waveDirection,
+        speed: _boatspeed,
+        course: _course, // Passage de la course
+      ),
     ];
   }
 
@@ -50,6 +64,15 @@ class _MenuPageState extends State<MenuPage> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
+            if (index == 3) {
+              _pages[3] = NavigationPage(
+                boatlength: _boatlength,
+                wavePeriod: _wavePeriod,
+                waveDirection: _waveDirection,
+                speed: _boatspeed,
+                course: _course, // Passage de la course mise à jour
+              );
+            }
           });
         },
         type: BottomNavigationBarType.fixed,
@@ -70,7 +93,6 @@ class _MenuPageState extends State<MenuPage> {
             icon: Icon(Icons.explore),
             label: 'Navigation',
           ),
-
         ],
       ),
     );

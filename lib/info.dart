@@ -1,34 +1,22 @@
+// info.dart
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
-import 'vessel_wave_painter.dart';
-
-void main() {
-  runApp(const VesselWaveApp());
-}
-
-class VesselWaveApp extends StatelessWidget {
-  const VesselWaveApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: VesselWavePage(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
 
 class VesselWavePage extends StatefulWidget {
-  const VesselWavePage({super.key});
+  final Function(double, double, double, double, double) onValuesChanged; // Ajout du paramètre course
+
+  const VesselWavePage({super.key, required this.onValuesChanged});
 
   @override
   State<VesselWavePage> createState() => _VesselWavePageState();
 }
 
 class _VesselWavePageState extends State<VesselWavePage> {
-  double _length = 50;
-  double _wavePeriod = 8;
+  double _length = 0;
+  double _wavePeriod = 20;
   double _direction = 0;
+  double _speed = 0;
+  double _course = 0; // Nouvelle variable pour la course du navire
 
   @override
   Widget build(BuildContext context) {
@@ -36,27 +24,53 @@ class _VesselWavePageState extends State<VesselWavePage> {
       appBar: const CustomAppBar(),
       body: Column(
         children: [
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20.0),
-            child: Transform.rotate(
-              angle: -90 * (3.14159265359 / 180), // Rotation de -90 degrés (en radians)
-              child: VesselWavePainter(
-                waveLength: _length,
-                waveDirection: _direction,
-                wavePeriod: _wavePeriod,
-              ),
-            ),
+          _buildSliderCard(
+            iconWidget: const Icon(Icons.speed, size: 40,  color: Color(0xFF012169)),
+            label: "Vessel speed",
+            unit: "Knots",
+            value: _speed,
+            min: 0,
+            max: 50,
+            onChanged: (val) {
+              setState(() => _speed = val);
+              widget.onValuesChanged(_length, _wavePeriod, _direction, _speed, _course);
+            },
           ),
-          const SizedBox(height: 20),
           _buildSliderCard(
             iconWidget: const Icon(Icons.directions_boat, size: 40, color: Color(0xFF012169)),
-            label: "Length of vessel",
+            label: "Vessel length",
             unit: "m",
             value: _length,
             min: 0,
             max: 200,
-            onChanged: (val) => setState(() => _length = val),
+            onChanged: (val) {
+              setState(() => _length = val);
+              widget.onValuesChanged(_length, _wavePeriod, _direction, _speed, _course);
+            },
+          ),
+          _buildSliderCard(
+            iconWidget: const Icon(Icons.navigation, size: 40, color: Color(0xFF012169)),
+            label: "Course of ship",
+            unit: "°",
+            value: _course,
+            min: 0,
+            max: 360,
+            onChanged: (val) {
+              setState(() => _course = val);
+              widget.onValuesChanged(_length, _wavePeriod, _direction, _speed, _course);
+            },
+          ),
+          _buildSliderCard(
+            iconWidget: Image.asset('assets/images/direction.png', width: 40, height: 40),
+            label: "Wave direction",
+            unit: "°",
+            value: _direction,
+            min: 0,
+            max: 360,
+            onChanged: (val) {
+              setState(() => _direction = val);
+              widget.onValuesChanged(_length, _wavePeriod, _direction, _speed, _course);
+            },
           ),
           _buildSliderCard(
             iconWidget: const Icon(Icons.waves, size: 40, color: Color(0xFF002868)),
@@ -65,16 +79,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
             value: _wavePeriod,
             min: 1,
             max: 60,
-            onChanged: (val) => setState(() => _wavePeriod = val),
-          ),
-          _buildSliderCard(
-            iconWidget: Image.asset('assets/images/direction.png', width: 40, height: 40),
-            label: "Direction of the waves",
-            unit: "°",
-            value: _direction,
-            min: 0,
-            max: 360,
-            onChanged: (val) => setState(() => _direction = val),
+            onChanged: (val) {
+              setState(() => _wavePeriod = val);
+              widget.onValuesChanged(_length, _wavePeriod, _direction, _speed, _course);
+            },
           ),
         ],
       ),

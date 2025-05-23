@@ -10,8 +10,7 @@ import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
-import 'package:flutter/foundation.dart';  // Import this for the 'compute' function
-// Ajoutez cette importation en haut du fichier
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
 
@@ -27,8 +26,12 @@ class _SensorPageState extends State<SensorPage> {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   bool _isCollectingData = false;
   double? _rollAngle;
+  double? _pitchAngle;
+  bool _showRollData = true;
+  bool _showPitchData = true;
   List<FlSpot> _rollData = [];
-  static const int _maxRollDataPoints = 2048;
+  List<FlSpot> _pitchData = [];
+  static const int _maxDataPoints = 2048;
 
   List<double> _periods = [];
   double? _lastZeroCrossingTime;
@@ -37,13 +40,10 @@ class _SensorPageState extends State<SensorPage> {
   final int _maxPeriods = 5;
   final Stopwatch _stopwatch = Stopwatch();
 
-
-
   // FFT
   double? _fftPeriod;
   final List<double> _fftSamples = [];
-  static const _fftSampleRate = 20; // Hz
-  double? _dynamicSampleRate; // Pour stocker le sample rate calculé à partir des données CSV
+  double? _dynamicSampleRate = 20;
   static const _fftWindowSize = 2048;
   Timer? _fftTimer;
   Timer? _updateTimer;
@@ -65,9 +65,11 @@ class _SensorPageState extends State<SensorPage> {
 
     if (_isCollectingData) {
       _rollData.clear();
+      _pitchData.clear();
       _stopwatch.reset();
       _stopwatch.start();
       _timestampQueue.clear();
+      _dynamicSampleRate = 20.0;
 
       _updateTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
         if (_accelerometer != null && mounted) {
@@ -96,18 +98,19 @@ class _SensorPageState extends State<SensorPage> {
       final rate = _timestampQueue.length / duration;
       debugPrint('Average sampling rate: ${rate.toStringAsFixed(2)} Hz');
       _timestampQueue.clear();
+      _dynamicSampleRate = rate;
     }
 
     final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
     _rollAngle = calculateRoll(event);
-    if (_rollAngle == null) return;
+    _pitchAngle = calculatePitch(event);
+    if (_rollAngle == null || _pitchAngle == null) return;
 
     alertPageKey.currentState?.checkForAlert(rollAngle: _rollAngle);
 
-    // Vérifier si on a atteint 2048 échantillons
-    if (_rollData.length >= 2048) {
+    if (_rollData.length >= _maxDataPoints) {
       if (_isCollectingData) {
-        _toggleDataCollection(); // Arrête la collecte
+        _toggleDataCollection();
         debugPrint("2048 samples collected, data collection stopped.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -115,13 +118,12 @@ class _SensorPageState extends State<SensorPage> {
           );
         }
       }
-      return; // Ne pas ajouter plus de données
+      return;
     }
 
-    // Ajouter le nouvel échantillon
     _rollData.add(FlSpot(timestamp, _rollAngle!));
+    _pitchData.add(FlSpot(timestamp, _pitchAngle!));
 
-    // Calcul du passage par zéro (si nécessaire)
     if (_previousRoll < 0 && _rollAngle! >= 0) {
       if (_lastZeroCrossingTime != null) {
         double period = timestamp - _lastZeroCrossingTime!;
@@ -137,7 +139,6 @@ class _SensorPageState extends State<SensorPage> {
     _previousRoll = _rollAngle!;
     if (mounted) setState(() {});
 
-    // Traitement FFT (si nécessaire)
     _fftSamples.add(_rollAngle!);
     if (_fftSamples.length > _fftWindowSize) {
       _fftSamples.removeAt(0);
@@ -157,12 +158,17 @@ class _SensorPageState extends State<SensorPage> {
     if (mounted) {
       setState(() {
         _rollData.clear();
+        _pitchData.clear();
         _rollAngle = null;
+        _pitchAngle = null;
         _averagePeriod = null;
         _lastZeroCrossingTime = null;
         _previousRoll = 0.0;
         _periods.clear();
         _clearFFTData();
+        _dynamicSampleRate = 20;
+        _showRollData = true;
+        _showPitchData = true;
       });
     }
   }
@@ -177,11 +183,21 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
+  double? calculatePitch(AccelerometerEvent acc) {
+    try {
+      if (acc.y == 0 && acc.z == 0) return null;
+      return atan2(acc.y, acc.z) * 180 / pi;
+    } catch (e) {
+      debugPrint('Error calculating pitch: $e');
+      return null;
+    }
+  }
+
   void _computeFFTPeriod() async {
     if (_fftSamples.length >= _fftWindowSize) {
       final period = await compute(_backgroundFFTCalculation, {
         'samples': _fftSamples,
-        'sampleRate': _isCollectingData ? _fftSampleRate : (_dynamicSampleRate ?? _fftSampleRate),
+        'sampleRate': _dynamicSampleRate,
       });
 
       if (mounted) {
@@ -198,7 +214,6 @@ class _SensorPageState extends State<SensorPage> {
     final sampleRate = (params['sampleRate'] as num).toDouble();
     return FFTProcessor.findRollingPeriod(samples, sampleRate);
   }
-
 
   void _clearFFTData() {
     _fftSamples.clear();
@@ -227,15 +242,17 @@ class _SensorPageState extends State<SensorPage> {
 
     try {
       final buffer = StringBuffer();
-      buffer.writeln('time (s),roll (deg)');
-      for (final spot in _rollData) {
-        buffer.writeln('${spot.x.toStringAsFixed(3)},${spot.y.toStringAsFixed(3)}');
+      buffer.writeln('time (s),roll (deg),pitch (deg)');
+      for (int i = 0; i < _rollData.length; i++) {
+        final rollSpot = _rollData[i];
+        final pitchSpot = i < _pitchData.length ? _pitchData[i] : FlSpot(rollSpot.x, 0);
+        buffer.writeln('${rollSpot.x.toStringAsFixed(3)},${rollSpot.y.toStringAsFixed(3)},${pitchSpot.y.toStringAsFixed(3)}');
       }
 
       final directory = Directory('/storage/emulated/0/Download');
       if (directory == null) throw Exception('Cannot access storage');
 
-      final file = File('${directory.path}/roll_data_${DateTime.now().millisecondsSinceEpoch}.csv');
+      final file = File('${directory.path}/sensor_data_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(buffer.toString());
 
       if (mounted) {
@@ -252,11 +269,8 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-
-
   void _handleImport() async {
     try {
-      // Demander la permission de stockage si nécessaire (Android)
       if (Platform.isAndroid) {
         var status = await Permission.manageExternalStorage.status;
         if (!status.isGranted) {
@@ -272,7 +286,6 @@ class _SensorPageState extends State<SensorPage> {
         }
       }
 
-      // Ouvrir le sélecteur de fichiers avec file_picker
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
@@ -291,27 +304,29 @@ class _SensorPageState extends State<SensorPage> {
       final file = File(result.files.single.path!);
       final contents = await file.readAsString();
 
-      // Parser le CSV ligne par ligne (comme dans ta fonction d'origine)
       final lines = contents.split('\n');
-      final List<FlSpot> importedData = [];
+      final List<FlSpot> importedRollData = [];
+      final List<FlSpot> importedPitchData = [];
       double? firstTimestamp;
 
-      for (final line in lines.skip(1)) { // sauter l'en-tête
+      for (final line in lines.skip(1)) {
         if (line.trim().isEmpty) continue;
         final parts = line.split(',');
-        if (parts.length >= 2) {
+        if (parts.length >= 3) {
           try {
             final timestamp = double.parse(parts[0]);
             final roll = double.parse(parts[1]);
+            final pitch = double.parse(parts[2]);
             firstTimestamp ??= timestamp;
-            importedData.add(FlSpot(timestamp - (firstTimestamp ?? 0), roll));
+            importedRollData.add(FlSpot(timestamp - (firstTimestamp ?? 0), roll));
+            importedPitchData.add(FlSpot(timestamp - (firstTimestamp ?? 0), pitch));
           } catch (e) {
             debugPrint('Erreur parsing ligne : $line, erreur : $e');
           }
         }
       }
 
-      if (importedData.isEmpty) {
+      if (importedRollData.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Aucune donnée valide trouvée dans le CSV')),
@@ -320,28 +335,26 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
-      // Calculer le sample rate moyen à partir des timestamps
-      if (importedData.length > 1) {
-        double totalTime = importedData.last.x - importedData.first.x;
-        _dynamicSampleRate = (importedData.length - 1) / totalTime;
+      if (importedRollData.length > 1) {
+        double totalTime = importedRollData.last.x - importedRollData.first.x;
+        _dynamicSampleRate = (importedRollData.length - 1) / totalTime;
         debugPrint('Calculated sample rate from CSV: ${_dynamicSampleRate!.toStringAsFixed(2)} Hz');
       }
 
-      // Mise à jour interface
       if (mounted) {
         setState(() {
-          _rollData = importedData;
+          _rollData = importedRollData;
+          _pitchData = importedPitchData;
           _isCollectingData = false;
           _updateTimer?.cancel();
           _stopDataCollection();
-
           _calculatePeriodFromImportedData();
         });
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import réussi : ${importedData.length} points depuis ${file.path.split('/').last}')),
+          SnackBar(content: Text('Import réussi : ${importedRollData.length} points depuis ${file.path.split('/').last}')),
         );
       }
 
@@ -355,27 +368,21 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-
   void _calculatePeriodFromImportedData() {
-    // Réinitialiser les variables de période
-
     _periods.clear();
     _lastZeroCrossingTime = null;
     _averagePeriod = null;
     _previousRoll = 0.0;
 
-    // Initialiser le stopwatch avec la durée totale des données importées
     _stopwatch.reset();
     if (_rollData.isNotEmpty) {
       _stopwatch.elapsedMicroseconds + (_rollData.last.x * 1000000).toInt();
     }
 
-    // Analyser les données importées pour trouver les passages par zéro
     for (final spot in _rollData) {
       final timestamp = spot.x;
       final roll = spot.y;
 
-      // Détecter le passage par zéro (de négatif à positif)
       if (_previousRoll < 0 && roll >= 0) {
         if (_lastZeroCrossingTime != null) {
           double period = timestamp - _lastZeroCrossingTime!;
@@ -383,13 +390,13 @@ class _SensorPageState extends State<SensorPage> {
           if (_periods.length > _maxPeriods) {
             _periods.removeAt(0);
           }
-          _averagePeriod = _periods.reduce((a, b) => a + b) / _periods.length;
+          _averagePeriod = _periods.reduce((a, b) => (a + b) as double) / _periods.length;
         }
         _lastZeroCrossingTime = timestamp;
       }
       _previousRoll = roll;
     }
-    // Calculer également la période via FFT
+
     _fftSamples.clear();
     _fftPeriod = null;
     for (final spot in _rollData) {
@@ -400,6 +407,76 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
+  Widget rollAndPitchTiles() {
+    return Row(
+      children: [
+        Expanded(
+          child: rollTile(_rollAngle),
+        ),
+        Expanded(
+          child: pitchTile(_pitchAngle),
+        ),
+      ],
+    );
+  }
+
+  Widget rollTile(double? angle) {
+    return Card(
+      color: getSmoothColorForAngle(angle),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _showRollData = !_showRollData;
+          });
+        },
+        child: ListTile(
+          leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
+          title: const Text('Roll (θ)',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          subtitle: Text(
+            angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget pitchTile(double? angle) {
+    return Card(
+      color: getSmoothColorForAngle(angle),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _showPitchData = !_showPitchData;
+          });
+        },
+        child: ListTile(
+          leading: Transform.rotate(
+            angle: 90 * 3.1415926535 / 180,
+            child: const Icon(Icons.straighten, color: Colors.white, size: 40),
+          ),
+          title: const Text(
+            'Pitch (θ)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          subtitle: Text(
+            angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color getSmoothColorForAngle(double? angle) {
+    if (angle == null) return const Color(0xFF012169);
+    double absAngle = angle.abs().clamp(0, 90);
+    if (absAngle <= 40) return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
+    else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
+    else return Colors.red;
+  }
+
   Widget sampleRateTile() {
     return Card(
       color: Colors.blueGrey,
@@ -408,46 +485,9 @@ class _SensorPageState extends State<SensorPage> {
         title: const Text('Sample Rate',
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: Text(
-          _isCollectingData
-              ? '20.00 Hz (fixed)'
-              : _dynamicSampleRate != null
-              ? '${_dynamicSampleRate!.toStringAsFixed(2)} Hz (from CSV)'
+          _dynamicSampleRate != null
+              ? '${_dynamicSampleRate!.toStringAsFixed(2)} Hz'
               : 'N/A',
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget sensorTile(String label, dynamic event, IconData icon, Color color) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: color, size: 40.0),
-        title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(event != null
-            ? 'x: ${event.x.toStringAsFixed(2)} y: ${event.y.toStringAsFixed(2)} z: ${event.z.toStringAsFixed(2)}'
-            : 'Press Start'),
-      ),
-    );
-  }
-
-  Color getSmoothColorForRoll(double? angle) {
-    if (angle == null) return const Color(0xFF012169);
-    double absAngle = angle.abs().clamp(0, 90);
-    if (absAngle <= 40) return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
-    else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
-    else return Colors.red;
-  }
-
-  Widget rollTile(double? angle) {
-    return Card(
-      color: getSmoothColorForRoll(angle),
-      child: ListTile(
-        leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
-        title: const Text('Roll (θ)',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Text(
-          angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
@@ -495,34 +535,54 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-  List<FlSpot> _getInterpolatedData() {
-    if (_rollData.length < 2) return _rollData;
+  List<FlSpot> _getInterpolatedData(List<FlSpot> originalData) {
+    if (originalData.length < 2) return originalData;
 
     final interpolated = <FlSpot>[];
     const interpolationFactor = 5;
 
-    for (int i = 0; i < _rollData.length - 1; i++) {
-      final current = _rollData[i];
-      final next = _rollData[i + 1];
+    for (int i = 0; i < originalData.length - 1; i++) {
+      final current = originalData[i];
+      final next = originalData[i + 1];
 
       interpolated.add(current);
 
       for (int j = 1; j < interpolationFactor; j++) {
         final ratio = j / interpolationFactor;
-        final x = current.x + (next.x - current.x) * ratio; // Conserve les x originaux
+        final x = current.x + (next.x - current.x) * ratio;
         final y = current.y + (next.y - current.y) * (0.5 - 0.5 * cos(ratio * pi));
         interpolated.add(FlSpot(x, y));
       }
     }
 
-    interpolated.add(_rollData.last);
+    interpolated.add(originalData.last);
     return interpolated;
+  }
+  double _getVisibleDuration() {
+    if (_showRollData && _rollData.isNotEmpty) {
+      return _rollData.last.x;
+    } else if (_showPitchData && _pitchData.isNotEmpty) {
+      return _pitchData.last.x;
+    } else {
+      return 10.0; // valeur par défaut si aucune donnée
+    }
+  }
+
+  double calculateMaxAbs(List<FlSpot> data) {
+    return data.isNotEmpty ? data.map((e) => e.y.abs()).reduce(max) * 1.2 : 30;
   }
 
   Widget buildChart() {
-    final chartData = _getInterpolatedData();
-    final maxAbsY = chartData.isNotEmpty
-        ? chartData.map((e) => e.y.abs()).reduce(max) * 1.2
+    final rollChartData = _showRollData ? _getInterpolatedData(_rollData) : <FlSpot>[];
+    final pitchChartData = _showPitchData ? _getInterpolatedData(_pitchData) : <FlSpot>[];
+
+    final visibleData = [
+      if (_showRollData) rollChartData,
+      if (_showPitchData) pitchChartData,
+    ].expand((x) => x).toList();
+
+    final maxAbsY = visibleData.isNotEmpty
+        ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
         : 30;
 
     return Padding(
@@ -531,15 +591,24 @@ class _SensorPageState extends State<SensorPage> {
         height: 270,
         child: LineChart(
           LineChartData(
-            minX: chartData.isNotEmpty ? chartData.first.x : 0,
-            maxX: chartData.isNotEmpty ? chartData.last.x : 10,
+            minX: rollChartData.isNotEmpty ? rollChartData.first.x : 0,
+            maxX: _getVisibleDuration(),
             minY: -maxAbsY.toDouble(),
             maxY: maxAbsY.toDouble(),
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
-                spots: chartData,
+                spots: rollChartData,
                 color: Colors.blue,
+                barWidth: 2,
+                isCurved: true,
+                curveSmoothness: 0.15,
+                dotData: FlDotData(show: false),
+                belowBarData: BarAreaData(show: false),
+              ),
+              LineChartBarData(
+                spots: pitchChartData,
+                color: Colors.green,
                 barWidth: 2,
                 isCurved: true,
                 curveSmoothness: 0.15,
@@ -585,24 +654,37 @@ class _SensorPageState extends State<SensorPage> {
               show: true,
               border: Border.all(color: Colors.grey.withOpacity(0.3)),
             ),
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final text = spot.barIndex == 0
+                        ? 'Roll: ${spot.y.toStringAsFixed(2)}°'
+                        : 'Pitch: ${spot.y.toStringAsFixed(2)}°';
+                    return LineTooltipItem(
+                      text,
+                      TextStyle(
+                        color: spot.barIndex == 0 ? Colors.blue : Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  }).toList();
+                },
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-
-
   double _getTimeInterval() {
     double totalSeconds = _rollData.isNotEmpty ? _rollData.last.x : 0;
 
-    if (totalSeconds >= 10000) return 3000;
-    if (totalSeconds >= 300) return 60.0;
-    if (totalSeconds >= 120) return 40.0;
-    if (totalSeconds >= 100) return 30.0;
-    if (totalSeconds >= 60) return 20.0;
-    if (totalSeconds >= 30) return 10.0;
-    return 5.0;
+    if (totalSeconds < 10) return 2.0;
+
+    int lowerTen = (totalSeconds ~/ 10) * 10;
+    return lowerTen / 5.0;
   }
 
   @override
@@ -615,10 +697,8 @@ class _SensorPageState extends State<SensorPage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                //sensorTile('Accelerometer', _accelerometer, Icons.speed,
-                //    const Color(0xFF012169)),
-                rollTile(_rollAngle),
-                sampleRateTile(), // Ajoutez cette ligne
+                rollAndPitchTiles(),
+                sampleRateTile(),
                 rollingPeriodTile(_averagePeriod),
                 fftPeriodTile(),
                 buildChart(),
@@ -651,7 +731,6 @@ class _SensorPageState extends State<SensorPage> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Bouton splité en deux parties
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -661,11 +740,10 @@ class _SensorPageState extends State<SensorPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Partie Import
                       InkWell(
                         onTap: _handleImport,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0), // Même padding horizontal que Clear
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0),
                           decoration: const BoxDecoration(
                             border: Border(
                               right: BorderSide(color: Color(0xFF012169)),
@@ -674,11 +752,10 @@ class _SensorPageState extends State<SensorPage> {
                           child: const Icon(Icons.download, color: Color(0xFF012169), size: 24,),
                         ),
                       ),
-                      // Partie Export
                       InkWell(
                         onTap: _exportRollDataToDownloads,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0), // Même padding horizontal que Clear
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 15.0),
                           child: const Icon(Icons.upload, color: Color(0xFF012169), size: 24,),
                         ),
                       ),

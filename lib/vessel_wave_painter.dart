@@ -1,18 +1,21 @@
+// vessel_wave_painter.dart
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class VesselWavePainter extends StatefulWidget {
-  final double waveLength;    // 0 à 200
-  final double waveDirection; // en degrés
-  final double wavePeriod;    // 1 à 60
+  final double boatlength;
+  final double waveDirection;
+  final double wavePeriod;
+  final double course; // Nouveau paramètre pour la course
 
   const VesselWavePainter({
     super.key,
-    required this.waveLength,
+    required this.boatlength,
     required this.waveDirection,
     required this.wavePeriod,
+    required this.course, // Ajout du paramètre
   });
 
   @override
@@ -39,30 +42,52 @@ class _VesselWavePainterState extends State<VesselWavePainter> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(300, 300),
-      painter: boatImage == null
-          ? null
-          : _CompassPainter(
-        waveDirection: widget.waveDirection,
-        waveLength: widget.waveLength,
-        wavePeriod: widget.wavePeriod,
-        boatImage: boatImage!,
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final size = constraints.maxWidth - 20;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Transform.rotate(
+                angle: -90 * (pi / 180),
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: CustomPaint(
+                    painter: boatImage == null
+                        ? null
+                        : _CompassPainter(
+                      waveDirection: widget.waveDirection,
+                      boatlength: widget.boatlength,
+                      wavePeriod: widget.wavePeriod,
+                      course: widget.course, // Passage de la course
+                      boatImage: boatImage!,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
 class _CompassPainter extends CustomPainter {
   final double waveDirection;
-  final double waveLength;
+  final double boatlength;
   final double wavePeriod;
+  final double course; // Nouveau paramètre pour la course
   final ui.Image boatImage;
 
   _CompassPainter({
     required this.waveDirection,
-    required this.waveLength,
+    required this.boatlength,
     required this.wavePeriod,
+    required this.course, // Ajout du paramètre
     required this.boatImage,
   });
 
@@ -121,10 +146,9 @@ class _CompassPainter extends CustomPainter {
       );
       textPainter.layout();
 
-      // Pour compenser la rotation globale, on applique une rotation inverse au texte
       canvas.save();
       canvas.translate(x, y);
-      canvas.rotate(pi / 2); // Rotation inverse de 90°
+      canvas.rotate(pi / 2);
       canvas.translate(-x, -y);
       textPainter.paint(
         canvas,
@@ -135,12 +159,12 @@ class _CompassPainter extends CustomPainter {
 
     // Masque circulaire pour les lignes de houle
     final clipPath = Path()..addOval(Rect.fromCircle(center: center, radius: radius));
-    canvas.save(); // Enregistrer l'état du canvas
-    canvas.clipPath(clipPath); // Appliquer le masque
+    canvas.save();
+    canvas.clipPath(clipPath);
 
     // Direction et espacement de la houle
     final waveAngleForWaves = (waveDirection - 90) * pi / 180;
-    final waveAngleForArrow = waveDirection * pi / 180; // flèche inchangée
+    final waveAngleForArrow = waveDirection * pi / 180;
     final perpAngle = waveAngleForWaves + pi / 2;
 
     final dx = cos(perpAngle);
@@ -170,11 +194,16 @@ class _CompassPainter extends CustomPainter {
       canvas.drawLine(start, end, paintWaveLines);
     }
 
-    canvas.restore(); // Restaurer le canvas pour enlever le clip
+    canvas.restore();
 
-    // Affichage de l'image du bateau
-    final imageWidth = waveLength.clamp(40.0, 200.0);
+    // Affichage de l'image du bateau avec rotation selon la course
+    final imageWidth = 60.0;
     final imageHeight = imageWidth * boatImage.height / boatImage.width;
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate((course) * pi / 180); // Rotation selon la course (-90 pour compenser l'orientation initiale)
+    canvas.translate(-center.dx, -center.dy);
 
     final dstRect = Rect.fromCenter(
       center: center,
@@ -183,9 +212,8 @@ class _CompassPainter extends CustomPainter {
     );
 
     final srcRect = Rect.fromLTWH(0, 0, boatImage.width.toDouble(), boatImage.height.toDouble());
-
-    // Dessiner l'image du bateau
     canvas.drawImageRect(boatImage, srcRect, dstRect, Paint());
+    canvas.restore();
 
     // Flèche de direction de la houle
     final arrowLength = 20.0;
