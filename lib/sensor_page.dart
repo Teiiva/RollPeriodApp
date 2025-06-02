@@ -92,6 +92,8 @@ class _SensorPageState extends State<SensorPage> {
   int _powerIndex = 0;
   final List<double> _powersOfTwo = [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]; // exemple
 
+  bool _hasReachedSampleCount = false;
+
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -206,6 +208,9 @@ class _SensorPageState extends State<SensorPage> {
     // Arrête la collecte si on a assez de points
     if (_rollData.length >= _powersOfTwo[_powerIndex]) {
       if (_isCollectingData) {
+        setState(() {
+          _hasReachedSampleCount = true;
+        });
         _toggleDataCollection();
         debugPrint("512 samples collected, data collection stopped.");
         if (mounted) {
@@ -360,6 +365,7 @@ class _SensorPageState extends State<SensorPage> {
       setState(() {
         _fftRollPeriod = null;
         _fftPitchPeriod = null;
+        _hasReachedSampleCount = false;
       });
     }
   }
@@ -367,6 +373,11 @@ class _SensorPageState extends State<SensorPage> {
   // =============================================
   // IMPORT/EXPORT DE DONNÉES
   // =============================================
+
+  void _savefunction(){
+    debugPrint('hello');
+  }
+
 
   /// Exporte les données vers le dossier de téléchargements
   Future<void> _exportRollDataToDownloads() async {
@@ -1036,7 +1047,7 @@ class _SensorPageState extends State<SensorPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    shape: RoundedRectangleBorder(
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
                       ),
                     ),
@@ -1047,18 +1058,21 @@ class _SensorPageState extends State<SensorPage> {
                 // Start/Pause button
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _toggleDataCollection,
+                    onPressed: _hasReachedSampleCount ? _savefunction : _toggleDataCollection,
                     child: Text(
-                      _isCollectingData ? 'Pause' : 'Start',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      _hasReachedSampleCount ? 'Save' : (_isCollectingData ? 'Pause' : 'Start'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: _hasReachedSampleCount ? Colors.white : Colors.white,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF012169),
+                      backgroundColor: _hasReachedSampleCount ? Colors.green : const Color(0xFF012169),
                       padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
-                    ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.0),
+                      ),
                     ),
                   ),
                 ),
