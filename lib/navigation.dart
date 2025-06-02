@@ -2,21 +2,17 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'vessel_wave_painter.dart';
+import 'models/vessel_profile.dart';
+import 'models/navigation_info.dart';
 
 class NavigationPage extends StatefulWidget {
-  final double boatlength;
-  final double wavePeriod;
-  final double waveDirection;
-  final double speed;
-  final double course; // Nouveau paramètre pour la course
+  final VesselProfile vesselProfile;
+  final NavigationInfo navigationInfo;
 
   const NavigationPage({
     super.key,
-    this.boatlength = 0,
-    this.wavePeriod = 20,
-    this.waveDirection = 0,
-    this.speed = 0,
-    this.course = 0, // Valeur par défaut
+    required this.vesselProfile,
+    required this.navigationInfo,
   });
 
   @override
@@ -35,10 +31,10 @@ class _NavigationPageState extends State<NavigationPage> {
               child: Transform.rotate(
                 angle: 0,
                 child: VesselWavePainter(
-                  boatlength: widget.boatlength,
-                  waveDirection: widget.waveDirection,
-                  wavePeriod: widget.wavePeriod,
-                  course: widget.course, // Passage de la course
+                  boatlength: widget.vesselProfile.length,
+                  waveDirection: widget.navigationInfo.direction,
+                  wavePeriod: widget.navigationInfo.wavePeriod,
+                  course: widget.navigationInfo.course,
                 ),
               ),
             ),
@@ -67,7 +63,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   children: [
                     Center(
                       child: Text(
-                        "Speed: ${widget.speed.toStringAsFixed(1)} Knots",
+                        "Speed: ${widget.navigationInfo.speed.toStringAsFixed(1)} Knots",
                         style: const TextStyle(fontSize: 14),
                       ),
                     ),

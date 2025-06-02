@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
-  // Pas de titre ni d'action ici
-  const CustomAppBar({super.key});
+  final String? title;  // Ajout d'un titre optionnel
+
+  const CustomAppBar({super.key, this.title});
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -10,21 +11,20 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      // --- Pas de titre ici ---
-      title: null,
+      title: title != null ? Text(title!) : null,  // Affichage conditionnel du titre
       centerTitle: true,
 
       // --- Logo centré ---
       flexibleSpace: Center(
         child: Image.asset(
           'assets/images/logo_marin.png',
-          width: 120,  // Ajuste la taille du logo si nécessaire
+          width: 120,
           height: 120,
         ),
       ),
 
       backgroundColor: const Color(0xFF012169),
-      elevation: 0,  // Si tu veux enlever l'ombre sous l'AppBar
+      elevation: 0,
     );
   }
 }

@@ -5,6 +5,10 @@ import 'sensor_page.dart';
 import 'info.dart';
 import 'alert.dart';
 import 'navigation.dart';
+import 'prediction.dart';
+import 'models/vessel_profile.dart';
+import 'models/loading_condition.dart';
+import 'models/navigation_info.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -14,40 +18,98 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  int _selectedIndex = 0;
-  double _boatlength = 0;
-  double _wavePeriod = 20;
-  double _waveDirection = 0;
-  double _boatspeed = 0;
-  double _course = 0; // Nouvelle variable pour la course
-
-  late final List<Widget> _pages;
+  int _selectedIndex = 2;
+  late VesselProfile _currentVesselProfile;
+  late LoadingCondition _currentLoadingCondition;
+  late NavigationInfo _navigationInfo;
+  late List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
+
+    // Dans menu.dart, modifiez l'initialisation du profil
+    _currentVesselProfile = VesselProfile(
+      name: "Default",
+      length: 0, // Initialisez à 0 ou une valeur par défaut
+      beam: 0, // Initialisez à 0 ou une valeur par défaut
+      depth: 0, // Initialisez à 0 ou une valeur par défaut
+    );
+
+    _currentLoadingCondition = LoadingCondition(
+      name: "Default",
+      gm: 0, // Initialisez à 0 ou une valeur par défaut
+      vcg: 0, // Initialisez à 0 ou une valeur par défaut
+    );
+
+    _navigationInfo = NavigationInfo(
+      wavePeriod: 20,
+      direction: 0,
+      speed: 0,
+      course: 0,
+    );
+
+    _initializePages();
+  }
+
+  void _initializePages() {
     _pages = [
-      const SensorPage(),
+      NavigationPage(
+        vesselProfile: _currentVesselProfile,
+        navigationInfo: _navigationInfo,
+      ),
       AlertPage(),
+      SensorPage(
+        vesselProfile: _currentVesselProfile,
+        loadingCondition: _currentLoadingCondition,
+        navigationInfo: _navigationInfo,
+      ),
       VesselWavePage(
-        onValuesChanged: (length, period, direction, speed, course) {
+        currentVesselProfile: _currentVesselProfile,
+        currentLoadingCondition: _currentLoadingCondition,
+        navigationInfo: _navigationInfo,
+        onValuesChanged: (profile,config, navInfo) {
           setState(() {
-            _boatlength = length;
-            _wavePeriod = period;
-            _waveDirection = direction;
-            _boatspeed = speed;
-            _course = course;
+            _currentVesselProfile = profile;
+            _currentLoadingCondition = config;
+            _navigationInfo = navInfo;
+            _updatePages();
           });
         },
       ),
-      NavigationPage(
-        boatlength: _boatlength,
-        wavePeriod: _wavePeriod,
-        waveDirection: _waveDirection,
-        speed: _boatspeed,
-        course: _course, // Passage de la course
-      ),
+      PredictionPage(vesselProfile: _currentVesselProfile, loadingCondition: _currentLoadingCondition,),
     ];
+  }
+
+  void _updatePages() {
+    setState(() {
+      _pages = [
+        NavigationPage(
+          vesselProfile: _currentVesselProfile,
+          navigationInfo: _navigationInfo,
+        ),
+        AlertPage(),
+        SensorPage(
+          vesselProfile: _currentVesselProfile,
+          loadingCondition: _currentLoadingCondition,
+          navigationInfo: _navigationInfo,
+        ),
+        VesselWavePage(
+          currentVesselProfile: _currentVesselProfile,
+          currentLoadingCondition: _currentLoadingCondition,
+          navigationInfo: _navigationInfo,
+          onValuesChanged: (profile,config, navInfo) {
+            setState(() {
+              _currentVesselProfile = profile;
+              _currentLoadingCondition = config;
+              _navigationInfo = navInfo;
+              _updatePages();
+            });
+          },
+        ),
+        PredictionPage(vesselProfile: _currentVesselProfile, loadingCondition: _currentLoadingCondition,),
+      ];
+    });
   }
 
   @override
@@ -64,13 +126,10 @@ class _MenuPageState extends State<MenuPage> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
-            if (index == 3) {
-              _pages[3] = NavigationPage(
-                boatlength: _boatlength,
-                wavePeriod: _wavePeriod,
-                waveDirection: _waveDirection,
-                speed: _boatspeed,
-                course: _course, // Passage de la course mise à jour
+            if (index == 0) {
+              _pages[0] = NavigationPage(
+                vesselProfile: _currentVesselProfile,
+                navigationInfo: _navigationInfo,
               );
             }
           });
@@ -78,20 +137,24 @@ class _MenuPageState extends State<MenuPage> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.sensors),
-            label: 'Sensors',
+            icon: Icon(Icons.explore),
+            label: 'Navigation',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications_active),
             label: 'Alert',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.directions_boat_filled_rounded),
-            label: 'Vessel',
+            icon: Icon(Icons.sensors),
+            label: 'Sensors',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Navigation',
+            icon: Icon(Icons.directions_boat_filled_rounded),
+            label: 'Info',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.timeline),
+            label: 'Prediction',
           ),
         ],
       ),
