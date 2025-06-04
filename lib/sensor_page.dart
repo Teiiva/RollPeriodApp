@@ -14,18 +14,23 @@ import 'package:file_picker/file_picker.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
 import 'models/navigation_info.dart';
+import 'models/saved_measurement.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // for json
 
 /// Page principale pour l'affichage et l'analyse des données des capteurs
 class SensorPage extends StatefulWidget {
   final VesselProfile vesselProfile;
   final LoadingCondition loadingCondition;
   final NavigationInfo navigationInfo;
+  final Function(VesselProfile, LoadingCondition, NavigationInfo) onValuesChanged;
 
   const SensorPage({
     Key? key,
     required this.vesselProfile,
     required this.loadingCondition,
     required this.navigationInfo,
+    required this.onValuesChanged,
   }) : super(key: key);
 
   @override
@@ -374,9 +379,111 @@ class _SensorPageState extends State<SensorPage> {
   // IMPORT/EXPORT DE DONNÉES
   // =============================================
 
-  void _savefunction(){
-    debugPrint('hello');
+
+  // Dans sensor_page.dart, modifiez la méthode _savefunction
+  // Dans sensor_page.dart, remplacez la _savefunction existante par ceci:
+  // sensor_page.dart
+  void _savefunction() async {
+    try {
+      if (_fftRollPeriod == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No roll data to save')),
+        );
+        return;
+      }
+
+      // Crée un map avec toutes les prédictions
+      final predictionMethods = [
+        'Roll Coefficient',
+        'Doyere',
+        'JSRA',
+        'Beam',
+        'ITTC',
+        'Grin',
+      ];
+
+      final predictedPeriods = <String, double>{};
+      for (final method in predictionMethods) {
+        predictedPeriods[method] = calculateRollPeriod(
+          widget.loadingCondition.gm,
+          method,
+          widget.vesselProfile.beam,
+          widget.vesselProfile.depth,
+          widget.loadingCondition.vcg,
+        );
+      }
+
+      // Crée une nouvelle mesure avec les prédictions
+      final measurement = SavedMeasurement(
+        timestamp: DateTime.now(),
+        vesselProfile: widget.vesselProfile,
+        loadingCondition: widget.loadingCondition,
+        navigationInfo: widget.navigationInfo,
+        rollPeriodFFT: _fftRollPeriod,
+        predictedRollPeriods: predictedPeriods,
+      );
+
+      // Charge les mesures existantes
+      final prefs = await SharedPreferences.getInstance();
+      final measurementsJson = prefs.getStringList('savedMeasurements') ?? [];
+
+      // Ajoute la nouvelle mesure
+      measurementsJson.insert(0, jsonEncode(measurement.toMap()));
+
+      // Sauvegarde
+      await prefs.setStringList('savedMeasurements', measurementsJson);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Measurement saved successfully')),
+        );
+      }
+
+      // Réinitialise pour une nouvelle collecte
+      setState(() {
+        _hasReachedSampleCount = false;
+        _clearData();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save measurement: $e')),
+        );
+      }
+    }
   }
+
+// Ajoutez cette fonction utilitaire dans sensor_page.dart
+  double calculateRollPeriod(double gm, String method, double beam, double depth, double vcg) {
+    if (gm <= 0) return 0;
+
+    switch (method) {
+    case 'Roll Coefficient':
+    const k = 0.4;
+    return 2 * k * beam / sqrt(gm);
+    case 'Doyere':
+    const c = 0.29;
+    return 2 * c * sqrt((pow(beam, 2) + 4 * pow(vcg, 2)) / gm);
+    case 'JSRA':
+    final k = 0.3437 + 0.024 * (beam / depth);
+    return 2 * k * beam / sqrt(gm);
+    case 'Beam':
+    const k = 0.36;
+    return 2 * k * sqrt((pow(beam, 2) + pow(depth, 2)) / gm);
+    case 'ITTC':
+    final kxx = sqrt((0.4 * pow(beam + depth, 2) + 0.6 * (pow(beam, 2) + pow(depth, 2) - pow(2 * depth / 2 - vcg, 2)) / 12));
+    final axx = 0.05 * pow(beam, 2) / depth;
+    return 2 * sqrt((pow(kxx, 2) + pow(axx, 2)) / sqrt(gm));
+    case 'Grin':
+    const beta = 11.0;
+    final kxx = sqrt((pow(beam, 2) + pow(depth, 2)) / beta + pow(depth / 2 - vcg, 2));
+    return 2 * kxx / sqrt(gm);
+    default:
+    return 0;
+    }
+  }
+
+
 
 
   /// Exporte les données vers le dossier de téléchargements
@@ -561,6 +668,7 @@ class _SensorPageState extends State<SensorPage> {
           _rollData = importedRollData;
           _pitchData = importedPitchData;
           _isCollectingData = false;
+          _hasReachedSampleCount = true;
           _updateTimer?.cancel();
           _stopDataCollection();
           _calculatePeriodFromImportedData();

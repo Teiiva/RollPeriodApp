@@ -1,27 +1,34 @@
+// vessel_profile.dart
+import 'loading_condition.dart';
+
 class VesselProfile {
   final String name;
   final double length;
   final double beam;
   final double depth;
+  final List<LoadingCondition> loadingConditions;
 
   VesselProfile({
     required this.name,
     required this.length,
     required this.beam,
     required this.depth,
-  });
+    List<LoadingCondition>? loadingConditions,
+  }) : loadingConditions = loadingConditions ?? [];
 
   VesselProfile copyWith({
     String? name,
     double? length,
     double? beam,
     double? depth,
+    List<LoadingCondition>? loadingConditions,
   }) {
     return VesselProfile(
       name: name ?? this.name,
       length: length ?? this.length,
       beam: beam ?? this.beam,
       depth: depth ?? this.depth,
+      loadingConditions: loadingConditions ?? this.loadingConditions,
     );
   }
 
@@ -31,6 +38,7 @@ class VesselProfile {
       'length': length,
       'beam': beam,
       'depth': depth,
+      'loadingConditions': loadingConditions.map((lc) => lc.toMap()).toList(),
     };
   }
 
@@ -40,6 +48,9 @@ class VesselProfile {
       length: map['length'],
       beam: map['beam'],
       depth: map['depth'],
+      loadingConditions: (map['loadingConditions'] as List?)
+          ?.map((lc) => LoadingCondition.fromMap(lc))
+          .toList() ?? [],
     );
   }
 }

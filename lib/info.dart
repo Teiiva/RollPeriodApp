@@ -11,7 +11,7 @@ class VesselWavePage extends StatefulWidget {
   final VesselProfile currentVesselProfile;
   final LoadingCondition currentLoadingCondition;
   final NavigationInfo navigationInfo;
-  final Function(VesselProfile,LoadingCondition, NavigationInfo) onValuesChanged;
+  final Function(VesselProfile, LoadingCondition, NavigationInfo) onValuesChanged;
 
   const VesselWavePage({
     super.key,
@@ -29,8 +29,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
   late VesselProfile _currentVesselProfile;
   late NavigationInfo _navigationInfo;
   List<VesselProfile> _savedProfiles = [];
-  List<LoadingCondition> _savedConditions = [];
-  int _currentPageIndex = 0; // 0: Vessel, 1: Loading, 2: Navigation
+  int _currentPageIndex = 0;
   final TextEditingController _profileNameController = TextEditingController();
   final TextEditingController _conditionNameController = TextEditingController();
   late LoadingCondition _currentLoadingCondition;
@@ -41,15 +40,14 @@ class _VesselWavePageState extends State<VesselWavePage> {
     _currentVesselProfile = widget.currentVesselProfile;
     _navigationInfo = widget.navigationInfo;
     _currentLoadingCondition = widget.currentLoadingCondition;
-    _loadSavedProfiles();
-    _loadSavedConditions();
+    _loadSavedData();
   }
 
-  // Charge les profils sauvegardés
-  Future<void> _loadSavedProfiles() async {
+  Future<void> _loadSavedData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? profilesJson = prefs.getString('savedProfiles');
 
+    // 1. Load all saved profiles
+    final String? profilesJson = prefs.getString('savedProfiles');
     if (profilesJson != null) {
       final List<dynamic> profilesList = json.decode(profilesJson);
       setState(() {
@@ -58,43 +56,55 @@ class _VesselWavePageState extends State<VesselWavePage> {
             .toList();
       });
     }
-  }
 
-  // Charge les conditions sauvegardées
-  Future<void> _loadSavedConditions() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? conditionsJson = prefs.getString('savedConditions');
+    // 2. Load current profile
+    final String? currentProfileJson = prefs.getString('currentProfile');
+    if (currentProfileJson != null) {
+      final Map<String, dynamic> currentProfileMap = json.decode(currentProfileJson);
+      final currentProfile = VesselProfile.fromMap(currentProfileMap);
 
-    if (conditionsJson != null) {
-      final List<dynamic> conditionsList = json.decode(conditionsJson);
+      // Find the profile in saved profiles to get the complete data
+      final savedProfile = _savedProfiles.firstWhere(
+            (p) => p.name == currentProfile.name,
+        orElse: () => currentProfile,
+      );
+
       setState(() {
-        _savedConditions = conditionsList
-            .map((condition) => LoadingCondition.fromMap(condition))
-            .toList();
+        _currentVesselProfile = savedProfile;
+        if (_currentVesselProfile.loadingConditions.isNotEmpty) {
+          _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+        }
       });
     }
   }
 
-  // Sauvegarde les profils dans SharedPreferences
-  Future<void> _saveProfilesToPrefs() async {
+  Future<void> _saveAllData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String profilesJson = json.encode(
-      _savedProfiles.map((profile) => profile.toMap()).toList(),
-    );
-    await prefs.setString('savedProfiles', profilesJson);
-  }
 
-  // Sauvegarde les conditions dans SharedPreferences
-  Future<void> _saveConditionsToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String conditionsJson = json.encode(
-      _savedConditions.map((condition) => condition.toMap()).toList(),
+    // Mettre à jour la liste des profils avec le profil courant
+    final index = _savedProfiles.indexWhere((p) => p.name == _currentVesselProfile.name);
+    if (index != -1) {
+      _savedProfiles[index] = _currentVesselProfile;
+    } else {
+      _savedProfiles.add(_currentVesselProfile);
+    }
+
+    // Sauvegarder la liste des profils
+    await prefs.setString(
+      'savedProfiles',
+      json.encode(_savedProfiles.map((profile) => profile.toMap()).toList()),
     );
-    await prefs.setString('savedConditions', conditionsJson);
+
+    // Sauvegarder le profil courant
+    await prefs.setString(
+      'currentProfile',
+      json.encode(_currentVesselProfile.toMap()),
+    );
   }
 
   void _updateValues() {
-    widget.onValuesChanged(_currentVesselProfile, _currentLoadingCondition,_navigationInfo);
+    widget.onValuesChanged(_currentVesselProfile, _currentLoadingCondition, _navigationInfo);
+    _saveAllData(); // Sauvegarde automatique à chaque modification
   }
 
   void _saveCurrentVesselProfile() {
@@ -118,18 +128,22 @@ class _VesselWavePageState extends State<VesselWavePage> {
           TextButton(
             onPressed: () async {
               if (_profileNameController.text.trim().isNotEmpty) {
+                // Crée un nouveau profil avec une liste de conditions de chargement vide
                 final newProfile = VesselProfile(
                   name: _profileNameController.text.trim(),
                   length: _currentVesselProfile.length,
                   beam: _currentVesselProfile.beam,
                   depth: _currentVesselProfile.depth,
+                  loadingConditions: [], // Liste vide
                 );
 
                 setState(() {
                   _savedProfiles.add(newProfile);
+                  _currentVesselProfile = newProfile;
                 });
 
-                await _saveProfilesToPrefs();
+                await _saveAllData();
+                _updateValues();
                 Navigator.pop(context);
               }
             },
@@ -168,10 +182,18 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 );
 
                 setState(() {
-                  _savedConditions.add(newCondition);
+                  // Crée une nouvelle liste avec les conditions existantes + la nouvelle
+                  final newConditions = List<LoadingCondition>.from(_currentVesselProfile.loadingConditions);
+                  newConditions.add(newCondition);
+
+                  _currentVesselProfile = _currentVesselProfile.copyWith(
+                    loadingConditions: newConditions,
+                  );
+                  _currentLoadingCondition = newCondition;
                 });
 
-                await _saveConditionsToPrefs();
+                await _saveAllData();
+                _updateValues();
                 Navigator.pop(context);
               }
             },
@@ -182,12 +204,40 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
-  void _loadProfile(VesselProfile profile) {
+  void _loadProfile(VesselProfile profile) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Sauvegarder le profil courant avant de changer
+    final currentProfileIndex = _savedProfiles.indexWhere((p) => p.name == _currentVesselProfile.name);
+    if (currentProfileIndex != -1) {
+      _savedProfiles[currentProfileIndex] = _currentVesselProfile;
+    } else {
+      _savedProfiles.add(_currentVesselProfile);
+    }
+
+    // 2. Sauvegarder la liste mise à jour des profils
+    await prefs.setString(
+      'savedProfiles',
+      json.encode(_savedProfiles.map((p) => p.toMap()).toList()),
+    );
+
+    // 3. Charger le nouveau profil sélectionné
+    await prefs.setString(
+      'currentProfile',
+      json.encode(profile.toMap()),
+    );
+
+    // 4. Mettre à jour l'état local
     setState(() {
       _currentVesselProfile = profile;
+      if (profile.loadingConditions.isNotEmpty) {
+        _currentLoadingCondition = profile.loadingConditions.first;
+      }
       _updateValues();
     });
   }
+
+
 
   void _loadCondition(LoadingCondition condition) {
     setState(() {
@@ -200,14 +250,30 @@ class _VesselWavePageState extends State<VesselWavePage> {
     setState(() {
       _savedProfiles.removeAt(index);
     });
-    await _saveProfilesToPrefs();
+    await _saveAllData();
   }
 
   void _deleteCondition(int index) async {
     setState(() {
-      _savedConditions.removeAt(index);
+      _currentVesselProfile = _currentVesselProfile.copyWith(
+        loadingConditions: [
+          ..._currentVesselProfile.loadingConditions..removeAt(index)
+        ],
+      );
+
+      if (_currentVesselProfile.loadingConditions.isEmpty) {
+        _currentLoadingCondition = LoadingCondition(
+          name: "Default",
+          gm: 1.0,
+          vcg: 10.0,
+        );
+      } else if (_currentLoadingCondition == _currentVesselProfile.loadingConditions[index]) {
+        _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+      }
     });
-    await _saveConditionsToPrefs();
+
+    await _saveAllData();
+    _updateValues();
   }
 
   @override
@@ -224,21 +290,14 @@ class _VesselWavePageState extends State<VesselWavePage> {
       body: IndexedStack(
         index: _currentPageIndex,
         children: [
-          // Page 1: Vessel Info
           _buildVesselInfoPage(),
-          // Page 2: Loading Info
           _buildLoadingInfoPage(),
-          // Page 3: Navigation Info
           _buildNavigationInfoPage(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentPageIndex,
-        onTap: (index) {
-          setState(() {
-            _currentPageIndex = index;
-          });
-        },
+        onTap: (index) => setState(() => _currentPageIndex = index),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.directions_boat),
@@ -351,11 +410,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
             min: 0,
             max: 360,
             onChanged: (val) {
-              // Met à jour l'état pendant que tu glisses
               setState(() => _navigationInfo = _navigationInfo.copyWith(course: val));
             },
             onChangeEnd: (val) {
-              // Appelé seulement quand tu relâches le slider
               _updateValues();
             },
           ),
@@ -367,11 +424,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
             min: 0,
             max: 360,
             onChanged: (val) {
-              // Met à jour l'état pendant que tu glisses
               setState(() => _navigationInfo = _navigationInfo.copyWith(direction: val));
             },
             onChangeEnd: (val) {
-              // Appelé seulement quand tu relâches le slider
               _updateValues();
             },
           ),
@@ -404,9 +459,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "Vessel Profile",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                    "Vessel Profile",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 IconButton(
                   icon: const Icon(Icons.save, color: Color(0xFF012169)),
                   onPressed: _saveCurrentVesselProfile,
@@ -465,9 +519,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "Loading Condition",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                    "Loading Condition",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 IconButton(
                   icon: const Icon(Icons.save, color: Color(0xFF012169)),
                   onPressed: _saveCurrentLoadingCondition,
@@ -475,15 +528,15 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 ),
               ],
             ),
-            if (_savedConditions.isNotEmpty) ...[
+            if (_currentVesselProfile.loadingConditions.isNotEmpty) ...[
               const SizedBox(height: 8),
               SizedBox(
                 height: 50,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: _savedConditions.length,
+                  itemCount: _currentVesselProfile.loadingConditions.length,
                   itemBuilder: (context, index) {
-                    final condition = _savedConditions[index];
+                    final condition = _currentVesselProfile.loadingConditions[index];
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
                       child: InputChip(
@@ -520,7 +573,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     required double min,
     required double max,
     required ValueChanged<double> onChanged,
-    ValueChanged<double>? onChangeEnd, // 👈 ajouter ceci
+    ValueChanged<double>? onChangeEnd,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -550,7 +603,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                       divisions: ((max - min) ~/ 1),
                       label: value.toStringAsFixed(1),
                       onChanged: onChanged,
-                      onChangeEnd: onChangeEnd, // 👈 ici
+                      onChangeEnd: onChangeEnd,
                     ),
                   ],
                 ),
@@ -561,8 +614,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
       ),
     );
   }
-
-
 
   Widget _buildInputCard({
     required Widget iconWidget,
@@ -629,55 +680,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildInputField({
-    required String label,
-    required String unit,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    final TextEditingController _controller = TextEditingController(text: value.toStringAsFixed(1));
-    final FocusNode _focusNode = FocusNode();
-
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        _controller.selection = TextSelection(baseOffset: 0, extentOffset: _controller.text.length);
-      }
-    });
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        Focus(
-          onFocusChange: (hasFocus) {
-            if (!hasFocus) {
-              final parsedValue = double.tryParse(_controller.text);
-              if (parsedValue != null) {
-                onChanged(parsedValue);
-              }
-            }
-          },
-          child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            decoration: InputDecoration(
-              suffixText: unit,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            ),
-            keyboardType: TextInputType.number,
-          ),
-        ),
-      ],
     );
   }
 }

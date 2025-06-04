@@ -5,6 +5,10 @@ import 'widgets/custom_app_bar.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
 import 'models/navigation_info.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'models/saved_measurement.dart';
+
 
 class PredictionPage extends StatefulWidget {
   final VesselProfile vesselProfile;
@@ -22,6 +26,8 @@ class PredictionPage extends StatefulWidget {
 
 class _PredictionPageState extends State<PredictionPage> {
   String selectedMethod = 'Roll Coefficient';
+  final PageController _pageController = PageController(); // Ajoutez ceci
+  int _currentPage = 0; // Pour suivre la page actuelle
 
   final Map<String, double> methodParameters = {
     'Roll Coefficient': 0.4,
@@ -38,6 +44,8 @@ class _PredictionPageState extends State<PredictionPage> {
     'ITTC',
     'Grin',
   ];
+
+
 
   double calculateRollPeriod(double gm, String method) {
     if (gm <= 0) return 0;
@@ -234,8 +242,285 @@ class _PredictionPageState extends State<PredictionPage> {
     );
   }
 
+  // Modifier la méthode _buildProfileDetails()
+  Widget _buildProfileDetails() {
+    final profile = widget.vesselProfile;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "VESSEL PROFILE",
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildProfileRow("Name", profile.name),
+        _buildProfileRow("Length", "${profile.length.toStringAsFixed(2)} m"),
+        _buildProfileRow("Beam", "${profile.beam.toStringAsFixed(2)} m"),
+        _buildProfileRow("Depth", "${profile.depth.toStringAsFixed(2)} m"),
+        const SizedBox(height: 16),
+        Text(
+          "LOADING CONDITIONS",
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (profile.loadingConditions.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              "No loading conditions saved yet",
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          ...profile.loadingConditions.map((condition) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Divider(),
+              _buildProfileRow("Condition Name", condition.name),
+              _buildProfileRow("GM", "${condition.gm.toStringAsFixed(2)} m"),
+              _buildProfileRow("VCG", "${condition.vcg.toStringAsFixed(2)} m"),
+            ],
+          )),
+      ],
+    );
+  }
+
+  Widget _buildProfileRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120, // largeur fixe ou adaptative du label
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              softWrap: true,
+              overflow: TextOverflow.visible,
+              style: const TextStyle(
+                color: Colors.black54,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteMeasurement(SavedMeasurement measurement) async {
+    final prefs = await SharedPreferences.getInstance();
+    final measurementsJson = prefs.getStringList('savedMeasurements') ?? [];
+
+    // Remove the measurement that matches the timestamp
+    measurementsJson.removeWhere((json) {
+      try {
+        final map = jsonDecode(json);
+        return DateTime.parse(map['timestamp']) == measurement.timestamp;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    await prefs.setStringList('savedMeasurements', measurementsJson);
+    setState(() {}); // Refresh the UI
+  }
+
+
+  // prediction.dart
+  Widget gmRollPeriodPairsTile({required Future<List<SavedMeasurement>> measurementsFuture}) {
+    return FutureBuilder<List<SavedMeasurement>>(
+      future: measurementsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "SAVED MEASUREMENTS",
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Colors.grey,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () {
+                      setState(() {});
+                    },
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Text(
+                  "No saved measurements yet",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final measurements = snapshot.data!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "SAVED MEASUREMENTS",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Divider(),
+            SizedBox(
+              height: 470, // Ajuste selon ton besoin pour éviter les overflows
+              child: Scrollbar(
+                child: ListView.builder(
+                  itemCount: measurements.length,
+                  itemBuilder: (context, index) {
+                    final measurement = measurements[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
+                      color: const Color(0xFFDEDDEB),
+                      elevation: 0,
+                      child: ExpansionTile(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
+                        title: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(measurement.vesselProfile.name),
+                            Text(
+                              "Gm: ${measurement.loadingCondition.gm.toStringAsFixed(2)} m",
+                              style: const TextStyle(fontWeight: FontWeight.bold,color: const Color(0xFF012169)),
+                            ),
+                          ],
+                        ),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildProfileRow(
+                                    "FFT Period",
+                                    measurement.rollPeriodFFT != null
+                                        ? "${measurement.rollPeriodFFT!.toStringAsFixed(2)} s"
+                                        : "N/A"),
+                                ...measurement.predictedRollPeriods.entries.map(
+                                      (entry) => _buildProfileRow(
+                                      "${entry.key}",
+                                      "${entry.value.toStringAsFixed(2)} s"),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.center,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.delete, color: Color(0xFF012169)),
+                                    onPressed: () async {
+                                      final shouldDelete = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Delete measurement?'),
+                                          content: const Text('Are you sure you want to delete this measurement?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (shouldDelete ?? false) {
+                                        await _deleteMeasurement(measurement);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Measurement deleted'),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
+
+  Future<List<SavedMeasurement>> _loadSavedMeasurements() async {
+    final prefs = await SharedPreferences.getInstance();
+    final measurementsJson = prefs.getStringList('savedMeasurements') ?? [];
+
+    return measurementsJson.map((json) {
+      try {
+        return SavedMeasurement.fromMap(jsonDecode(json));
+      } catch (e) {
+        debugPrint('Error parsing measurement: $e');
+        return null;
+      }
+    }).whereType<SavedMeasurement>().toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final measurementsFuture = _loadSavedMeasurements();
     final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm, selectedMethod);
     debugPrint("GM : ${widget.loadingCondition.gm}");
     return Scaffold(
@@ -307,61 +592,126 @@ class _PredictionPageState extends State<PredictionPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "ROLL PERIOD RESULTS",
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF012169).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      SizedBox(
+                        height: 550, // Réduisez un peu cette hauteur pour faire de la place aux indicateurs
+                        child: PageView(
+                          controller: _pageController,
+                          scrollDirection: Axis.horizontal,
+                          onPageChanged: (int page) {
+                            setState(() {
+                              _currentPage = page;
+                            });
+                          },
                           children: [
-                            Text(
-                              "Estimated roll period:",
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            Text(
-                              "${currentPeriod.toStringAsFixed(2)} s",
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF012169),
+                            // Page 1
+                            Padding(
+                              padding: const EdgeInsets.only(right: 12.0), // Ajoute un espace à droite
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "ROLL PERIOD RESULTS",
+                                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF012169).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "Estimated roll period:",
+                                          style: Theme.of(context).textTheme.titleMedium,
+                                        ),
+                                        Text(
+                                          "${currentPeriod.toStringAsFixed(2)} s",
+                                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF012169),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "Current GM: ${widget.loadingCondition.gm.toStringAsFixed(2)} m",
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildChart(),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    "The dot indicates the current GM value and its corresponding roll period.",
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+
+                            // Page 2
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12.0), // Ajoute un espace à gauche
+                              child: gmRollPeriodPairsTile(measurementsFuture: measurementsFuture),
+                            ),
+
+                            // Page 3
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12.0), // Ajoute un espace à gauche
+                              child: _buildProfileDetails(),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List<Widget>.generate(3, (int index) {
+                                return Container(
+                                  width: 8.0,
+                                  height: 8.0,
+                                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _currentPage == index
+                                        ? const Color(0xFF012169)
+                                        : Colors.grey.withOpacity(0.4),
+                                  ),
+                                );
+                              }),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        "Current GM: ${widget.loadingCondition.gm.toStringAsFixed(2)} m",
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildChart(),
-                      const SizedBox(height: 16),
-                      Text(
-                        "The dot indicates the current GM value and its corresponding roll period.",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List<Widget>.generate(3, (int index) {
+                          return Container(
+                            width: 8.0,
+                            height: 8.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentPage == index
+                                  ? const Color(0xFF012169)
+                                  : Colors.grey.withOpacity(0.4),
+                            ),
+                          );
+                        }),
                       ),
                     ],
                   ),
                 ),
-              ),
+              )
             ],
           ),
         ),

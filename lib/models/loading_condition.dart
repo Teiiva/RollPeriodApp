@@ -1,8 +1,8 @@
+// loading_condition.dart
 class LoadingCondition {
   final String name;
   final double gm;
   final double vcg;
-
 
   LoadingCondition({
     required this.name,

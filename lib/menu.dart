@@ -24,23 +24,27 @@ class _MenuPageState extends State<MenuPage> {
   late NavigationInfo _navigationInfo;
   late List<Widget> _pages;
 
+
   @override
   void initState() {
     super.initState();
 
-    // Dans menu.dart, modifiez l'initialisation du profil
+    // Initialisation avec un profil par défaut et une condition de chargement par défaut
     _currentVesselProfile = VesselProfile(
       name: "Default",
-      length: 0, // Initialisez à 0 ou une valeur par défaut
-      beam: 0, // Initialisez à 0 ou une valeur par défaut
-      depth: 0, // Initialisez à 0 ou une valeur par défaut
+      length: 100.0,
+      beam: 20.0,
+      depth: 10.0,
+      loadingConditions: [
+        LoadingCondition(
+          name: "Default Condition",
+          gm: 1.0,
+          vcg: 10.0,
+        )
+      ],
     );
 
-    _currentLoadingCondition = LoadingCondition(
-      name: "Default",
-      gm: 0, // Initialisez à 0 ou une valeur par défaut
-      vcg: 0, // Initialisez à 0 ou une valeur par défaut
-    );
+    _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
 
     _navigationInfo = NavigationInfo(
       wavePeriod: 20,
@@ -63,12 +67,20 @@ class _MenuPageState extends State<MenuPage> {
         vesselProfile: _currentVesselProfile,
         loadingCondition: _currentLoadingCondition,
         navigationInfo: _navigationInfo,
+        onValuesChanged: (profile, condition, navInfo) {
+          setState(() {
+            _currentVesselProfile = profile;
+            _currentLoadingCondition = condition;
+            _navigationInfo = navInfo;
+            _updatePages();
+          });
+        },
       ),
       VesselWavePage(
         currentVesselProfile: _currentVesselProfile,
         currentLoadingCondition: _currentLoadingCondition,
         navigationInfo: _navigationInfo,
-        onValuesChanged: (profile,config, navInfo) {
+        onValuesChanged: (profile, config, navInfo) {
           setState(() {
             _currentVesselProfile = profile;
             _currentLoadingCondition = config;
@@ -77,7 +89,10 @@ class _MenuPageState extends State<MenuPage> {
           });
         },
       ),
-      PredictionPage(vesselProfile: _currentVesselProfile, loadingCondition: _currentLoadingCondition,),
+      PredictionPage(
+        vesselProfile: _currentVesselProfile,
+        loadingCondition: _currentLoadingCondition,
+      ),
     ];
   }
 
@@ -93,12 +108,20 @@ class _MenuPageState extends State<MenuPage> {
           vesselProfile: _currentVesselProfile,
           loadingCondition: _currentLoadingCondition,
           navigationInfo: _navigationInfo,
+          onValuesChanged: (profile, condition, navInfo) {
+            setState(() {
+              _currentVesselProfile = profile;
+              _currentLoadingCondition = condition;
+              _navigationInfo = navInfo;
+              _updatePages();
+            });
+          },
         ),
         VesselWavePage(
           currentVesselProfile: _currentVesselProfile,
           currentLoadingCondition: _currentLoadingCondition,
           navigationInfo: _navigationInfo,
-          onValuesChanged: (profile,config, navInfo) {
+          onValuesChanged: (profile, config, navInfo) {
             setState(() {
               _currentVesselProfile = profile;
               _currentLoadingCondition = config;
@@ -107,7 +130,10 @@ class _MenuPageState extends State<MenuPage> {
             });
           },
         ),
-        PredictionPage(vesselProfile: _currentVesselProfile, loadingCondition: _currentLoadingCondition,),
+        PredictionPage(
+          vesselProfile: _currentVesselProfile,
+          loadingCondition: _currentLoadingCondition,
+        ),
       ];
     });
   }
