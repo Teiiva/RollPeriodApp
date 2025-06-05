@@ -15,8 +15,11 @@ import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
 import 'models/navigation_info.dart';
 import 'models/saved_measurement.dart';
+import 'package:provider/provider.dart';
+import 'shared_data.dart';
+import 'dart:convert';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // for json
 
 /// Page principale pour l'affichage et l'analyse des données des capteurs
 class SensorPage extends StatefulWidget {
@@ -80,7 +83,7 @@ class _SensorPageState extends State<SensorPage> {
   double? _fftPitchPeriod;
   final List<double> _fftRollSamples = [];
   final List<double> _fftPitchSamples = [];
-  double? _dynamicSampleRate = 20;
+  double? _dynamicSampleRate = 5;
 
   // Timers et contrôleurs
   final Stopwatch _stopwatch = Stopwatch();
@@ -99,6 +102,20 @@ class _SensorPageState extends State<SensorPage> {
 
   bool _hasReachedSampleCount = false;
 
+  late TutorialCoachMark tutorialCoachMark;
+  bool _showTutorial = false;
+  final GlobalKey _startButtonKey = GlobalKey();
+  final GlobalKey _clearButtonKey = GlobalKey();
+  final GlobalKey _exportButtonKey = GlobalKey();
+  final GlobalKey _importButtonKey = GlobalKey();
+  final GlobalKey _rollAngleButtonKey = GlobalKey();
+  final GlobalKey _pitchAngleButtonKey = GlobalKey();
+  final GlobalKey _rateButtonKey = GlobalKey();
+  final GlobalKey _sampleButtonKey = GlobalKey();
+  final GlobalKey _rollPitchPeriodButtonKey = GlobalKey();
+  final GlobalKey _rollPitchFftButtonKey = GlobalKey();
+
+
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -108,6 +125,7 @@ class _SensorPageState extends State<SensorPage> {
     super.initState();
     _pageController = PageController();
     _fftPageController = PageController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkFirstLaunch());
   }
 
   @override
@@ -142,7 +160,7 @@ class _SensorPageState extends State<SensorPage> {
     _stopwatch.reset();
     _stopwatch.start();
     _timestampQueue.clear();
-    _dynamicSampleRate = 20.0;
+    _dynamicSampleRate = 5;
 
     // Timer pour la mise à jour périodique de l'interface
     _updateTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
@@ -186,7 +204,7 @@ class _SensorPageState extends State<SensorPage> {
         _Pitchperiods.clear();
 
         _clearFFTData();
-        _dynamicSampleRate = 20;
+        _dynamicSampleRate = 5;
         _showRollData = true;
         _showPitchData = true;
       });
@@ -375,13 +393,17 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
+  String _formatTime(int seconds) {
+    final minutes = (seconds / 60).floor();
+    final remainingSeconds = seconds % 60;
+    return '${minutes}min ${remainingSeconds}s';
+  }
+
   // =============================================
   // IMPORT/EXPORT DE DONNÉES
   // =============================================
 
 
-  // Dans sensor_page.dart, modifiez la méthode _savefunction
-  // Dans sensor_page.dart, remplacez la _savefunction existante par ceci:
   // sensor_page.dart
   void _savefunction() async {
     try {
@@ -392,7 +414,6 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
-      // Crée un map avec toutes les prédictions
       final predictionMethods = [
         'Roll Coefficient',
         'Doyere',
@@ -413,7 +434,6 @@ class _SensorPageState extends State<SensorPage> {
         );
       }
 
-      // Crée une nouvelle mesure avec les prédictions
       final measurement = SavedMeasurement(
         timestamp: DateTime.now(),
         vesselProfile: widget.vesselProfile,
@@ -423,15 +443,9 @@ class _SensorPageState extends State<SensorPage> {
         predictedRollPeriods: predictedPeriods,
       );
 
-      // Charge les mesures existantes
-      final prefs = await SharedPreferences.getInstance();
-      final measurementsJson = prefs.getStringList('savedMeasurements') ?? [];
-
-      // Ajoute la nouvelle mesure
-      measurementsJson.insert(0, jsonEncode(measurement.toMap()));
-
-      // Sauvegarde
-      await prefs.setStringList('savedMeasurements', measurementsJson);
+      // Utilisez Provider pour ajouter la mesure
+      final sharedData = Provider.of<SharedData>(context, listen: false);
+      await sharedData.addMeasurement(measurement);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -439,7 +453,6 @@ class _SensorPageState extends State<SensorPage> {
         );
       }
 
-      // Réinitialise pour une nouvelle collecte
       setState(() {
         _hasReachedSampleCount = false;
         _clearData();
@@ -483,9 +496,6 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-
-
-
   /// Exporte les données vers le dossier de téléchargements
   Future<void> _exportRollDataToDownloads() async {
     if (Platform.isAndroid) {
@@ -510,7 +520,8 @@ class _SensorPageState extends State<SensorPage> {
       final now = DateTime.now();
       final wavePeriod = widget.navigationInfo.wavePeriod;
       final direction = widget.navigationInfo.direction;
-      final sampleRate = _dynamicSampleRate?.toStringAsFixed(2);
+      final sampleRate = _dynamicSampleRate; // Gardé comme double ici
+      final sampleRateStr = sampleRate?.toStringAsFixed(2);
       final rollCount = _rollData.length;
       final rollPeriodZero = _RollaveragePeriod?.toStringAsFixed(2);
       final rollPeriodFFT = _fftRollPeriod?.toStringAsFixed(2);
@@ -520,11 +531,16 @@ class _SensorPageState extends State<SensorPage> {
       final loading = widget.loadingCondition;
       final nav = widget.navigationInfo;
 
+      final duration = (sampleRate != null && sampleRate != 0)
+          ? (rollCount / sampleRate).toStringAsFixed(2)
+          : 'N/A';
+
       // Liste des métadonnées (clé: valeur)
       final metadata = [
         'Export Time: ${now.toIso8601String()}',
         'Sample Rate (Hz): $sampleRate',
         'Samples Count: $rollCount',
+        'Duration (s): $duration',
         'Roll Period (Zero Crossing)(s): $rollPeriodZero',
         'Roll Period (FFT)(s): $rollPeriodFFT',
         'Pitch Period (Zero Crossing)(s): $pitchPeriodZero',
@@ -587,8 +603,6 @@ class _SensorPageState extends State<SensorPage> {
       }
     }
   }
-
-
 
   /// Importe des données depuis un fichier CSV
   void _handleImport() async {
@@ -761,6 +775,507 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
+  Future<void> _checkFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool firstLaunch = prefs.getBool('first_launch') ?? true;
+
+    if (firstLaunch) {
+      await prefs.setBool('first_launch', false);
+      _showTutorial = true;
+      _createTutorial();
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          tutorialCoachMark.show(context: context);
+        }
+      });
+    }
+  }
+
+  void _createTutorial() {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black.withOpacity(0.8),
+      paddingFocus: 1, // plus faible padding
+      opacityShadow: 0.8,
+
+      // Animation plus rapide
+      focusAnimationDuration: const Duration(milliseconds: 500),
+      unFocusAnimationDuration: const Duration(milliseconds: 500),
+
+      onFinish: () {
+        if (mounted) {
+          setState(() {
+            _showTutorial = false;
+          });
+        }
+      },
+      onClickTarget: (target) {
+        debugPrint('onClickTarget: $target');
+      },
+      onClickOverlay: (target) {
+        debugPrint('onClickOverlay: $target');
+      },
+    );
+  }
+
+
+
+  List<TargetFocus> _createTargets() {
+    List<TargetFocus> targets = [];
+
+    // Étape 1: Bouton Start
+    targets.add(
+      TargetFocus(
+        identify: "start_button",
+        keyTarget: _startButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Appuyez ici pour démarrer la collecte des données des capteurs",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      controller.next(); // Passe à l'étape suivante (roll)
+                    },
+                    child: const Text("Suivant"),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 15,
+      ),
+    );
+    //
+    //Etape 2 : courbes
+    //
+
+    // Étape 3: Bouton clear
+    targets.add(
+      TargetFocus(
+        identify: "clear_button",
+        keyTarget: _clearButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Appuyez ici pour effacer les courbes",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      controller.next(); // Passe à l'étape suivante (roll)
+                    },
+                    child: const Text("Suivant"),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 15,
+      ),
+    );
+
+    // Étape 4: Bouton export
+    targets.add(
+      TargetFocus(
+        identify: "export_button",
+        keyTarget: _exportButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Appuyez ici pour exporter les données mesurer et calculer dans un fichier csv",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      controller.next(); // Passe à l'étape suivante (roll)
+                    },
+                    child: const Text("Suivant"),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 15,
+      ),
+    );
+
+    // Étape 5: Bouton import
+    targets.add(
+      TargetFocus(
+        identify: "import_button",
+        keyTarget: _importButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Appuyez ici pour importer des données depuis un fichier csv",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      controller.next(); // Passe à l'étape suivante (roll)
+                    },
+                    child: const Text("Suivant"),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 15,
+      ),
+    );
+
+
+    // Étape 6 : Roll angle
+    targets.add(
+      TargetFocus(
+        identify: "roll_angle",
+        keyTarget: _rollAngleButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Affiche l'angle de roulis en direct, appuyez sur le boutton pour afficher ou masquer la courbe de roulis",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.next(); // Passe à l'étape suivante (pitch)
+                        },
+                        child: const Text("Suivant"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // Étape 7: Pitch Angle
+    targets.add(
+      TargetFocus(
+        identify: "pitch_tile",
+        keyTarget: _pitchAngleButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Affiche l'angle de roulis en direct, appuyez sur le boutton pour afficher ou masquer la courbe de tangage",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.skip(); // Termine le tutoriel
+                        },
+                        child: const Text("Terminer"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // Étape 7: Rate
+    targets.add(
+      TargetFocus(
+        identify: "rate_tile",
+        keyTarget: _rateButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Affiche la fréquence d'échzntillonnage",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.skip(); // Termine le tutoriel
+                        },
+                        child: const Text("Terminer"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // Étape 9 : sample
+    targets.add(
+      TargetFocus(
+        identify: "sample_tile",
+        keyTarget: _sampleButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Cliquez sur le boutton pour faire choisir le nombre de sample afficher sur la courbe (8 posibilités)",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.skip(); // Termine le tutoriel
+                        },
+                        child: const Text("Terminer"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // Étape 10 : Roll Pitch period
+    targets.add(
+      TargetFocus(
+        identify: "roll_pitch_period",
+        keyTarget: _rollPitchPeriodButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Affiche la periode de roulis estimer grace au zero crossing. faire defiler pour voir la pitch period",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.skip(); // Termine le tutoriel
+                        },
+                        child: const Text("Terminer"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+// Étape 11 : Roll Pitch fft
+    targets.add(
+      TargetFocus(
+        identify: "roll_pitch_fft",
+        keyTarget: _rollPitchFftButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Affiche la valeur réelle de rolling period grace a l'analyse spectrale. faire defiler pour acceder à la pitch period",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.skip(); // Termine le tutoriel
+                        },
+                        child: const Text("Terminer"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    return targets;
+  }
+
   // =============================================
   // WIDGETS DE L'INTERFACE UTILISATEUR
   // =============================================
@@ -769,15 +1284,16 @@ class _SensorPageState extends State<SensorPage> {
   Widget rollAndPitchTiles() {
     return Row(
       children: [
-        Expanded(child: rollTile(_rollAngle)),
-        Expanded(child: pitchTile(_pitchAngle)),
+        Expanded(child: rollTile(_rollAngle, key: _rollAngleButtonKey)),
+        Expanded(child: pitchTile(_pitchAngle, key: _pitchAngleButtonKey)),
       ],
     );
   }
 
   /// Tuile d'affichage pour l'angle de roulis (roll)
-  Widget rollTile(double? angle) {
+  Widget rollTile(double? angle, {Key? key}) {
     return Card(
+      key: key,
       color: getSmoothColorForAngle(angle),
       child: InkWell(
         onTap: () => setState(() => _showRollData = !_showRollData),
@@ -794,8 +1310,9 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Tuile d'affichage pour l'angle de tangage (pitch)
-  Widget pitchTile(double? angle) {
+  Widget pitchTile(double? angle,  {Key? key}) {
     return Card(
+      key: key,
       color: getSmoothColorForAngle(angle),
       child: InkWell(
         onTap: () => setState(() => _showPitchData = !_showPitchData),
@@ -826,6 +1343,7 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage du taux d'échantillonnage
   Widget SampleRateTile() {
     return Card(
+      key: _rateButtonKey,
       color: Colors.blueGrey,
       child: ListTile(
         leading: const Icon(Icons.speed, color: Colors.white, size: 40),
@@ -854,6 +1372,7 @@ class _SensorPageState extends State<SensorPage> {
           });
         },
         child: ListTile(
+          key: _sampleButtonKey,
           leading: const Icon(Icons.bar_chart_outlined, color: Colors.white, size: 40),
           title: const Text('Nb Sample', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           subtitle: Text(
@@ -869,6 +1388,7 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage des périodes calculées par passage à zéro
   Widget rollingPeriodTile(double? Rollperiod, double? Pitchperiod) {
     return Card(
+      key: _rollPitchPeriodButtonKey,
       color: Colors.teal,
       child: SizedBox(
         height: 70,
@@ -924,8 +1444,24 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Tuile d'affichage des périodes calculées par FFT
   Widget fftPeriodTile() {
-    int nb_sample=_powersOfTwo[_powerIndex].toInt();
+    int nb_sample = _powersOfTwo[_powerIndex].toInt();
+    String timeText = '';
+
+    if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
+      if (!_isCollectingData && _fftRollSamples.isEmpty) {
+        // Estimation avant démarrage
+        final estimatedTime = (nb_sample / _dynamicSampleRate!).ceil();
+        timeText = 'Time estimated: ${_formatTime(estimatedTime)}';
+      } else if (_isCollectingData) {
+        // Temps restant pendant la collecte
+        final remainingSamples = nb_sample - _fftRollSamples.length;
+        final remainingTime = (remainingSamples / _dynamicSampleRate!).ceil();
+        timeText = 'Time left: ${_formatTime(remainingTime)}';
+      }
+    }
+
     return Card(
+      key: _rollPitchFftButtonKey,
       color: Colors.deepPurple,
       child: SizedBox(
         height: 70,
@@ -942,18 +1478,24 @@ class _SensorPageState extends State<SensorPage> {
                     title: const Text('Roll Period (FFT)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     subtitle: _fftRollPeriod != null
                         ? Text('${_fftRollPeriod!.toStringAsFixed(2)} s', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-                        : _fftRollSamples.length == _fftWindowSize
-                        ? const Text('Calculating...', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-                        : Text('Collecting (${_fftRollSamples.length}/$nb_sample)', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        : Text(
+                      _isCollectingData
+                          ? '$timeText'
+                          : timeText.isNotEmpty ? timeText : 'Press Start',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.sync, color: Colors.white, size: 40),
                     title: const Text('Pitch Period (FFT)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     subtitle: _fftPitchPeriod != null
                         ? Text('${_fftPitchPeriod!.toStringAsFixed(2)} s', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-                        : _fftPitchSamples.length == _fftWindowSize
-                        ? const Text('Calculating...', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-                        : Text('Collecting (${_fftPitchSamples.length}/$nb_sample)', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        : Text(
+                      _isCollectingData
+                          ? '$timeText'
+                          : timeText.isNotEmpty ? timeText : 'Press Start',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
                   ),
                 ],
               ),
@@ -1008,14 +1550,6 @@ class _SensorPageState extends State<SensorPage> {
             clipData: FlClipData.all(),
             lineBarsData: [
               LineChartBarData(
-                spots: rollChartData,
-                color: Colors.blue,
-                barWidth: 2,
-                isCurved: false,
-                dotData: FlDotData(show: false),
-                belowBarData: BarAreaData(show: false),
-              ),
-              LineChartBarData(
                 spots: pitchChartData,
                 color: Colors.green,
                 barWidth: 2,
@@ -1023,6 +1557,15 @@ class _SensorPageState extends State<SensorPage> {
                 dotData: FlDotData(show: false),
                 belowBarData: BarAreaData(show: false),
               ),
+              LineChartBarData(
+                spots: rollChartData,
+                color: Colors.blue,
+                barWidth: 2,
+                isCurved: false,
+                dotData: FlDotData(show: false),
+                belowBarData: BarAreaData(show: false),
+              ),
+
             ],
             titlesData: FlTitlesData(
               leftTitles: AxisTitles(
@@ -1124,109 +1667,130 @@ class _SensorPageState extends State<SensorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                rollAndPitchTiles(),
-                RateAndSampleTiles(),
-                rollingPeriodTile(_RollaveragePeriod,_PitchaveragePeriod),
-                fftPeriodTile(),
-                buildChart(),
-              ],
-            ),
+      appBar: CustomAppBar(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+            onPressed: () {
+              setState(() {
+                _showTutorial = true;
+                _createTutorial();
+                tutorialCoachMark.show(context: context);
+              });
+            },
           ),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
-              children: [
-                // Clear button
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _clearData,
-                    child: const Text('Clear',
-                        style: TextStyle(
+        ],
+      ),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(12),
+                  children: [
+                    rollAndPitchTiles(),
+                    RateAndSampleTiles(),
+                    rollingPeriodTile(_RollaveragePeriod,_PitchaveragePeriod),
+                    fftPeriodTile(),
+                    buildChart(),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    // Clear button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _clearData,
+                        key: _clearButtonKey,
+                        child: const Text('Clear',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Color(0xFF012169))),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Start/Pause button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _hasReachedSampleCount ? _savefunction : _toggleDataCollection,
+                        key: _startButtonKey,
+                        child: Text(
+                          _hasReachedSampleCount ? 'Save' : (_isCollectingData ? 'Pause' : 'Start'),
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Color(0xFF012169))),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
+                            color: _hasReachedSampleCount ? Colors.white : Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _hasReachedSampleCount ? Colors.green : const Color(0xFF012169),
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15.0),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
+                    const SizedBox(width: 8),
 
-                // Start/Pause button
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _hasReachedSampleCount ? _savefunction : _toggleDataCollection,
-                    child: Text(
-                      _hasReachedSampleCount ? 'Save' : (_isCollectingData ? 'Pause' : 'Start'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: _hasReachedSampleCount ? Colors.white : Colors.white,
+                    // Import/Export buttons
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.24),
+                              blurRadius: 2,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            InkWell(
+                              key: _importButtonKey,
+                              onTap: _handleImport,
+                              child: const Icon(Icons.download,
+                                  color: Color(0xFF012169), size: 24),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 24,
+                              color: const Color(0xFF012169),
+                            ),
+                            InkWell(
+                              key: _exportButtonKey,
+                              onTap: _exportRollDataToDownloads,
+                              child: const Icon(Icons.upload,
+                                  color: Color(0xFF012169), size: 24),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _hasReachedSampleCount ? Colors.green : const Color(0xFF012169),
-                      padding: const EdgeInsets.symmetric(vertical: 12.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15.0),
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
+              )
 
-                // Import/Export buttons
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.24),
-                          blurRadius: 2,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        InkWell(
-                          onTap: _handleImport,
-                          child: const Icon(Icons.download,
-                              color: Color(0xFF012169), size: 24),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 24,
-                          color: const Color(0xFF012169),
-                        ),
-                        InkWell(
-                          onTap: _exportRollDataToDownloads,
-                          child: const Icon(Icons.upload,
-                              color: Color(0xFF012169), size: 24),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )
-
+            ],
+          ),
         ],
       ),
     );

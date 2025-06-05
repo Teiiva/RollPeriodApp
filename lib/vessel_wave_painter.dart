@@ -232,7 +232,32 @@ class _CompassPainter extends CustomPainter {
       )
       ..close();
 
+
+
     canvas.drawPath(arrowPath, paintArrow);
+
+    // Flèche de direction du bateau (course) - en rouge
+    final paintCourseArrow = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.fill;
+
+    final courseAngle = course * pi / 180;
+    final courseArrowX = center.dx + cos(courseAngle) * (radius );
+    final courseArrowY = center.dy + sin(courseAngle) * (radius );
+
+    final courseArrowPath = Path()
+      ..moveTo(courseArrowX, courseArrowY)
+      ..lineTo(
+        courseArrowX + arrowLength * cos(courseAngle + pi - pi / 6),
+        courseArrowY + arrowLength * sin(courseAngle + pi - pi / 6),
+      )
+      ..lineTo(
+        courseArrowX + arrowLength * cos(courseAngle + pi + pi / 6),
+        courseArrowY + arrowLength * sin(courseAngle + pi + pi / 6),
+      )
+      ..close();
+
+    canvas.drawPath(courseArrowPath, paintCourseArrow);
   }
 
   @override

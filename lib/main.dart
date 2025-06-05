@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'sensor_page.dart'; // Page qu’on va créer juste après
 import 'menu.dart';
+import 'package:flutter/material.dart';
+import 'shared_data.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => SharedData(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

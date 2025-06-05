@@ -446,120 +446,127 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   Widget _buildProfileManagementSection() {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
                     "Vessel Profile",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                IconButton(
-                  icon: const Icon(Icons.save, color: Color(0xFF012169)),
-                  onPressed: _saveCurrentVesselProfile,
-                  tooltip: "Save current profile",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.save, color: Color(0xFF012169)),
+                    onPressed: _saveCurrentVesselProfile,
+                    tooltip: "Save current profile",
+                  ),
+                ],
+              ),
+              if (_savedProfiles.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: 50, // Hauteur fixe
+                  ),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _savedProfiles.length,
+                    itemBuilder: (context, index) {
+                      final profile = _savedProfiles[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: InputChip(
+                          label: Text(profile.name),
+                          selected: profile.name == _currentVesselProfile.name,
+                          onSelected: (_) => _loadProfile(profile),
+                          onDeleted: () => _deleteProfile(index),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          backgroundColor: profile.name == _currentVesselProfile.name
+                              ? const Color(0xFF012169).withOpacity(0.2)
+                              : Colors.grey[200],
+                          labelStyle: TextStyle(
+                            color: profile.name == _currentVesselProfile.name
+                                ? const Color(0xFF012169)
+                                : Colors.black,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
-            ),
-            if (_savedProfiles.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _savedProfiles.length,
-                  itemBuilder: (context, index) {
-                    final profile = _savedProfiles[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: InputChip(
-                        label: Text(profile.name),
-                        selected: profile.name == _currentVesselProfile.name,
-                        onSelected: (_) => _loadProfile(profile),
-                        onDeleted: () => _deleteProfile(index),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        backgroundColor: profile.name == _currentVesselProfile.name
-                            ? const Color(0xFF012169).withOpacity(0.2)
-                            : Colors.grey[200],
-                        labelStyle: TextStyle(
-                          color: profile.name == _currentVesselProfile.name
-                              ? const Color(0xFF012169)
-                              : Colors.black,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildConditionManagementSection() {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                    "Loading Condition",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                IconButton(
-                  icon: const Icon(Icons.save, color: Color(0xFF012169)),
-                  onPressed: _saveCurrentLoadingCondition,
-                  tooltip: "Save current condition",
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                      "Loading Condition",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  IconButton(
+                    icon: const Icon(Icons.save, color: Color(0xFF012169)),
+                    onPressed: _saveCurrentLoadingCondition,
+                    tooltip: "Save current condition",
+                  ),
+                ],
+              ),
+              if (_currentVesselProfile.loadingConditions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 50,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _currentVesselProfile.loadingConditions.length,
+                    itemBuilder: (context, index) {
+                      final condition = _currentVesselProfile.loadingConditions[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: InputChip(
+                          label: Text(condition.name),
+                          selected: condition.name == _currentLoadingCondition.name,
+                          onSelected: (_) => _loadCondition(condition),
+                          onDeleted: () => _deleteCondition(index),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          backgroundColor: condition.name == _currentLoadingCondition.name
+                              ? const Color(0xFF012169).withOpacity(0.2)
+                              : Colors.grey[200],
+                          labelStyle: TextStyle(
+                            color: condition.name == _currentLoadingCondition.name
+                                ? const Color(0xFF012169)
+                                : Colors.black,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
-            ),
-            if (_currentVesselProfile.loadingConditions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _currentVesselProfile.loadingConditions.length,
-                  itemBuilder: (context, index) {
-                    final condition = _currentVesselProfile.loadingConditions[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: InputChip(
-                        label: Text(condition.name),
-                        selected: condition.name == _currentLoadingCondition.name,
-                        onSelected: (_) => _loadCondition(condition),
-                        onDeleted: () => _deleteCondition(index),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        backgroundColor: condition.name == _currentLoadingCondition.name
-                            ? const Color(0xFF012169).withOpacity(0.2)
-                            : Colors.grey[200],
-                        labelStyle: TextStyle(
-                          color: condition.name == _currentLoadingCondition.name
-                              ? const Color(0xFF012169)
-                              : Colors.black,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
