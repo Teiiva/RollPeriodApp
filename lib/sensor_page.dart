@@ -104,6 +104,7 @@ class _SensorPageState extends State<SensorPage> {
 
   late TutorialCoachMark tutorialCoachMark;
   bool _showTutorial = false;
+  final GlobalKey _chartKey = GlobalKey();
   final GlobalKey _startButtonKey = GlobalKey();
   final GlobalKey _clearButtonKey = GlobalKey();
   final GlobalKey _exportButtonKey = GlobalKey();
@@ -795,12 +796,12 @@ class _SensorPageState extends State<SensorPage> {
     tutorialCoachMark = TutorialCoachMark(
       targets: _createTargets(),
       colorShadow: Colors.black.withOpacity(0.8),
-      paddingFocus: 1, // plus faible padding
+      paddingFocus: 0, // plus faible padding
       opacityShadow: 0.8,
 
       // Animation plus rapide
-      focusAnimationDuration: const Duration(milliseconds: 500),
-      unFocusAnimationDuration: const Duration(milliseconds: 500),
+      focusAnimationDuration: const Duration(milliseconds: 600),
+      unFocusAnimationDuration: const Duration(milliseconds: 400),
 
       onFinish: () {
         if (mounted) {
@@ -862,7 +863,53 @@ class _SensorPageState extends State<SensorPage> {
     );
     //
     //Etape 2 : courbes
-    //
+    targets.add(
+      TargetFocus(
+        identify: "chart",
+        keyTarget: _chartKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Ce graphique affiche en temps réel les angles de roulis (bleu) et tangage (vert).\n\nVous pouvez zoomer/pincer et glisser pour naviguer dans les données.",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous();
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.next();
+                        },
+                        child: const Text("Suivant"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 15,
+      ),
+    );
 
     // Étape 3: Bouton clear
     targets.add(
@@ -886,11 +933,22 @@ class _SensorPageState extends State<SensorPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      controller.next(); // Passe à l'étape suivante (roll)
-                    },
-                    child: const Text("Suivant"),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous();
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.next();
+                        },
+                        child: const Text("Suivant"),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -924,11 +982,22 @@ class _SensorPageState extends State<SensorPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      controller.next(); // Passe à l'étape suivante (roll)
-                    },
-                    child: const Text("Suivant"),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous();
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.next();
+                        },
+                        child: const Text("Suivant"),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -962,11 +1031,22 @@ class _SensorPageState extends State<SensorPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      controller.next(); // Passe à l'étape suivante (roll)
-                    },
-                    child: const Text("Suivant"),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous();
+                        },
+                        child: const Text("Précédent"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.next();
+                        },
+                        child: const Text("Suivant"),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -1061,9 +1141,9 @@ class _SensorPageState extends State<SensorPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.skip(); // Termine le tutoriel
+                          controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Terminer"),
+                        child: const Text("Suivant"),
                       ),
                     ],
                   ),
@@ -1110,9 +1190,9 @@ class _SensorPageState extends State<SensorPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.skip(); // Termine le tutoriel
+                          controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Terminer"),
+                        child: const Text("Suivant"),
                       ),
                     ],
                   ),
@@ -1159,9 +1239,9 @@ class _SensorPageState extends State<SensorPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.skip(); // Termine le tutoriel
+                          controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Terminer"),
+                          child: const Text("Suivant"),
                       ),
                     ],
                   ),
@@ -1208,9 +1288,9 @@ class _SensorPageState extends State<SensorPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.skip(); // Termine le tutoriel
+                          controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Terminer"),
+                        child: const Text("Suivant"),
                       ),
                     ],
                   ),
@@ -1293,9 +1373,9 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage pour l'angle de roulis (roll)
   Widget rollTile(double? angle, {Key? key}) {
     return Card(
-      key: key,
       color: getSmoothColorForAngle(angle),
       child: InkWell(
+        key: key,
         onTap: () => setState(() => _showRollData = !_showRollData),
         child: ListTile(
           leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
@@ -1312,9 +1392,9 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage pour l'angle de tangage (pitch)
   Widget pitchTile(double? angle,  {Key? key}) {
     return Card(
-      key: key,
       color: getSmoothColorForAngle(angle),
       child: InkWell(
+        key: key,
         onTap: () => setState(() => _showPitchData = !_showPitchData),
         child: ListTile(
           leading: Transform.rotate(
@@ -1343,9 +1423,9 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage du taux d'échantillonnage
   Widget SampleRateTile() {
     return Card(
-      key: _rateButtonKey,
       color: Colors.blueGrey,
       child: ListTile(
+        key: _rateButtonKey,
         leading: const Icon(Icons.speed, color: Colors.white, size: 40),
         title: const Text('Rate', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         subtitle: Text(
@@ -1388,9 +1468,9 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage des périodes calculées par passage à zéro
   Widget rollingPeriodTile(double? Rollperiod, double? Pitchperiod) {
     return Card(
-      key: _rollPitchPeriodButtonKey,
       color: Colors.teal,
       child: SizedBox(
+        key: _rollPitchPeriodButtonKey,
         height: 70,
         child: Row(
           children: [
@@ -1461,9 +1541,9 @@ class _SensorPageState extends State<SensorPage> {
     }
 
     return Card(
-      key: _rollPitchFftButtonKey,
       color: Colors.deepPurple,
       child: SizedBox(
+        key: _rollPitchFftButtonKey,
         height: 70,
         child: Row(
           children: [
@@ -1538,6 +1618,7 @@ class _SensorPageState extends State<SensorPage> {
         : 30;
 
     return Padding(
+      key: _chartKey, // <-- Ajoutez cette ligne
       padding: const EdgeInsets.all(16.0),
       child: SizedBox(
         height: 270,
