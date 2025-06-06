@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 /// Page principale pour l'affichage et l'analyse des données des capteurs
 class SensorPage extends StatefulWidget {
   final VesselProfile vesselProfile;
@@ -116,6 +117,7 @@ class _SensorPageState extends State<SensorPage> {
   final GlobalKey _rollPitchPeriodButtonKey = GlobalKey();
   final GlobalKey _rollPitchFftButtonKey = GlobalKey();
 
+  final ScrollController _scrollController = ScrollController();
 
   // =============================================
   // LIFECYCLE METHODS
@@ -137,6 +139,7 @@ class _SensorPageState extends State<SensorPage> {
     _pageController.dispose();
     _fftPageController.dispose();
     super.dispose();
+    _scrollController.dispose();
   }
 
   // =============================================
@@ -784,9 +787,18 @@ class _SensorPageState extends State<SensorPage> {
       await prefs.setBool('first_launch', false);
       _showTutorial = true;
       _createTutorial();
-      Future.delayed(const Duration(milliseconds: 500), () {
+
+      // Ajoutez un petit délai pour permettre au build de se terminer
+      Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
-          tutorialCoachMark.show(context: context);
+          // Faites défiler vers la première position avant d'afficher le tutoriel
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          ).then((_) {
+            tutorialCoachMark.show(context: context);
+          });
         }
       });
     }
@@ -796,13 +808,10 @@ class _SensorPageState extends State<SensorPage> {
     tutorialCoachMark = TutorialCoachMark(
       targets: _createTargets(),
       colorShadow: Colors.black.withOpacity(0.8),
-      paddingFocus: 0, // plus faible padding
+      paddingFocus: 0,
       opacityShadow: 0.8,
-
-      // Animation plus rapide
       focusAnimationDuration: const Duration(milliseconds: 600),
       unFocusAnimationDuration: const Duration(milliseconds: 400),
-
       onFinish: () {
         if (mounted) {
           setState(() {
@@ -812,6 +821,7 @@ class _SensorPageState extends State<SensorPage> {
       },
       onClickTarget: (target) {
         debugPrint('onClickTarget: $target');
+        _handleTargetScroll(target);
       },
       onClickOverlay: (target) {
         debugPrint('onClickOverlay: $target');
@@ -819,7 +829,25 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-
+  void _handleTargetScroll(TargetFocus target) {
+    if (target.identify == "chart") {
+      _scrollController.animateTo(
+        600, // Ajustez cette valeur selon vos besoins
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      ).then((_) {
+        tutorialCoachMark.show(context: context);
+      });
+    } else if (target.identify == "roll_angle") {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      ).then((_) {
+        tutorialCoachMark.show(context: context);
+      });
+    }
+  }
 
   List<TargetFocus> _createTargets() {
     List<TargetFocus> targets = [];
@@ -867,10 +895,17 @@ class _SensorPageState extends State<SensorPage> {
       TargetFocus(
         identify: "chart",
         keyTarget: _chartKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollController.animateTo(
+                    600,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                });
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1068,6 +1103,13 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.bottom,
             builder: (context, controller) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                );
+              });
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1756,10 +1798,20 @@ class _SensorPageState extends State<SensorPage> {
               setState(() {
                 _showTutorial = true;
                 _createTutorial();
-                tutorialCoachMark.show(context: context);
+                // Faites défiler vers le haut avant d'afficher le tutoriel
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                ).then((_) {
+                  if (mounted) {
+                    tutorialCoachMark.show(context: context);
+                  }
+                });
               });
             },
           ),
+
         ],
       ),
       body: Stack(
@@ -1768,6 +1820,7 @@ class _SensorPageState extends State<SensorPage> {
             children: [
               Expanded(
                 child: ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(12),
                   children: [
                     rollAndPitchTiles(),
