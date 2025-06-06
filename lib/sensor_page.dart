@@ -837,7 +837,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour démarrer la collecte des données des capteurs",
+                    "Press here to start collecting sensor data and display the roll and pitch curves.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -850,7 +850,7 @@ class _SensorPageState extends State<SensorPage> {
                     onPressed: () {
                       controller.next(); // Passe à l'étape suivante (roll)
                     },
-                    child: const Text("Suivant"),
+                    child: const Text("Next"),
                   ),
                 ],
               );
@@ -875,7 +875,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Ce graphique affiche en temps réel les angles de roulis (bleu) et tangage (vert).\n\nVous pouvez zoomer/pincer et glisser pour naviguer dans les données.",
+                    "This chart displays the roll angles (blue) and pitch angles (green) in real time. \n\nYou can zoom/pinch and drag to navigate through the data.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -891,13 +891,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -924,7 +924,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour effacer les courbes",
+                    "Press here to clear the curves.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -940,13 +940,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -973,7 +973,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour exporter les données mesurer et calculer dans un fichier csv",
+                    "Press here to export the measured and calculated data to a CSV file.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -989,13 +989,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1022,7 +1022,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour importer des données depuis un fichier csv",
+                    "Press here to import data from a CSV file.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1038,13 +1038,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1072,7 +1072,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche l'angle de roulis en direct, appuyez sur le boutton pour afficher ou masquer la courbe de roulis",
+                    "Displays the live roll angle; press the button to show or hide the roll curve.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1088,13 +1088,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Passe à l'étape suivante (pitch)
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1121,7 +1121,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche l'angle de roulis en direct, appuyez sur le boutton pour afficher ou masquer la courbe de tangage",
+                    "Displays the live pitch angle; press the button to show or hide the pitch curve.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1137,13 +1137,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1170,7 +1170,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche la fréquence d'échzntillonnage",
+                    "Displays the sampling frequency.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1186,13 +1186,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1219,7 +1219,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Cliquez sur le boutton pour faire choisir le nombre de sample afficher sur la courbe (8 posibilités)",
+                    "Click the button to choose the number of samples displayed on the curve (8 options).",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1235,13 +1235,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                          child: const Text("Suivant"),
+                          child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1268,7 +1268,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche la periode de roulis estimer grace au zero crossing. faire defiler pour voir la pitch period",
+                    "Displays the estimated roll period using zero crossing. Scroll to see the pitch period.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1284,13 +1284,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1317,7 +1317,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche la valeur réelle de rolling period grace a l'analyse spectrale. faire defiler pour acceder à la pitch period",
+                    "Displays the actual rolling period value using spectral analysis. Scroll to access the pitch period. \n Displays an estimated measurement time indicator based on the number of samples and the sampling frequency.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1333,13 +1333,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.skip(); // Termine le tutoriel
                         },
-                        child: const Text("Terminer"),
+                        child: const Text("End"),
                       ),
                     ],
                   ),
