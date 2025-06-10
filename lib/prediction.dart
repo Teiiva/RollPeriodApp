@@ -61,8 +61,15 @@ class _PredictionPageState extends State<PredictionPage> {
         final k = methodParameters['Roll Coefficient'] ?? 0.4;
         return 2 * k * beam / sqrt(gm);
       case 'Doyere':
-        final c = methodParameters['Doyere'] ?? 0.29;
-        return 2 * c * sqrt((pow(beam, 2) + 4 * pow(vcg, 2)) / gm);
+        final c = methodParameters['Doyere'] ?? 0.34;
+        debugPrint("beam : ${beam}");
+        debugPrint("beam² : ${pow(beam, 2)}");
+        debugPrint("vcg : ${vcg}");
+        debugPrint("vcg² : ${pow(vcg, 2)}");
+        debugPrint("gm : ${gm}");
+        debugPrint("c : ${c}");
+        return 2*c*sqrt(((pow(beam, 2))+4*(pow(vcg, 2)))/gm);
+        //return 2*c*sqrt(((pow(beam, 2))+4*(pow(vcg, 2)))/gm);
       case 'JSRA':
         final k = 0.3437 + 0.024 * (beam / depth);
         return 2 * k * beam / sqrt(gm);
@@ -125,14 +132,6 @@ class _PredictionPageState extends State<PredictionPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              spreadRadius: 2,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Center(
           child: Column(
@@ -512,7 +511,36 @@ class _PredictionPageState extends State<PredictionPage> {
     );
   }
 
-
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.black54,
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
 
   Future<List<SavedMeasurement>> _loadSavedMeasurements() async {
@@ -545,7 +573,7 @@ class _PredictionPageState extends State<PredictionPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Card(
-                elevation: 2,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -600,7 +628,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
               // Section des résultats (premier ExpansionTile)
               Card(
-                elevation: 2,
+                elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
@@ -664,7 +692,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
               // Section des mesures sauvegardées (deuxième ExpansionTile)
               Card(
-                elevation: 2,
+                elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
@@ -687,7 +715,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
               // Section de comparaison (troisième ExpansionTile)
               Card(
-                elevation: 2,
+                elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
@@ -844,6 +872,137 @@ class _PredictionPageState extends State<PredictionPage> {
                             ],
                           );
                         },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Dans la méthode build(), ajoutez cette nouvelle Card après la section "METHOD SELECTION"
+              const SizedBox(height: 20),
+
+// Nouvelle section pour les détails du profil
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ExpansionTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
+                    side: BorderSide.none,
+                  ),
+                  title: Text(
+                    "VESSEL & LOADING DETAILS",
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Colors.grey,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Détails du navire
+                          Card(
+                            elevation: 0,
+                            color: Colors.grey[50],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.directions_boat, color: Color(0xFF012169)),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        "VESSEL PROFILE",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF012169),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12),
+                                  _buildDetailRow("Name", widget.vesselProfile.name),
+                                  _buildDetailRow("Length", "${widget.vesselProfile.length.toStringAsFixed(2)} m"),
+                                  _buildDetailRow("Beam", "${widget.vesselProfile.beam.toStringAsFixed(2)} m"),
+                                  _buildDetailRow("Depth", "${widget.vesselProfile.depth.toStringAsFixed(2)} m"),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+
+                          // Détails de la condition de chargement
+                          Card(
+                            elevation: 0,
+                            color: Colors.grey[50],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.balance, color: Color(0xFF012169)),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        "LOADING CONDITION",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF012169),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12),
+                                  _buildDetailRow("Name", widget.loadingCondition.name),
+                                  _buildDetailRow("GM", "${widget.loadingCondition.gm.toStringAsFixed(2)} m"),
+                                  _buildDetailRow("VCG", "${widget.loadingCondition.vcg.toStringAsFixed(2)} m"),
+
+                                  // Liste des autres conditions de chargement disponibles
+                                  if (widget.vesselProfile.loadingConditions.length > 1) ...[
+                                    Divider(height: 24),
+                                    Text(
+                                      "OTHER AVAILABLE CONDITIONS",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    ...widget.vesselProfile.loadingConditions
+                                        .where((cond) => cond.name != widget.loadingCondition.name)
+                                        .map((condition) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              condition.name,
+                                              style: TextStyle(color: Colors.black87),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

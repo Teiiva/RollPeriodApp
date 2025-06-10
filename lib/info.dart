@@ -6,6 +6,7 @@ import 'models/navigation_info.dart';
 import 'models/loading_condition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'storage_manager.dart';
 
 class VesselWavePage extends StatefulWidget {
   final VesselProfile currentVesselProfile;
@@ -44,43 +45,34 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   Future<void> _loadSavedData() async {
-    final prefs = await SharedPreferences.getInstance();
+    // Charger les profils sauvegardés
+    _savedProfiles = await StorageManager.loadList(
+      key: 'savedProfiles',
+      fromMap: VesselProfile.fromMap,
+    );
 
-    // 1. Load all saved profiles
-    final String? profilesJson = prefs.getString('savedProfiles');
-    if (profilesJson != null) {
-      final List<dynamic> profilesList = json.decode(profilesJson);
+    // Charger le profil courant
+    final currentProfile = await StorageManager.loadCurrent(
+      key: 'currentProfile',
+      fromMap: VesselProfile.fromMap,
+    );
+
+    if (currentProfile != null) {
       setState(() {
-        _savedProfiles = profilesList
-            .map((profile) => VesselProfile.fromMap(profile))
-            .toList();
-      });
-    }
+        _currentVesselProfile = _savedProfiles.firstWhere(
+              (p) => p.name == currentProfile.name,
+          orElse: () => currentProfile,
+        );
 
-    // 2. Load current profile
-    final String? currentProfileJson = prefs.getString('currentProfile');
-    if (currentProfileJson != null) {
-      final Map<String, dynamic> currentProfileMap = json.decode(currentProfileJson);
-      final currentProfile = VesselProfile.fromMap(currentProfileMap);
-
-      // Find the profile in saved profiles to get the complete data
-      final savedProfile = _savedProfiles.firstWhere(
-            (p) => p.name == currentProfile.name,
-        orElse: () => currentProfile,
-      );
-
-      setState(() {
-        _currentVesselProfile = savedProfile;
-        if (_currentVesselProfile.loadingConditions.isNotEmpty) {
-          _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
-        }
+        // Charger la première condition ou créer une condition par défaut
+        _currentLoadingCondition = _currentVesselProfile.loadingConditions.isNotEmpty
+            ? _currentVesselProfile.loadingConditions.first
+            : LoadingCondition(name: "Default", gm: 0, vcg: 0);
       });
     }
   }
 
   Future<void> _saveAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-
     // Mettre à jour la liste des profils avec le profil courant
     final index = _savedProfiles.indexWhere((p) => p.name == _currentVesselProfile.name);
     if (index != -1) {
@@ -90,15 +82,17 @@ class _VesselWavePageState extends State<VesselWavePage> {
     }
 
     // Sauvegarder la liste des profils
-    await prefs.setString(
-      'savedProfiles',
-      json.encode(_savedProfiles.map((profile) => profile.toMap()).toList()),
+    await StorageManager.saveList(
+      key: 'savedProfiles',
+      items: _savedProfiles,
+      toMap: (profile) => profile.toMap(),
     );
 
     // Sauvegarder le profil courant
-    await prefs.setString(
-      'currentProfile',
-      json.encode(_currentVesselProfile.toMap()),
+    await StorageManager.saveCurrent(
+      key: 'currentProfile',
+      item: _currentVesselProfile,
+      toMap: (profile) => profile.toMap(),
     );
   }
 
@@ -128,18 +122,24 @@ class _VesselWavePageState extends State<VesselWavePage> {
           TextButton(
             onPressed: () async {
               if (_profileNameController.text.trim().isNotEmpty) {
-                // Crée un nouveau profil avec une liste de conditions de chargement vide
                 final newProfile = VesselProfile(
                   name: _profileNameController.text.trim(),
                   length: _currentVesselProfile.length,
                   beam: _currentVesselProfile.beam,
                   depth: _currentVesselProfile.depth,
-                  loadingConditions: [], // Liste vide
+                  loadingConditions: [
+                    LoadingCondition(
+                      name: "Default",
+                      gm: _currentLoadingCondition.gm,
+                      vcg: _currentLoadingCondition.vcg,
+                    )
+                  ],
                 );
 
                 setState(() {
                   _savedProfiles.add(newProfile);
                   _currentVesselProfile = newProfile;
+                  _currentLoadingCondition = newProfile.loadingConditions.first;
                 });
 
                 await _saveAllData();
@@ -182,13 +182,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 );
 
                 setState(() {
-                  // Crée une nouvelle liste avec les conditions existantes + la nouvelle
                   final newConditions = List<LoadingCondition>.from(_currentVesselProfile.loadingConditions);
                   newConditions.add(newCondition);
-
-                  _currentVesselProfile = _currentVesselProfile.copyWith(
-                    loadingConditions: newConditions,
-                  );
+                  _currentVesselProfile = _currentVesselProfile.copyWith(loadingConditions: newConditions);
                   _currentLoadingCondition = newCondition;
                 });
 
@@ -230,14 +226,20 @@ class _VesselWavePageState extends State<VesselWavePage> {
     // 4. Mettre à jour l'état local
     setState(() {
       _currentVesselProfile = profile;
+      // Charger la première condition si elle existe
       if (profile.loadingConditions.isNotEmpty) {
         _currentLoadingCondition = profile.loadingConditions.first;
+      } else {
+        // Créer une condition par défaut si aucune n'existe
+        _currentLoadingCondition = LoadingCondition(
+          name: "Default",
+          gm: 0,
+          vcg: 0,
+        );
       }
       _updateValues();
     });
   }
-
-
 
   void _loadCondition(LoadingCondition condition) {
     setState(() {
@@ -249,26 +251,45 @@ class _VesselWavePageState extends State<VesselWavePage> {
   void _deleteProfile(int index) async {
     setState(() {
       _savedProfiles.removeAt(index);
+      // Si on supprime le profil courant, charger le premier profil disponible ou créer un profil par défaut
+      if (_savedProfiles.isNotEmpty) {
+        _currentVesselProfile = _savedProfiles.first;
+        _currentLoadingCondition = _currentVesselProfile.loadingConditions.firstOrNull ??
+            LoadingCondition(name: "Default", gm: 0, vcg: 0);
+      } else {
+        _currentVesselProfile = VesselProfile(
+          name: "Default",
+          length: 0,
+          beam: 0,
+          depth: 0,
+          loadingConditions: [LoadingCondition(name: "Default", gm: 0, vcg: 0)],
+        );
+        _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+      }
     });
+
     await _saveAllData();
+    _updateValues();
   }
 
   void _deleteCondition(int index) async {
     setState(() {
-      _currentVesselProfile = _currentVesselProfile.copyWith(
-        loadingConditions: [
-          ..._currentVesselProfile.loadingConditions..removeAt(index)
-        ],
-      );
+      final newConditions = List<LoadingCondition>.from(_currentVesselProfile.loadingConditions);
+      newConditions.removeAt(index);
 
-      if (_currentVesselProfile.loadingConditions.isEmpty) {
-        _currentLoadingCondition = LoadingCondition(
-          name: "Default",
-          gm: 1.0,
-          vcg: 10.0,
-        );
-      } else if (_currentLoadingCondition == _currentVesselProfile.loadingConditions[index]) {
-        _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+      _currentVesselProfile = _currentVesselProfile.copyWith(loadingConditions: newConditions);
+
+      // Si on supprime la condition actuelle ou s'il ne reste plus de conditions
+      if (newConditions.isEmpty || _currentLoadingCondition == _currentVesselProfile.loadingConditions[index]) {
+        _currentLoadingCondition = newConditions.isNotEmpty
+            ? newConditions.first
+            : LoadingCondition(name: "Default", gm: 0, vcg: 0);
+
+        if (newConditions.isEmpty) {
+          _currentVesselProfile = _currentVesselProfile.copyWith(
+            loadingConditions: [_currentLoadingCondition],
+          );
+        }
       }
     });
 
@@ -334,7 +355,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             },
           ),
           _buildInputCard(
-            iconWidget: Icon(Icons.crop_landscape, size: 40, color: Color(0xFF012169)),
+            iconWidget: Icon(Icons.swap_horiz, size: 40, color: Color(0xFF012169)),
             label: "Beam (B)",
             unit: "m",
             value: _currentVesselProfile.beam,
@@ -344,7 +365,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             },
           ),
           _buildInputCard(
-            iconWidget: Icon(Icons.water, size: 40, color: Color(0xFF012169)),
+            iconWidget: Icon(Icons.swap_vert, size: 40, color: Color(0xFF012169)),
             label: "Depth (D)",
             unit: "m",
             value: _currentVesselProfile.depth,
@@ -464,7 +485,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.save, color: Color(0xFF012169)),
+                    icon: const Icon(Icons.create_new_folder, color: Color(0xFF012169)),
                     onPressed: _saveCurrentVesselProfile,
                     tooltip: "Save current profile",
                   ),
@@ -599,7 +620,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                   children: [
                     Center(
                       child: Text(
-                        "$label: ${value.toStringAsFixed(1)} $unit",
+                        "$label: ${value.toStringAsFixed(2)} $unit",
                         style: const TextStyle(fontSize: 14),
                       ),
                     ),
@@ -608,7 +629,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                       min: min,
                       max: max,
                       divisions: ((max - min) ~/ 1),
-                      label: value.toStringAsFixed(1),
+                      label: value.toStringAsFixed(2),
                       onChanged: onChanged,
                       onChangeEnd: onChangeEnd,
                     ),
@@ -629,7 +650,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     required double value,
     required ValueChanged<double> onChanged,
   }) {
-    final TextEditingController _controller = TextEditingController(text: value.toStringAsFixed(1));
+    final TextEditingController _controller = TextEditingController(text: value.toStringAsFixed(2));
     final FocusNode _focusNode = FocusNode();
 
     _focusNode.addListener(() {

@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 /// Page principale pour l'affichage et l'analyse des données des capteurs
 class SensorPage extends StatefulWidget {
   final VesselProfile vesselProfile;
@@ -97,8 +98,8 @@ class _SensorPageState extends State<SensorPage> {
   late PageController _fftPageController;
   int _currentFftPage = 0;
 
-  int _powerIndex = 0;
-  final List<double> _powersOfTwo = [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]; // exemple
+  int _powerIndex = 3;
+  final List<double> _powersOfTwo  = [512, 1024, 2048, 4096, 8192, 16384]; // Supprimer les autres options
 
   bool _hasReachedSampleCount = false;
 
@@ -116,6 +117,7 @@ class _SensorPageState extends State<SensorPage> {
   final GlobalKey _rollPitchPeriodButtonKey = GlobalKey();
   final GlobalKey _rollPitchFftButtonKey = GlobalKey();
 
+  final ScrollController _scrollController = ScrollController();
 
   // =============================================
   // LIFECYCLE METHODS
@@ -137,6 +139,7 @@ class _SensorPageState extends State<SensorPage> {
     _pageController.dispose();
     _fftPageController.dispose();
     super.dispose();
+    _scrollController.dispose();
   }
 
   // =============================================
@@ -472,28 +475,28 @@ class _SensorPageState extends State<SensorPage> {
     if (gm <= 0) return 0;
 
     switch (method) {
-    case 'Roll Coefficient':
-    const k = 0.4;
-    return 2 * k * beam / sqrt(gm);
-    case 'Doyere':
-    const c = 0.29;
-    return 2 * c * sqrt((pow(beam, 2) + 4 * pow(vcg, 2)) / gm);
-    case 'JSRA':
-    final k = 0.3437 + 0.024 * (beam / depth);
-    return 2 * k * beam / sqrt(gm);
-    case 'Beam':
-    const k = 0.36;
-    return 2 * k * sqrt((pow(beam, 2) + pow(depth, 2)) / gm);
-    case 'ITTC':
-    final kxx = sqrt((0.4 * pow(beam + depth, 2) + 0.6 * (pow(beam, 2) + pow(depth, 2) - pow(2 * depth / 2 - vcg, 2)) / 12));
-    final axx = 0.05 * pow(beam, 2) / depth;
-    return 2 * sqrt((pow(kxx, 2) + pow(axx, 2)) / sqrt(gm));
-    case 'Grin':
-    const beta = 11.0;
-    final kxx = sqrt((pow(beam, 2) + pow(depth, 2)) / beta + pow(depth / 2 - vcg, 2));
-    return 2 * kxx / sqrt(gm);
-    default:
-    return 0;
+      case 'Roll Coefficient':
+        const k = 0.4;
+        return 2 * k * beam / sqrt(gm);
+      case 'Doyere':
+        const c = 0.29;
+        return 2 * c * sqrt((pow(beam, 2) + 4 * pow(vcg, 2)) / gm);
+      case 'JSRA':
+        final k = 0.3437 + 0.024 * (beam / depth);
+        return 2 * k * beam / sqrt(gm);
+      case 'Beam':
+        const k = 0.36;
+        return 2 * k * sqrt((pow(beam, 2) + pow(depth, 2)) / gm);
+      case 'ITTC':
+        final kxx = sqrt((0.4 * pow(beam + depth, 2) + 0.6 * (pow(beam, 2) + pow(depth, 2) - pow(2 * depth / 2 - vcg, 2)) / 12));
+        final axx = 0.05 * pow(beam, 2) / depth;
+        return 2 * sqrt((pow(kxx, 2) + pow(axx, 2)) / sqrt(gm));
+      case 'Grin':
+        const beta = 11.0;
+        final kxx = sqrt((pow(beam, 2) + pow(depth, 2)) / beta + pow(depth / 2 - vcg, 2));
+        return 2 * kxx / sqrt(gm);
+      default:
+        return 0;
     }
   }
 
@@ -517,11 +520,17 @@ class _SensorPageState extends State<SensorPage> {
     try {
       final buffer = StringBuffer();
 
+      // Calcul du spectre de puissance si nécessaire
+      List<double> powerSpectrum = [];
+      if (_fftRollSamples.isNotEmpty) {
+        powerSpectrum = FFTProcessor.computePowerSpectrum(_fftRollSamples);
+      }
+
       // Données fixes
       final now = DateTime.now();
       final wavePeriod = widget.navigationInfo.wavePeriod;
       final direction = widget.navigationInfo.direction;
-      final sampleRate = _dynamicSampleRate; // Gardé comme double ici
+      final sampleRate = _dynamicSampleRate;
       final sampleRateStr = sampleRate?.toStringAsFixed(2);
       final rollCount = _rollData.length;
       final rollPeriodZero = _RollaveragePeriod?.toStringAsFixed(2);
@@ -535,6 +544,15 @@ class _SensorPageState extends State<SensorPage> {
       final duration = (sampleRate != null && sampleRate != 0)
           ? (rollCount / sampleRate).toStringAsFixed(2)
           : 'N/A';
+
+      // Fréquences pour le spectre
+      List<double> frequencies = [];
+      if (powerSpectrum.isNotEmpty && sampleRate != null) {
+        frequencies = List<double>.generate(
+          powerSpectrum.length,
+              (i) => i * sampleRate / (2 * powerSpectrum.length),
+        );
+      }
 
       // Liste des métadonnées (clé: valeur)
       final metadata = [
@@ -559,29 +577,41 @@ class _SensorPageState extends State<SensorPage> {
         'Wave Direction (°): $direction',
       ];
 
-      // En-tête
-      buffer.writeln('time (s),roll (deg),pitch (deg),metadata');
+      // En-tête avec les nouvelles colonnes pour le spectre
+      buffer.writeln('time (s),roll (deg),pitch (deg),frequency (Hz),power_spectrum,metadata');
 
-      // Calcul du max entre données et métadonnées
-      final int maxLines = _rollData.length > metadata.length ? _rollData.length : metadata.length;
+      // Calcul du max entre toutes les données
+      final int maxLines = [
+        _rollData.length,
+        powerSpectrum.length,
+        metadata.length
+      ].reduce(max);
 
       for (int i = 0; i < maxLines; i++) {
         String line = '';
 
+        // Données temporelles (time, roll, pitch)
         if (i < _rollData.length) {
           final rollSpot = _rollData[i];
           final pitchSpot = i < _pitchData.length ? _pitchData[i] : FlSpot(rollSpot.x, 0);
           line += '${rollSpot.x.toStringAsFixed(3)},'
               '${rollSpot.y.toStringAsFixed(3)},'
-              '${pitchSpot.y.toStringAsFixed(3)}';
+              '${pitchSpot.y.toStringAsFixed(3)},';
         } else {
-          // Pas de données capteur pour cette ligne
-          line += ',,';
+          line += ',,,'; // Pas de données temporelles pour cette ligne
         }
 
-        // Ajout de la métadonnée dans la colonne 4 si elle existe
+        // Données du spectre (fréquence, puissance)
+        if (i < powerSpectrum.length) {
+          line += '${frequencies[i].toStringAsFixed(4)},'
+              '${powerSpectrum[i].toStringAsFixed(6)},';
+        } else {
+          line += ',,'; // Pas de données spectrales pour cette ligne
+        }
+
+        // Ajout de la métadonnée dans la colonne 6 si elle existe
         if (i < metadata.length) {
-          line += ',${metadata[i]}';
+          line += '${metadata[i]}';
         }
 
         buffer.writeln(line);
@@ -784,9 +814,20 @@ class _SensorPageState extends State<SensorPage> {
       await prefs.setBool('first_launch', false);
       _showTutorial = true;
       _createTutorial();
-      Future.delayed(const Duration(milliseconds: 500), () {
+
+      // Ajoutez un petit délai pour permettre au build de se terminer
+      Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
-          tutorialCoachMark.show(context: context);
+          // Faites défiler vers la première position avant d'afficher le tutoriel
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          ).then((_) {
+            if (mounted) {
+              tutorialCoachMark.show(context: context);
+            }
+          });
         }
       });
     }
@@ -796,13 +837,10 @@ class _SensorPageState extends State<SensorPage> {
     tutorialCoachMark = TutorialCoachMark(
       targets: _createTargets(),
       colorShadow: Colors.black.withOpacity(0.8),
-      paddingFocus: 0, // plus faible padding
+      paddingFocus: 0,
       opacityShadow: 0.8,
-
-      // Animation plus rapide
       focusAnimationDuration: const Duration(milliseconds: 600),
       unFocusAnimationDuration: const Duration(milliseconds: 400),
-
       onFinish: () {
         if (mounted) {
           setState(() {
@@ -812,14 +850,92 @@ class _SensorPageState extends State<SensorPage> {
       },
       onClickTarget: (target) {
         debugPrint('onClickTarget: $target');
+        _handleTargetScroll(target);
       },
-      onClickOverlay: (target) {
+      onClickOverlay: (target) async {
         debugPrint('onClickOverlay: $target');
+        // Faire défiler pour la cible actuelle avant d'afficher le tutoriel
+        switch (target.identify) {
+          case "start_button":
+            await _ensureTargetVisible(_startButtonKey);
+            break;
+          case "chart":
+            await _ensureTargetVisible(_chartKey);
+            break;
+          case "clear_button":
+            await _ensureTargetVisible(_clearButtonKey);
+            break;
+          case "export_button":
+            await _ensureTargetVisible(_exportButtonKey);
+            break;
+          case "import_button":
+            await _ensureTargetVisible(_importButtonKey);
+            break;
+          case "roll_angle":
+            await _ensureTargetVisible(_rollAngleButtonKey);
+            break;
+          case "pitch_tile":
+            await _ensureTargetVisible(_pitchAngleButtonKey);
+            break;
+          case "sample_tile":
+            await _ensureTargetVisible(_sampleButtonKey);
+            break;
+          case "roll_pitch_period":
+            await _ensureTargetVisible(_rollPitchPeriodButtonKey);
+            break;
+          case "roll_pitch_fft":
+            await _ensureTargetVisible(_rollPitchFftButtonKey);
+            break;
+        }
       },
     );
   }
 
+  Future<void> _ensureTargetVisible(GlobalKey key) async {
+    if (key.currentContext != null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      final box = key.currentContext!.findRenderObject() as RenderBox?;
+      if (box != null) {
+        final position = box.localToGlobal(Offset.zero);
+        final scrollOffset = position.dy - 100; // Ajustez ce décalage si nécessaire
+        _scrollController.animateTo(
+          scrollOffset,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
+  }
 
+  void _handleTargetScroll(TargetFocus target) {
+    if (target.identify == "chart") {
+      _scrollController.animateTo(
+        600, // Ajustez cette valeur selon vos besoins
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      ).then((_) {
+        // Ajoutez un délai supplémentaire et vérifiez que le widget est toujours monté
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            tutorialCoachMark.show(context: context);
+          }
+        });
+      });
+    } else if (target.identify == "roll_angle") {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      ).then((_) {
+        // Ajoutez un délai supplémentaire et vérifiez que le widget est toujours monté
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            tutorialCoachMark.show(context: context);
+          }
+        });
+      });
+    }
+  }
 
   List<TargetFocus> _createTargets() {
     List<TargetFocus> targets = [];
@@ -837,20 +953,20 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour démarrer la collecte des données des capteurs",
+                    "Press here to start collecting sensor data and display the roll and pitch curves.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
                       controller.next(); // Passe à l'étape suivante (roll)
                     },
-                    child: const Text("Suivant"),
+                    child: const Text("Next"),
                   ),
                 ],
               );
@@ -862,6 +978,7 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
     //
+
     //Etape 2 : courbes
     targets.add(
       TargetFocus(
@@ -875,7 +992,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Ce graphique affiche en temps réel les angles de roulis (bleu) et tangage (vert).\n\nVous pouvez zoomer/pincer et glisser pour naviguer dans les données.",
+                    "This chart displays the roll angles (blue) and pitch angles (green) in real time.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -888,16 +1005,12 @@ class _SensorPageState extends State<SensorPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          controller.previous();
-                        },
-                        child: const Text("Précédent"),
+                        onPressed: () => controller.previous(),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
-                        onPressed: () {
-                          controller.next();
-                        },
-                        child: const Text("Suivant"),
+                        onPressed: () => controller.next(),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -908,6 +1021,7 @@ class _SensorPageState extends State<SensorPage> {
         ],
         shape: ShapeLightFocus.RRect,
         radius: 15,
+        enableOverlayTab: true, // Permet de cliquer sur l'overlay
       ),
     );
 
@@ -924,13 +1038,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour effacer les courbes",
+                    "Press here to clear the curves.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -940,13 +1054,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -973,13 +1087,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour exporter les données mesurer et calculer dans un fichier csv",
+                    "Press here to export the measured and calculated data to a CSV file.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -989,13 +1103,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1022,13 +1136,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Appuyez ici pour importer des données depuis un fichier csv",
+                    "Press here to import data from a CSV file. The file must contain the following columns in this exact order: time (s), roll (°), and pitch (°) in the first three columns.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1038,13 +1152,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous();
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next();
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1072,13 +1186,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche l'angle de roulis en direct, appuyez sur le boutton pour afficher ou masquer la courbe de roulis",
+                    "Displays the live roll angle; press the button to show or hide the roll curve.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1088,13 +1202,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Passe à l'étape suivante (pitch)
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1121,13 +1235,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche l'angle de roulis en direct, appuyez sur le boutton pour afficher ou masquer la courbe de tangage",
+                    "Displays the live pitch angle; press the button to show or hide the pitch curve.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1137,13 +1251,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1157,54 +1271,6 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
 
-    // Étape 7: Rate
-    targets.add(
-      TargetFocus(
-        identify: "rate_tile",
-        keyTarget: _rateButtonKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Affiche la fréquence d'échzntillonnage",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
-                        },
-                        child: const Text("Précédent"),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          controller.next(); // Termine le tutoriel
-                        },
-                        child: const Text("Suivant"),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 10,
-      ),
-    );
 
     // Étape 9 : sample
     targets.add(
@@ -1219,13 +1285,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Cliquez sur le boutton pour faire choisir le nombre de sample afficher sur la courbe (8 posibilités)",
+                    "Click to open a menu for selecting the number of samples, which determines the FFT measurement duration.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1235,13 +1301,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                          child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1268,13 +1334,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche la periode de roulis estimer grace au zero crossing. faire defiler pour voir la pitch period",
+                    "Displays the estimated roll period using zero crossing. Scroll to see the pitch period.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1284,13 +1350,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.next(); // Termine le tutoriel
                         },
-                        child: const Text("Suivant"),
+                        child: const Text("Next"),
                       ),
                     ],
                   ),
@@ -1317,13 +1383,13 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Affiche la valeur réelle de rolling period grace a l'analyse spectrale. faire defiler pour acceder à la pitch period",
+                    "Displays the actual rolling period value using spectral analysis. Scroll to access the pitch period. \n Displays an estimated measurement time indicator based on the number of samples and the sampling frequency.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1333,13 +1399,13 @@ class _SensorPageState extends State<SensorPage> {
                         onPressed: () {
                           controller.previous(); // Retour à l'étape précédente
                         },
-                        child: const Text("Précédent"),
+                        child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           controller.skip(); // Termine le tutoriel
                         },
-                        child: const Text("Terminer"),
+                        child: const Text("End"),
                       ),
                     ],
                   ),
@@ -1371,9 +1437,10 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Tuile d'affichage pour l'angle de roulis (roll)
+  /// Tuile d'affichage pour l'angle de roulis (roll)
   Widget rollTile(double? angle, {Key? key}) {
     return Card(
-      color: getSmoothColorForAngle(angle),
+      color: getSmoothColorForAngle(angle, _showRollData),
       child: InkWell(
         key: key,
         onTap: () => setState(() => _showRollData = !_showRollData),
@@ -1381,7 +1448,9 @@ class _SensorPageState extends State<SensorPage> {
           leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
           title: const Text('Roll', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           subtitle: Text(
-            angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
+            _showRollData
+                ? (angle != null ? '${angle.toStringAsFixed(2)}°' : 'in degres')
+                : 'OFF',
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
@@ -1390,9 +1459,9 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Tuile d'affichage pour l'angle de tangage (pitch)
-  Widget pitchTile(double? angle,  {Key? key}) {
+  Widget pitchTile(double? angle, {Key? key}) {
     return Card(
-      color: getSmoothColorForAngle(angle),
+      color: getSmoothColorForAngle(angle, _showPitchData),
       child: InkWell(
         key: key,
         onTap: () => setState(() => _showPitchData = !_showPitchData),
@@ -1403,7 +1472,9 @@ class _SensorPageState extends State<SensorPage> {
           ),
           title: const Text('Pitch', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           subtitle: Text(
-            angle != null ? '${angle.toStringAsFixed(2)}°' : 'Press Start',
+            _showPitchData
+                ? (angle != null ? '${angle.toStringAsFixed(2)}°' : 'in degres')
+                : 'OFF',
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
@@ -1411,58 +1482,114 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-  Widget RateAndSampleTiles() {
-    return Row(
-      children: [
-        Expanded(child: SampleRateTile()),
-        Expanded(child: SampleTile()),
-      ],
-    );
-  }
 
   /// Tuile d'affichage du taux d'échantillonnage
-  Widget SampleRateTile() {
-    return Card(
-      color: Colors.blueGrey,
-      child: ListTile(
-        key: _rateButtonKey,
-        leading: const Icon(Icons.speed, color: Colors.white, size: 40),
-        title: const Text('Rate', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Text(
-          _dynamicSampleRate != null ? '${_dynamicSampleRate!.toStringAsFixed(2)} Hz' : 'N/A',
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-      ),
-    );
-  }
-
-  /// Tuile d'affichage du taux d'échantillonnage
+  // Modifier la fonction SampleTile()
   Widget SampleTile() {
+    // Calcul du temps estimé
+    String timeEstimate = '';
+    if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
+      final totalSeconds = (_powersOfTwo[_powerIndex] / _dynamicSampleRate!).ceil();
+      timeEstimate = ' (~${_formatTime(totalSeconds)})';
+    }
+
     return Card(
       color: Colors.blueGrey,
       child: InkWell(
         onTap: () {
-          setState(() {
-            _powerIndex = (_powerIndex + 1) % _powersOfTwo.length;
-          });
-        },
-        onLongPress: () {
-          setState(() {
-            _powerIndex = 0;
-          });
+          _showSampleSizeDialog(context);
         },
         child: ListTile(
           key: _sampleButtonKey,
-          leading: const Icon(Icons.bar_chart_outlined, color: Colors.white, size: 40),
-          title: const Text('Nb Sample', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          leading: const Icon(Icons.settings, color: Colors.white, size: 40),
+          title: const Text('Sample Size', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           subtitle: Text(
-            _powersOfTwo[_powerIndex] != null ? '${_powersOfTwo[_powerIndex].toStringAsFixed(0)}' : 'N/A',
+            '${_powersOfTwo[_powerIndex].toStringAsFixed(0)} samples$timeEstimate',
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
       ),
     );
   }
+
+  void _showSampleSizeDialog(BuildContext context) {
+    final List<double> availableSizes = [512, 1024, 2048, 4096, 8192, 16384];
+    double selectedValue = _powersOfTwo[_powerIndex]!;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Sample Size'),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'We recommend keeping 4096 samples (about 15 minutes) for optimal FFT accuracy.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Changing this value will affect FFT calculation precision.',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_dynamicSampleRate != null && _dynamicSampleRate! > 0)
+                    Text(
+                      'Current sampling rate: ${_dynamicSampleRate!.toStringAsFixed(2)} Hz',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  const SizedBox(height: 20),
+                  DropdownButton<double>(
+                    value: selectedValue,
+                    onChanged: (double? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          selectedValue = newValue; // Met à jour visuellement
+                        });
+                      }
+                    },
+                    items: availableSizes.map<DropdownMenuItem<double>>((double value) {
+                      final timeEstimate = _dynamicSampleRate != null && _dynamicSampleRate! > 0
+                          ? ' (~${_formatTime((value / _dynamicSampleRate!).ceil())})'
+                          : '';
+
+                      return DropdownMenuItem<double>(
+                        value: value,
+                        child: Text('$value samples$timeEstimate'),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                setState(() {
+                  _powerIndex = availableSizes.indexOf(selectedValue);
+                });
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
 
 
   /// Tuile d'affichage des périodes calculées par passage à zéro
@@ -1531,7 +1658,7 @@ class _SensorPageState extends State<SensorPage> {
       if (!_isCollectingData && _fftRollSamples.isEmpty) {
         // Estimation avant démarrage
         final estimatedTime = (nb_sample / _dynamicSampleRate!).ceil();
-        timeText = 'Time estimated: ${_formatTime(estimatedTime)}';
+        timeText = 'Time left: ${_formatTime(estimatedTime)}';
       } else if (_isCollectingData) {
         // Temps restant pendant la collecte
         final remainingSamples = nb_sample - _fftRollSamples.length;
@@ -1618,9 +1745,10 @@ class _SensorPageState extends State<SensorPage> {
         : 30;
 
     return Padding(
-      key: _chartKey, // <-- Ajoutez cette ligne
+
       padding: const EdgeInsets.all(16.0),
       child: SizedBox(
+        key: _chartKey, // <-- Ajoutez cette ligne
         height: 270,
         child: LineChart(
           LineChartData(
@@ -1711,7 +1839,8 @@ class _SensorPageState extends State<SensorPage> {
   // =============================================
 
   /// Retourne une couleur en fonction de l'angle (pour le dégradé)
-  Color getSmoothColorForAngle(double? angle) {
+  Color getSmoothColorForAngle(double? angle, bool isVisible) {
+    if (!isVisible) return Colors.blueGrey; // Gris quand désactivé
     if (angle == null) return const Color(0xFF012169);
     double absAngle = angle.abs().clamp(0, 90);
     if (absAngle <= 40) return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
@@ -1756,10 +1885,20 @@ class _SensorPageState extends State<SensorPage> {
               setState(() {
                 _showTutorial = true;
                 _createTutorial();
-                tutorialCoachMark.show(context: context);
+                // Faites défiler vers le haut avant d'afficher le tutoriel
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                ).then((_) {
+                  if (mounted) {
+                    tutorialCoachMark.show(context: context);
+                  }
+                });
               });
             },
           ),
+
         ],
       ),
       body: Stack(
@@ -1768,10 +1907,11 @@ class _SensorPageState extends State<SensorPage> {
             children: [
               Expanded(
                 child: ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(12),
                   children: [
                     rollAndPitchTiles(),
-                    RateAndSampleTiles(),
+                    SampleTile(),
                     rollingPeriodTile(_RollaveragePeriod,_PitchaveragePeriod),
                     fftPeriodTile(),
                     buildChart(),
