@@ -23,7 +23,7 @@ class _MenuPageState extends State<MenuPage> {
   late LoadingCondition _currentLoadingCondition;
   late NavigationInfo _navigationInfo;
   late List<Widget> _pages;
-
+  bool _isBottomBarVisible = true; // Nouvel état pour contrôler la visibilité
 
   @override
   void initState() {
@@ -145,43 +145,90 @@ class _MenuPageState extends State<MenuPage> {
         index: _selectedIndex,
         children: _pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF012169),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-            if (index == 0) {
-              _pages[0] = NavigationPage(
-                vesselProfile: _currentVesselProfile,
-                navigationInfo: _navigationInfo,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Encoche avec flèche
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isBottomBarVisible = !_isBottomBarVisible;
+              });
+            },
+            child: Container(
+              height: 20,
+              width: 60,
+              decoration: BoxDecoration(
+                color:  const Color(0x1A012169),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                ),
+              ),
+              child: Icon(
+                _isBottomBarVisible
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_up,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          // Barre de navigation conditionnelle
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1.0,
+                child: child,
               );
-            }
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Navigation',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_active),
-            label: 'Alert',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sensors),
-            label: 'Sensors',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_boat_filled_rounded),
-            label: 'Info',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timeline),
-            label: 'Prediction',
-          ),
+            },
+            child: _isBottomBarVisible
+                ? BottomNavigationBar(
+              key: const ValueKey('visibleBar'), // important pour AnimatedSwitcher
+              currentIndex: _selectedIndex,
+              selectedItemColor: const Color(0xFF012169),
+              unselectedItemColor: Colors.grey,
+              onTap: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                  if (index == 0) {
+                    _pages[0] = NavigationPage(
+                      vesselProfile: _currentVesselProfile,
+                      navigationInfo: _navigationInfo,
+                    );
+                  }
+                });
+              },
+              type: BottomNavigationBarType.fixed,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.explore),
+                  label: 'Navigation',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.notifications_active),
+                  label: 'Alert',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.sensors),
+                  label: 'Sensors',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.directions_boat_filled_rounded),
+                  label: 'Info',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.timeline),
+                  label: 'Prediction',
+                ),
+              ],
+            )
+                : const SizedBox.shrink(
+              key: ValueKey('hiddenBar'),
+            ),
+          )
+
         ],
       ),
     );

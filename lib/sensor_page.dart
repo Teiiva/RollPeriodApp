@@ -119,6 +119,8 @@ class _SensorPageState extends State<SensorPage> {
 
   final ScrollController _scrollController = ScrollController();
 
+  List<TargetFocus> _targets = [];
+
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -814,27 +816,19 @@ class _SensorPageState extends State<SensorPage> {
       await prefs.setBool('first_launch', false);
       _showTutorial = true;
       _createTutorial();
-
-      // Ajoutez un petit délai pour permettre au build de se terminer
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          // Faites défiler vers la première position avant d'afficher le tutoriel
-          _scrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          ).then((_) {
-            if (mounted) {
-              tutorialCoachMark.show(context: context);
-            }
-          });
-        }
-      });
+      if (mounted) {
+        tutorialCoachMark.show(context: context);
+      }
     }
   }
 
+
   void _createTutorial() {
     tutorialCoachMark = TutorialCoachMark(
+      onClickTarget: (target) {
+        debugPrint('onClickTarget: $target');
+        _handleTargetScroll(target.identify);
+      },
       targets: _createTargets(),
       colorShadow: Colors.black.withOpacity(0.8),
       paddingFocus: 0,
@@ -848,92 +842,34 @@ class _SensorPageState extends State<SensorPage> {
           });
         }
       },
-      onClickTarget: (target) {
-        debugPrint('onClickTarget: $target');
-        _handleTargetScroll(target);
-      },
-      onClickOverlay: (target) async {
-        debugPrint('onClickOverlay: $target');
-        // Faire défiler pour la cible actuelle avant d'afficher le tutoriel
-        switch (target.identify) {
-          case "start_button":
-            await _ensureTargetVisible(_startButtonKey);
-            break;
-          case "chart":
-            await _ensureTargetVisible(_chartKey);
-            break;
-          case "clear_button":
-            await _ensureTargetVisible(_clearButtonKey);
-            break;
-          case "export_button":
-            await _ensureTargetVisible(_exportButtonKey);
-            break;
-          case "import_button":
-            await _ensureTargetVisible(_importButtonKey);
-            break;
-          case "roll_angle":
-            await _ensureTargetVisible(_rollAngleButtonKey);
-            break;
-          case "pitch_tile":
-            await _ensureTargetVisible(_pitchAngleButtonKey);
-            break;
-          case "sample_tile":
-            await _ensureTargetVisible(_sampleButtonKey);
-            break;
-          case "roll_pitch_period":
-            await _ensureTargetVisible(_rollPitchPeriodButtonKey);
-            break;
-          case "roll_pitch_fft":
-            await _ensureTargetVisible(_rollPitchFftButtonKey);
-            break;
-        }
-      },
     );
   }
 
-  Future<void> _ensureTargetVisible(GlobalKey key) async {
-    if (key.currentContext != null) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      final box = key.currentContext!.findRenderObject() as RenderBox?;
-      if (box != null) {
-        final position = box.localToGlobal(Offset.zero);
-        final scrollOffset = position.dy - 100; // Ajustez ce décalage si nécessaire
+
+  void _handleTargetScroll(String targetIdentify) {
+    switch (targetIdentify) {
+      case "start_button":
         _scrollController.animateTo(
-          scrollOffset,
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
-      }
-    }
-  }
-
-  void _handleTargetScroll(TargetFocus target) {
-    if (target.identify == "chart") {
-      _scrollController.animateTo(
-        600, // Ajustez cette valeur selon vos besoins
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      ).then((_) {
-        // Ajoutez un délai supplémentaire et vérifiez que le widget est toujours monté
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            tutorialCoachMark.show(context: context);
-          }
-        });
-      });
-    } else if (target.identify == "roll_angle") {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      ).then((_) {
-        // Ajoutez un délai supplémentaire et vérifiez que le widget est toujours monté
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            tutorialCoachMark.show(context: context);
-          }
-        });
-      });
+        break;
+      case "import_button":
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        break;
+      case "clear_button":
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        break;
+    // Ajoutez d'autres cas au besoin
     }
   }
 
@@ -949,6 +885,10 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.top,
             builder: (context, controller) {
+              // Récupération du target courant via identify
+              final target = targets.firstWhere((t) => t.identify == "start_button");
+              final currentTargetIndex = targets.indexOf(target);
+
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -959,12 +899,16 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      controller.next(); // Passe à l'étape suivante (roll)
+                      // Vérification qu'on ne dépasse pas la liste
+                      if (currentTargetIndex < targets.length) {
+                        _handleTargetScroll(targets[currentTargetIndex].identify);
+                      }
+                      controller.next();
                     },
                     child: const Text("Next"),
                   ),
@@ -977,6 +921,7 @@ class _SensorPageState extends State<SensorPage> {
         radius: 15,
       ),
     );
+
     //
 
     //Etape 2 : courbes
@@ -1034,6 +979,10 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.top,
             builder: (context, controller) {
+              // Récupération du target courant via identify
+              final target = targets.firstWhere((t) => t.identify == "clear_button");
+              final currentTargetIndex = targets.indexOf(target);
+
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1052,6 +1001,10 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
+                          // Vérification qu'on ne dépasse pas la liste
+                          if (currentTargetIndex < targets.length) {
+                            _handleTargetScroll(targets[currentTargetIndex].identify);
+                          }
                           controller.previous();
                         },
                         child: const Text("Previous"),
@@ -1132,6 +1085,8 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.top,
             builder: (context, controller) {
+              final target = targets.firstWhere((t) => t.identify == "import_button");
+              final currentTargetIndex = targets.indexOf(target);
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1156,6 +1111,10 @@ class _SensorPageState extends State<SensorPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
+                          // Vérification qu'on ne dépasse pas la liste
+                          if (currentTargetIndex < targets.length) {
+                            _handleTargetScroll(targets[currentTargetIndex].identify);
+                          }
                           controller.next();
                         },
                         child: const Text("Next"),
@@ -1231,6 +1190,9 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.bottom,
             builder: (context, controller) {
+              final target = targets.firstWhere((t) => t.identify == "pitch_tile");
+              final currentTargetIndex = targets.indexOf(target);
+
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1241,7 +1203,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1249,13 +1211,13 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
+                          controller.previous();
                         },
                         child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.next(); // Termine le tutoriel
+                          controller.next();
                         },
                         child: const Text("Next"),
                       ),
@@ -1270,6 +1232,7 @@ class _SensorPageState extends State<SensorPage> {
         radius: 10,
       ),
     );
+
 
 
     // Étape 9 : sample
