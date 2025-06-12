@@ -37,4 +37,16 @@ class LoadingCondition {
       vcg: map['vcg'],
     );
   }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is LoadingCondition &&
+              runtimeType == other.runtimeType &&
+              name == other.name &&
+              gm == other.gm &&
+              vcg == other.vcg;
+
+  @override
+  int get hashCode => name.hashCode ^ gm.hashCode ^ vcg.hashCode;
+
 }

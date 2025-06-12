@@ -4,8 +4,16 @@ import 'menu.dart';
 import 'package:flutter/material.dart';
 import 'shared_data.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Verrouille l'orientation en portrait uniquement
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    // Si tu veux bloquer uniquement le portrait, ne mets que celui-ci.
+    // Tu peux aussi ajouter DeviceOrientation.portraitDown si tu veux les deux sens en portrait.
+  ]);
   runApp(
     ChangeNotifierProvider(
       create: (context) => SharedData(),

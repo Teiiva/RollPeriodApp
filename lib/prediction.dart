@@ -10,6 +10,8 @@ import 'dart:convert';
 import 'models/saved_measurement.dart';
 import 'package:provider/provider.dart';
 import 'shared_data.dart';
+import 'package:flutter/services.dart';
+
 
 
 class PredictionPage extends StatefulWidget {
@@ -46,6 +48,49 @@ class _PredictionPageState extends State<PredictionPage> {
     'ITTC',
     'Grin',
   ];
+
+  @override
+  void didUpdateWidget(PredictionPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Vérifier si le vesselProfile ou loadingCondition a changé
+    if (widget.vesselProfile != oldWidget.vesselProfile ||
+        widget.loadingCondition != oldWidget.loadingCondition) {
+      _updateVesselWidget();
+    }
+  }
+
+
+
+  Future<void> _updateVesselWidget() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Prepare data to save
+      final vesselData = {
+        'vesselProfile': {
+          'name': widget.vesselProfile.name,
+          'length': widget.vesselProfile.length,
+          'beam': widget.vesselProfile.beam,
+          'depth': widget.vesselProfile.depth,
+        },
+        'loadingCondition': {
+          'name': widget.loadingCondition.name,
+          'gm': widget.loadingCondition.gm,
+          'vcg': widget.loadingCondition.vcg,
+        }
+      };
+
+      // Save to shared preferences
+      await prefs.setString('vesselData', jsonEncode(vesselData));
+
+      // Update widget
+      const channel = MethodChannel('com.example.marin/vessel_widget');
+      await channel.invokeMethod('updateVesselWidget');
+    } catch (e) {
+      debugPrint('Error updating vessel widget: $e');
+    }
+  }
 
 
 
@@ -118,6 +163,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
     return data;
   }
+
 
   Widget _buildChart() {
     final spots = generateChartData();

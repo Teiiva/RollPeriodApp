@@ -145,34 +145,37 @@ class _MenuPageState extends State<MenuPage> {
         index: _selectedIndex,
         children: _pages,
       ),
-      bottomNavigationBar: Column(
+    bottomNavigationBar: Container(
+      color: Color(0xE60000), // <-- Couleur du fond autour de l'encoche et de la barre
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Encoche avec flèche
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isBottomBarVisible = !_isBottomBarVisible;
-              });
-            },
-            child: Container(
-              height: 20,
-              width: 60,
-              decoration: BoxDecoration(
-                color:  const Color(0x1A012169),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  topRight: Radius.circular(10),
+          if (_selectedIndex != 3)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isBottomBarVisible = !_isBottomBarVisible;
+                });
+              },
+              child: Container(
+                height: 20,
+                width: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0x1A012169), // couleur de l’encoche
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10),
+                  ),
+                ),
+                child: Icon(
+                  _isBottomBarVisible
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_up,
+                  color: Colors.grey,
                 ),
               ),
-              child: Icon(
-                _isBottomBarVisible
-                    ? Icons.keyboard_arrow_down
-                    : Icons.keyboard_arrow_up,
-                color: Colors.grey,
-              ),
             ),
-          ),
           // Barre de navigation conditionnelle
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
@@ -184,53 +187,53 @@ class _MenuPageState extends State<MenuPage> {
               );
             },
             child: _isBottomBarVisible
-                ? BottomNavigationBar(
-              key: const ValueKey('visibleBar'), // important pour AnimatedSwitcher
-              currentIndex: _selectedIndex,
-              selectedItemColor: const Color(0xFF012169),
-              unselectedItemColor: Colors.grey,
-              onTap: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                  if (index == 0) {
-                    _pages[0] = NavigationPage(
-                      vesselProfile: _currentVesselProfile,
-                      navigationInfo: _navigationInfo,
-                    );
-                  }
-                });
-              },
-              type: BottomNavigationBarType.fixed,
-              items: const [
-                BottomNavigationBarItem(
+              ? BottomNavigationBar(
+                key: const ValueKey('visibleBar'),
+                currentIndex: _selectedIndex,
+                selectedItemColor: const Color(0xFF012169),
+                unselectedItemColor: Colors.grey,
+                onTap: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                    if (index == 0) {
+                      _pages[0] = NavigationPage(
+                        vesselProfile: _currentVesselProfile,
+                        navigationInfo: _navigationInfo,
+                      );
+                    }
+                  });
+                },
+                type: BottomNavigationBarType.fixed,
+                items: const [
+                  BottomNavigationBarItem(
                   icon: Icon(Icons.explore),
                   label: 'Navigation',
-                ),
-                BottomNavigationBarItem(
+                  ),
+                  BottomNavigationBarItem(
                   icon: Icon(Icons.notifications_active),
                   label: 'Alert',
-                ),
-                BottomNavigationBarItem(
+                  ),
+                  BottomNavigationBarItem(
                   icon: Icon(Icons.sensors),
                   label: 'Sensors',
-                ),
-                BottomNavigationBarItem(
+                  ),
+                  BottomNavigationBarItem(
                   icon: Icon(Icons.directions_boat_filled_rounded),
                   label: 'Info',
-                ),
-                BottomNavigationBarItem(
+                  ),
+                  BottomNavigationBarItem(
                   icon: Icon(Icons.timeline),
                   label: 'Prediction',
-                ),
-              ],
-            )
-                : const SizedBox.shrink(
-              key: ValueKey('hiddenBar'),
-            ),
-          )
-
-        ],
+                  ),
+                ],
+              )
+            : const SizedBox.shrink(
+                key: ValueKey('hiddenBar'),
+              ),
+        ),
+      ],
       ),
+    ),
     );
   }
 }

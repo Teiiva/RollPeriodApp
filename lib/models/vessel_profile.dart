@@ -53,4 +53,18 @@ class VesselProfile {
           .toList() ?? [],
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is VesselProfile &&
+              runtimeType == other.runtimeType &&
+              name == other.name &&
+              length == other.length &&
+              beam == other.beam &&
+              depth == other.depth;
+
+  @override
+  int get hashCode =>
+      name.hashCode ^ length.hashCode ^ beam.hashCode ^ depth.hashCode;
 }

@@ -9,7 +9,6 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
 
-
     <application
         android:label="marin"
         android:name="${applicationName}"
@@ -39,6 +38,28 @@
             </intent-filter>
         </activity>
 
+        <receiver android:name=".AlertWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.marin.REFRESH_ACTION" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/alert_widget_info" />
+        </receiver>
+
+        <receiver android:name=".VesselWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.marin.REFRESH_VESSEL_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/vessel_widget_info" />
+        </receiver>
+
         <!-- Flutter plugin registry -->
         <meta-data
             android:name="flutterEmbedding"
@@ -52,4 +73,8 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+
+
 </manifest>
+
+

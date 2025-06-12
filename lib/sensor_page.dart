@@ -121,6 +121,10 @@ class _SensorPageState extends State<SensorPage> {
 
   List<TargetFocus> _targets = [];
 
+  String? _importedFileName;
+  String? _getImportedFileName() {
+    return _importedFileName;
+  }
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -669,6 +673,9 @@ class _SensorPageState extends State<SensorPage> {
         }
         return;
       }
+      setState(() {
+        _importedFileName = result.files.single.name;
+      });
 
       final file = File(result.files.single.path!);
       final contents = await file.readAsString();
@@ -1449,7 +1456,40 @@ class _SensorPageState extends State<SensorPage> {
   /// Tuile d'affichage du taux d'échantillonnage
   // Modifier la fonction SampleTile()
   Widget SampleTile() {
-    // Calcul du temps estimé
+    // Cas d'un import de fichier
+    if (_hasReachedSampleCount && _rollData.isNotEmpty && !_isCollectingData) {
+      final fileName = _getImportedFileName(); // À implémenter si vous stockez le nom du fichier
+      final sampleCount = _rollData.length;
+      String timeEstimate = '';
+
+      if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
+        final totalSeconds = (sampleCount / _dynamicSampleRate!).ceil();
+        timeEstimate = ' (${_formatTime(totalSeconds)})';
+      }
+
+      return Card(
+        color: Colors.blueGrey,
+        child: InkWell(
+          onTap: () {
+            _showSampleSizeDialog(context);
+          },
+          child: ListTile(
+            key: _sampleButtonKey,
+            leading: const Icon(Icons.file_upload, color: Colors.white, size: 40),
+            title: Text(
+              fileName ?? 'Imported Data',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            subtitle: Text(
+              '$sampleCount samples$timeEstimate',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Cas normal (mesure en direct)
     String timeEstimate = '';
     if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
       final totalSeconds = (_powersOfTwo[_powerIndex] / _dynamicSampleRate!).ceil();
@@ -1521,7 +1561,9 @@ class _SensorPageState extends State<SensorPage> {
 
                       return DropdownMenuItem<double>(
                         value: value,
-                        child: Text('$value samples$timeEstimate'),
+                        child: Text('$value samples$timeEstimate',
+                          style: const TextStyle(fontSize: 14)), // << taille définie ici),
+
                       );
                     }).toList(),
                   ),
@@ -1695,6 +1737,7 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Construit le graphique des données
   Widget buildChart() {
+
     final rollChartData = _showRollData ? _rollData : <FlSpot>[];
     final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
 

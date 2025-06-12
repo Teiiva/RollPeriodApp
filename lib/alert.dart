@@ -8,6 +8,11 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'android_widget_provider.dart';
+import 'package:flutter/services.dart';
+
 
 // 🔑 Clé globale pour accéder à l'état de AlertPage
 final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
@@ -45,8 +50,66 @@ class _AlertPageState extends State<AlertPage> {
     selectedFlash = 'Disable';
     selectedAlarme = alarmoptions.first;
     _getCurrentLocation();  // Récupère la position dès que l'app démarre
-
+    _loadAlertHistory(); // Charger l'historique au démarrage
   }
+
+  Future<void> _saveAlertHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final historyJson = jsonEncode({
+      'alertHistory': alertHistory,
+      'rollData': _rollData.map((spot) => {'x': spot.x, 'y': spot.y}).toList(),
+    });
+    await prefs.setString('alertHistoryData', historyJson);
+
+    // Appel plus robuste pour mettre à jour le widget
+    try {
+      await MethodChannel('com.example.marin/widget').invokeMethod('updateWidget');
+    } catch (e) {
+      print('Error updating widget: $e');
+    }
+  }
+
+  Future<void> _loadAlertHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final historyJson = prefs.getString('alertHistoryData');
+    debugPrint("History : ${historyJson}");
+
+    if (historyJson != null) {
+      try {
+        final historyData = jsonDecode(historyJson);
+
+        // Conversion sécurisée des données d'alerte
+        final loadedHistory = (historyData['alertHistory'] as List).map((item) {
+          return {
+            'time': item['time']?.toString() ?? '--:--:--',
+            'date': item['date']?.toString() ?? '----/--/--',
+            'rollPeriod': item['rollPeriod']?.toString() ?? 'N/A',
+            'latitude': item['latitude']?.toString() ?? 'N/A',
+            'longitude': item['longitude']?.toString() ?? 'N/A',
+          };
+        }).toList();
+
+        // Conversion des données de roulis
+        final loadedRollData = (historyData['rollData'] as List).map((spot) {
+          return FlSpot(
+            (spot['x'] as num).toDouble(),
+            (spot['y'] as num).toDouble(),
+          );
+        }).toList();
+
+        setState(() {
+          alertHistory.clear();
+          alertHistory.addAll(loadedHistory);
+
+          _rollData.clear();
+          _rollData.addAll(loadedRollData);
+        });
+      } catch (e) {
+        print('Erreur lors du chargement de l\'historique: $e');
+      }
+    }
+  }
+
 
   @override
   void dispose() {
@@ -106,11 +169,11 @@ class _AlertPageState extends State<AlertPage> {
 
     // Vérifier si le roll actuel dépasse de 30% le dernier roll enregistré
     final isSignificantRoll = lastAlertRoll != null &&
-        rollAngle.abs() > (lastAlertRoll.abs() * 1.3);
+        rollAngle.abs() > (lastAlertRoll.abs() * 1.2);
 
     // Vérifier le cooldown de 30 secondes (sauf si roll significatif)
     if (_lastAlertTime != null &&
-        DateTime.now().difference(_lastAlertTime!) < Duration(seconds: 30) &&
+        DateTime.now().difference(_lastAlertTime!) < Duration(seconds: 10) &&
         !isSignificantRoll) {
       return; // Ignorer l'alerte si le cooldown n'est pas écoulé et que le roll n'est pas significatif
     }
@@ -145,10 +208,7 @@ class _AlertPageState extends State<AlertPage> {
       if (selectedFlash == 'Enable') {
         _toggleFlash();
       }
-
-
-
-      // Flash & Notification à implémenter plus tard
+      _saveAlertHistory(); // Sauvegarder après ajout
     }
   }
 
@@ -188,6 +248,28 @@ class _AlertPageState extends State<AlertPage> {
       await Future.delayed(const Duration(milliseconds: 500));  // Attend 500ms avant de recommencer
     }
   }
+
+  // Modifiez les méthodes de suppression pour sauvegarder après
+  void _deleteAllAlerts() {
+    setState(() {
+      alertHistory.clear();
+      _rollData.clear();
+    });
+    _saveAlertHistory(); // Sauvegarder après suppression
+    AndroidAlertWidgetProvider.updateWidget();
+  }
+
+  void _deleteAlertAtIndex(int index) {
+    setState(() {
+      alertHistory.removeAt(index);
+      if (index < _rollData.length) {
+        _rollData.removeAt(index);
+      }
+    });
+    _saveAlertHistory(); // Sauvegarder après suppression
+    AndroidAlertWidgetProvider.updateWidget();
+  }
+
 
   Future<void> _exportRollDataToDownloads() async {
     if (Platform.isAndroid) {
@@ -395,14 +477,9 @@ class _AlertPageState extends State<AlertPage> {
                       child: Text('Roll angle', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete, color: const Color(0xFF012169)),
+                      icon: const Icon(Icons.delete, color: Color(0xFF012169)),
                       tooltip: 'Tout supprimer',
-                      onPressed: () {
-                        setState(() {
-                          alertHistory.clear();
-                          _rollData.clear();
-                        });
-                      },
+                      onPressed: _deleteAllAlerts, // Utilise la nouvelle méthode
                     ),
                   ],
                 ),
@@ -500,13 +577,9 @@ class _AlertPageState extends State<AlertPage> {
 
                             // Bouton de suppression
                             IconButton(
-                              icon: const Icon(Icons.close, color: const Color(0xFF012169)),
+                              icon: const Icon(Icons.close, color: Color(0xFF012169)),
                               tooltip: 'Supprimer',
-                              onPressed: () {
-                                setState(() {
-                                  alertHistory.removeAt(index);
-                                });
-                              },
+                              onPressed: () => _deleteAlertAtIndex(index), // Utilise la nouvelle méthode
                             ),
                           ],
                         ),
