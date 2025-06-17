@@ -85,6 +85,8 @@ flutter:
     - assets/sounds/alarm2.mp3
     - assets/sounds/alarm3.mp3
     - assets/sounds/alarm4.mp3
+    - assets/icons/roll.png
+    - assets/icons/pitch.png
 
   fonts:
       - family: CustomFont

@@ -367,8 +367,8 @@ class _AlertPageState extends State<AlertPage> {
             const SizedBox(height: 20),
             _buildInputCard(
               const Icon(Icons.warning_rounded, size: 40, color: Color(0xFF012169)),
-              "Threshold for angle",
-              "in degres",
+              "Threshold for\nroll angle",
+              "",
               thresholdController,
             ),
             _buildDropdownCard(
@@ -643,6 +643,7 @@ class _AlertPageState extends State<AlertPage> {
                           decoration: InputDecoration(
                             hintText: hint,
                             border: InputBorder.none,
+                            suffixText: '°',
                           ),
                         ),
                       ),

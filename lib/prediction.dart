@@ -172,237 +172,250 @@ class _PredictionPageState extends State<PredictionPage> {
 
     // Vérifier si GM est trop bas
     if (widget.loadingCondition.gm < 0.5) {
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.4,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.white,
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.amber,
-                size: 40,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "GM value below 0.5 is too low to calculate a prediction",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildWarningMessage();
     }
 
+    return _buildChartContainer(spots, currentSpot);
+  }
+
+  Widget _buildWarningMessage() {
     return Container(
       height: MediaQuery.of(context).size.height * 0.4,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: true,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 1,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.amber,
+              size: 40,
             ),
-            getDrawingVerticalLine: (value) => FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 1,
-            ),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            rightTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                interval: 1, // Graduation de 1 en 1
-                getTitlesWidget: (value, meta) {
-                  // Afficher uniquement les valeurs entières
-                  if (value == value.roundToDouble()) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        value.toStringAsFixed(0), // Pas de décimaux
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink(); // Masquer les non-entiers
-                },
+            const SizedBox(height: 16),
+            Text(
+              "GM value below 0.5 is too low to calculate a prediction",
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.grey,
               ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                interval: 5, // Graduation de 1 en 1
-                getTitlesWidget: (value, meta) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: Text(
-                      value.toStringAsFixed(0),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(
-            show: true,
-            border: Border.all(
-              color: Colors.grey.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: const Color(0xFF012169),
-              barWidth: 4,
-              shadow: BoxShadow(
-                color: const Color(0xFF012169).withOpacity(0.3),
-                blurRadius: 8,
-                spreadRadius: 2,
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF012169).withOpacity(0.2),
-                    const Color(0xFF012169).withOpacity(0.01),
-                  ],
-                ),
-              ),
-              dotData: FlDotData(show: false),
-            ),
-            LineChartBarData(
-              spots: [currentSpot],
-              isCurved: false,
-              color: const Color(0xFF012169),
-              barWidth: 0,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 8,
-                    color: const Color(0xFF012169),
-                    strokeWidth: 3,
-                    strokeColor: Colors.white,
-                  );
-                },
-              ),
+              textAlign: TextAlign.center,
             ),
           ],
-          minX: 0.5, // Changé de 0 à 0.5
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartContainer(List<FlSpot> spots, FlSpot currentSpot) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.4,
+      padding: const EdgeInsets.only(left: 6, top: 16, right: 16,bottom: 8),
+      decoration: _buildChartDecoration(),
+      child: LineChart(
+        LineChartData(
+          gridData: _buildGridData(),
+          titlesData: _buildTitlesData(),
+          borderData: _buildBorderData(),
+          lineBarsData: _buildLineBarsData(spots, currentSpot),
+          minX: 0.5,
           maxX: 10,
           minY: 0,
           maxY: spots.isNotEmpty ? spots.map((e) => e.y).reduce(max) * 1.2 : 20,
-          lineTouchData: LineTouchData(
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipItems: (touchedSpots) {
-                return touchedSpots.map((touchedSpot) {
-                  return LineTooltipItem(
-                    'GM: ${touchedSpot.x.toStringAsFixed(2)}\nPeriod: ${touchedSpot.y.toStringAsFixed(2)}s',
-                    const TextStyle(color: Colors.white),
-                  );
-                }).toList();
-              },
+          lineTouchData: _buildTouchData(),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _buildChartDecoration() {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.2),
+          spreadRadius: 2,
+          blurRadius: 8,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
+
+  FlGridData _buildGridData() {
+    return FlGridData(
+      show: true,
+      drawVerticalLine: true,
+      getDrawingHorizontalLine: (value) => FlLine(
+        color: Colors.grey.withOpacity(0.2),
+        strokeWidth: 1,
+      ),
+      getDrawingVerticalLine: (value) => FlLine(
+        color: Colors.grey.withOpacity(0.2),
+        strokeWidth: 1,
+      ),
+    );
+  }
+
+  FlTitlesData _buildTitlesData() {
+    return FlTitlesData(
+      show: true,
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: _buildBottomTitles(),
+      leftTitles: _buildLeftTitles(),
+    );
+  }
+
+  AxisTitles _buildBottomTitles() {
+    return AxisTitles(
+      axisNameWidget: Padding(
+        padding: const EdgeInsets.only(top: 0),
+        child: Text(
+          'GM (m)',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+      ),
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 30,
+        interval: 1,
+        getTitlesWidget: (value, meta) {
+          if (value == value.roundToDouble()) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                value.toStringAsFixed(0),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+
+  AxisTitles _buildLeftTitles() {
+    return AxisTitles(
+      axisNameWidget: RotatedBox(
+        quarterTurns: 0, // ou 1 selon le sens que tu veux
+        child: Padding(
+          padding: const EdgeInsets.only(left:25), // <-- espace entre le titre et les ticks
+          child: Center(
+            child: Text(
+              'Roll Period (s)',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
             ),
           ),
         ),
+      ),
+      axisNameSize: 28, // Ajuste pour bien centrer verticalement
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 26, // Assure de la place pour les ticks
+        interval: 5,
+        getTitlesWidget: (value, meta) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Text(
+              value.toStringAsFixed(0),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
 
 
-  // Modifier la méthode _buildProfileDetails()
-  Widget _buildProfileDetails() {
-    final profile = widget.vesselProfile;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "VESSEL PROFILE",
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Colors.grey,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildProfileRow("Name", profile.name),
-        _buildProfileRow("Length", "${profile.length.toStringAsFixed(2)} m"),
-        _buildProfileRow("Beam", "${profile.beam.toStringAsFixed(2)} m"),
-        _buildProfileRow("Depth", "${profile.depth.toStringAsFixed(2)} m"),
-        const SizedBox(height: 16),
-        Text(
-          "LOADING CONDITIONS",
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Colors.grey,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (profile.loadingConditions.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              "No loading conditions saved yet",
-              style: TextStyle(color: Colors.grey),
-            ),
-          )
-        else
-          ...profile.loadingConditions.map((condition) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Divider(),
-              _buildProfileRow("Condition Name", condition.name),
-              _buildProfileRow("GM", "${condition.gm.toStringAsFixed(2)} m"),
-              _buildProfileRow("VCG", "${condition.vcg.toStringAsFixed(2)} m"),
-            ],
-          )),
-      ],
+  FlBorderData _buildBorderData() {
+    return FlBorderData(
+      show: true,
+      border: Border.all(
+        color: Colors.grey.withOpacity(0.2),
+        width: 1,
+      ),
     );
   }
+
+  List<LineChartBarData> _buildLineBarsData(List<FlSpot> spots, FlSpot currentSpot) {
+    return [
+      LineChartBarData(
+        spots: spots,
+        isCurved: true,
+        color: const Color(0xFF012169),
+        barWidth: 4,
+        shadow: BoxShadow(
+          color: const Color(0xFF012169).withOpacity(0.3),
+          blurRadius: 8,
+          spreadRadius: 2,
+        ),
+        belowBarData: BarAreaData(
+          show: true,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF012169).withOpacity(0.2),
+              const Color(0xFF012169).withOpacity(0.01),
+            ],
+          ),
+        ),
+        dotData: const FlDotData(show: false),
+      ),
+      LineChartBarData(
+        spots: [currentSpot],
+        isCurved: false,
+        color: const Color(0xFF012169),
+        barWidth: 0,
+        dotData: FlDotData(
+          show: true,
+          getDotPainter: (spot, percent, barData, index) {
+            return FlDotCirclePainter(
+              radius: 8,
+              color: const Color(0xFF012169),
+              strokeWidth: 3,
+              strokeColor: Colors.white,
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  LineTouchData _buildTouchData() {
+    return LineTouchData(
+      touchTooltipData: LineTouchTooltipData(
+        getTooltipItems: (touchedSpots) {
+          return touchedSpots.map((touchedSpot) {
+            return LineTooltipItem(
+              'GM: ${touchedSpot.x.toStringAsFixed(1)}\nPeriod: ${touchedSpot.y.toStringAsFixed(1)}s',
+              const TextStyle(color: Colors.white),
+            );
+          }).toList();
+        },
+      ),
+    );
+  }
+
+
 
   Widget _buildProfileRow(String label, String value) {
     return Padding(
@@ -485,7 +498,7 @@ class _PredictionPageState extends State<PredictionPage> {
                         children: [
                           Text(measurement.vesselProfile.name),
                           Text(
-                            "Gm: ${measurement.loadingCondition.gm.toStringAsFixed(2)} m",
+                            "GM: ${measurement.loadingCondition.gm.toStringAsFixed(2)} m",
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF012169)),
                           ),
                         ],
@@ -499,12 +512,12 @@ class _PredictionPageState extends State<PredictionPage> {
                               _buildProfileRow(
                                   "FFT Period",
                                   measurement.rollPeriodFFT != null
-                                      ? "${measurement.rollPeriodFFT!.toStringAsFixed(2)} s"
+                                      ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
                                       : "N/A"),
                               ...measurement.predictedRollPeriods.entries.map(
                                     (entry) => _buildProfileRow(
                                     "${entry.key}",
-                                    "${entry.value.toStringAsFixed(2)} s"),
+                                    "${entry.value.toStringAsFixed(1)} s"),
                               ),
                               const SizedBox(height: 8),
                               Align(
@@ -704,7 +717,7 @@ class _PredictionPageState extends State<PredictionPage> {
                                   style: Theme.of(context).textTheme.titleMedium,
                                 ),
                                 Text(
-                                  "${currentPeriod.toStringAsFixed(2)} s",
+                                  "${currentPeriod.toStringAsFixed(1)} s",
                                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF012169),
@@ -798,18 +811,20 @@ class _PredictionPageState extends State<PredictionPage> {
                                 style: Theme.of(context).textTheme.titleSmall,
                               ),),
                               const SizedBox(height: 8),
+                              // Dans la section COMPARISON, remplacez le LineChart actuel par ceci :
                               Container(
                                 height: 300,
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.only(left: 6, top: 16, right: 16,bottom: 8),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
                                   color: Colors.white,
                                   boxShadow: [
                                     BoxShadow(
-                                        color: Colors.grey.withOpacity(0.2),
-                                        spreadRadius: 2,
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4))
+                                      color: Colors.grey.withOpacity(0.2),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
                                   ],
                                 ),
                                 child: LineChart(
@@ -829,35 +844,67 @@ class _PredictionPageState extends State<PredictionPage> {
                                     ),
                                     titlesData: FlTitlesData(
                                       show: true,
-                                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                       bottomTitles: AxisTitles(
+                                        axisNameWidget: Padding(
+                                          padding: const EdgeInsets.only(top: 0),
+                                          child: Text(
+                                            'Measured Period (s)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
                                         sideTitles: SideTitles(
                                           showTitles: true,
-                                          reservedSize: 20,
-                                          interval: 10, // 👈 affiche tous les 10
+                                          reservedSize: 30,
+                                          interval: 10,
                                           getTitlesWidget: (value, meta) {
-                                            return Text(
-                                              value.toStringAsFixed(0),
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey,
+                                            return Padding(
+                                              padding: const EdgeInsets.only(top: 8.0),
+                                              child: Text(
+                                                value.toStringAsFixed(0),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
                                               ),
                                             );
                                           },
                                         ),
                                       ),
                                       leftTitles: AxisTitles(
+                                        axisNameWidget: RotatedBox(
+                                          quarterTurns: 0,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 25),
+                                            child: Center(
+                                              child: Text(
+                                                'Estimated Period (s)',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        axisNameSize: 28,
                                         sideTitles: SideTitles(
                                           showTitles: true,
-                                          reservedSize: 20,
-                                          interval: 10, // 👈 affiche tous les 10
+                                          reservedSize: 26,
+                                          interval: 10,
                                           getTitlesWidget: (value, meta) {
-                                            return Text(
-                                              value.toStringAsFixed(0),
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey,
+                                            return Padding(
+                                              padding: const EdgeInsets.only(right: 8.0),
+                                              child: Text(
+                                                value.toStringAsFixed(0),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
                                               ),
                                             );
                                           },
@@ -879,10 +926,10 @@ class _PredictionPageState extends State<PredictionPage> {
                                       // Ligne x=y de référence
                                       LineChartBarData(
                                         spots: [FlSpot(0, 0), FlSpot(40, 40)],
-                                        isCurved: false,
+                                        isCurved: true,
                                         color: Colors.grey.withOpacity(0.5),
                                         barWidth: 2,
-                                        dotData: FlDotData(show: false),
+                                        dotData: const FlDotData(show: false),
                                       ),
                                       // Points de données
                                       LineChartBarData(
@@ -894,16 +941,27 @@ class _PredictionPageState extends State<PredictionPage> {
                                           show: true,
                                           getDotPainter: (spot, percent, barData, index) {
                                             return FlDotCirclePainter(
-                                              radius: 4,
-                                              color: Colors.transparent, // centre transparent
+                                              radius: 6,
+                                              color: const Color(0xFF012169),
                                               strokeWidth: 2,
-                                              strokeColor: const Color(0xFF012169), // contour coloré
+                                              strokeColor: Colors.white,
                                             );
                                           },
                                         ),
                                       ),
-
                                     ],
+                                    lineTouchData: LineTouchData(
+                                      touchTooltipData: LineTouchTooltipData(
+                                        getTooltipItems: (touchedSpots) {
+                                          return touchedSpots.map((touchedSpot) {
+                                            return LineTooltipItem(
+                                              'Measured: ${touchedSpot.x.toStringAsFixed(1)}s\nEstimated: ${touchedSpot.y.toStringAsFixed(1)}s',
+                                              const TextStyle(color: Colors.white),
+                                            );
+                                          }).toList();
+                                        },
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1015,6 +1073,7 @@ class _PredictionPageState extends State<PredictionPage> {
                                   _buildDetailRow("Name", widget.loadingCondition.name),
                                   _buildDetailRow("GM", "${widget.loadingCondition.gm.toStringAsFixed(2)} m"),
                                   _buildDetailRow("VCG", "${widget.loadingCondition.vcg.toStringAsFixed(2)} m"),
+                                  _buildDetailRow("Draft", "${widget.loadingCondition.draft.toStringAsFixed(2)} m"),
 
                                   // Liste des autres conditions de chargement disponibles
                                   if (widget.vesselProfile.loadingConditions.length > 1) ...[

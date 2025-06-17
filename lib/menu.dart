@@ -31,15 +31,16 @@ class _MenuPageState extends State<MenuPage> {
 
     // Initialisation avec un profil par défaut et une condition de chargement par défaut
     _currentVesselProfile = VesselProfile(
-      name: "Default",
+      name: "Example",
       length: 100.0,
       beam: 20.0,
       depth: 10.0,
       loadingConditions: [
         LoadingCondition(
-          name: "Default Condition",
+          name: "Example",
           gm: 1.0,
           vcg: 10.0,
+          draft: 5.0,
         )
       ],
     );
@@ -150,44 +151,7 @@ class _MenuPageState extends State<MenuPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Encoche avec flèche
-          if (_selectedIndex != 3)
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isBottomBarVisible = !_isBottomBarVisible;
-                });
-              },
-              child: Container(
-                height: 20,
-                width: 60,
-                decoration: BoxDecoration(
-                  color: const Color(0x1A012169), // couleur de l’encoche
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(10),
-                    topRight: Radius.circular(10),
-                  ),
-                ),
-                child: Icon(
-                  _isBottomBarVisible
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_up,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          // Barre de navigation conditionnelle
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return SizeTransition(
-                sizeFactor: animation,
-                axisAlignment: -1.0,
-                child: child,
-              );
-            },
-            child: _isBottomBarVisible
-              ? BottomNavigationBar(
+          BottomNavigationBar(
                 key: const ValueKey('visibleBar'),
                 currentIndex: _selectedIndex,
                 selectedItemColor: const Color(0xFF012169),
@@ -207,7 +171,7 @@ class _MenuPageState extends State<MenuPage> {
                 items: const [
                   BottomNavigationBarItem(
                   icon: Icon(Icons.explore),
-                  label: 'Navigation',
+                  label: 'Roll Risk',
                   ),
                   BottomNavigationBarItem(
                   icon: Icon(Icons.notifications_active),
@@ -215,7 +179,7 @@ class _MenuPageState extends State<MenuPage> {
                   ),
                   BottomNavigationBarItem(
                   icon: Icon(Icons.sensors),
-                  label: 'Sensors',
+                  label: 'Measure',
                   ),
                   BottomNavigationBarItem(
                   icon: Icon(Icons.directions_boat_filled_rounded),
@@ -227,10 +191,6 @@ class _MenuPageState extends State<MenuPage> {
                   ),
                 ],
               )
-            : const SizedBox.shrink(
-                key: ValueKey('hiddenBar'),
-              ),
-        ),
       ],
       ),
     ),

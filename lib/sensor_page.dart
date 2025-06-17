@@ -47,8 +47,6 @@ class _SensorPageState extends State<SensorPage> {
   // =============================================
 
   // Constantes
-  static const int _maxDataPoints = 512; // Nombre max de points de données
-  static const int _fftWindowSize = 512; // Taille de la fenêtre FFT
   static const int _maxPeriods = 5; // Nombre max de périodes à conserver
 
   // Données des capteurs
@@ -57,6 +55,7 @@ class _SensorPageState extends State<SensorPage> {
 
   // États de l'application
   bool _isCollectingData = false;
+  int _collectedSamples = 0; // Ajoutez cette ligne dans la section des variables d'état
   bool _showRollData = true;
   bool _showPitchData = true;
 
@@ -99,8 +98,8 @@ class _SensorPageState extends State<SensorPage> {
   int _currentFftPage = 0;
 
   int _powerIndex = 3;
-  final List<double> _powersOfTwo  = [512, 1024, 2048, 4096, 8192, 16384]; // Supprimer les autres options
-
+  final List<int> _powersOfTwo  = [512, 1024, 2048, 4096, 8192, 16384]; // Supprimer les autres options
+  int get _fftWindowSize => _powersOfTwo[_powerIndex];
   bool _hasReachedSampleCount = false;
 
   late TutorialCoachMark tutorialCoachMark;
@@ -108,11 +107,9 @@ class _SensorPageState extends State<SensorPage> {
   final GlobalKey _chartKey = GlobalKey();
   final GlobalKey _startButtonKey = GlobalKey();
   final GlobalKey _clearButtonKey = GlobalKey();
-  final GlobalKey _exportButtonKey = GlobalKey();
   final GlobalKey _importButtonKey = GlobalKey();
   final GlobalKey _rollAngleButtonKey = GlobalKey();
   final GlobalKey _pitchAngleButtonKey = GlobalKey();
-  final GlobalKey _rateButtonKey = GlobalKey();
   final GlobalKey _sampleButtonKey = GlobalKey();
   final GlobalKey _rollPitchPeriodButtonKey = GlobalKey();
   final GlobalKey _rollPitchFftButtonKey = GlobalKey();
@@ -120,6 +117,11 @@ class _SensorPageState extends State<SensorPage> {
   final ScrollController _scrollController = ScrollController();
 
   List<TargetFocus> _targets = [];
+
+  // Variables pour les FFT intermédiaires
+  List<double> _intermediateFFTResults = [];
+  bool _isComputingFFT = false;
+  int _lastIntermediateFFTCount = 0;
 
   String? _importedFileName;
   String? _getImportedFileName() {
@@ -165,9 +167,6 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Lance la collecte de données
   void _startDataCollection() {
-    _rollData.clear();
-    _pitchData.clear();
-    _stopwatch.reset();
     _stopwatch.start();
     _timestampQueue.clear();
     _dynamicSampleRate = 5;
@@ -183,6 +182,11 @@ class _SensorPageState extends State<SensorPage> {
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       _accelerometer = event;
     });
+
+    // Démarrer le calcul FFT immédiatement si on a assez de données
+    if (_fftRollSamples.length >= _fftWindowSize) {
+      _computeFFTPeriod();
+    }
   }
 
   /// Arrête la collecte de données
@@ -196,6 +200,7 @@ class _SensorPageState extends State<SensorPage> {
   void _clearData() {
     if (mounted) {
       setState(() {
+        _collectedSamples = 0; // Ajoutez cette ligne
         _rollData.clear();
         _pitchData.clear();
         _rollAngle = null;
@@ -228,6 +233,7 @@ class _SensorPageState extends State<SensorPage> {
   /// Traite les données de l'accéléromètre
   void _processAccelerometerData(AccelerometerEvent event) {
     _updateSampleRate();
+    _collectedSamples++; // Ajoutez cette ligne
 
     final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
     _rollAngle = calculateRoll(event);
@@ -316,6 +322,7 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Prépare les données pour le calcul FFT
+  /// Prépare les données pour le calcul FFT
   void _prepareFFTData() {
     _fftRollSamples.add(_rollAngle!);
     _fftPitchSamples.add(_pitchAngle!);
@@ -328,8 +335,52 @@ class _SensorPageState extends State<SensorPage> {
       _fftPitchSamples.removeAt(0);
     }
 
+    // Calcul FFT intermédiaire tous les 512 échantillons
+    if (_fftRollSamples.length >= 512 &&
+        _fftRollSamples.length % 512 == 0 &&
+        _fftRollSamples.length > _lastIntermediateFFTCount &&
+        !_isComputingFFT) {
+      _lastIntermediateFFTCount = _fftRollSamples.length;
+      _computeIntermediateFFT();
+    }
+
+    // Calcul FFT final quand on a assez d'échantillons
     if (_fftRollSamples.length == _fftWindowSize && _fftRollPeriod == null) {
       _computeFFTPeriod();
+    }
+  }
+
+  /// Calcule les FFT intermédiaires pour donner un retour à l'utilisateur
+  void _computeIntermediateFFT() async {
+    if (_isComputingFFT) return;
+
+    setState(() => _isComputingFFT = true);
+
+    try {
+      final currentSamples = _fftRollSamples.length;
+      final rollperiod = await compute(_backgroundFFTCalculation, {
+        'samples': _fftRollSamples,
+        'sampleRate': _dynamicSampleRate,
+      });
+
+      if (mounted) {
+        setState(() {
+          _intermediateFFTResults.add(rollperiod!);
+          // Afficher une notification si c'est le premier résultat intermédiaire
+          if (_intermediateFFTResults.length == 1) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('First intermediate result: ${rollperiod.toStringAsFixed(2)}s (${currentSamples} samples)'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error computing intermediate FFT: $e');
+    } finally {
+      setState(() => _isComputingFFT = false);
     }
   }
 
@@ -376,9 +427,17 @@ class _SensorPageState extends State<SensorPage> {
         setState(() {
           _fftRollPeriod = rollperiod;
           _fftPitchPeriod = pitchperiod;
-          debugPrint(" ${_fftRollPeriod}, ${_fftPitchPeriod}");
         });
       }
+    }
+
+    // Programmer le prochain calcul dans 1 minute si la collecte est toujours active
+    if (_isCollectingData && mounted) {
+      Future.delayed(const Duration(minutes: 1), () {
+        if (_isCollectingData && mounted) {
+          _computeFFTPeriod();
+        }
+      });
     }
   }
 
@@ -391,6 +450,7 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Réinitialise les données FFT
+  /// Réinitialise les données FFT
   void _clearFFTData() {
     _fftRollSamples.clear();
     _fftPitchSamples.clear();
@@ -399,6 +459,8 @@ class _SensorPageState extends State<SensorPage> {
         _fftRollPeriod = null;
         _fftPitchPeriod = null;
         _hasReachedSampleCount = false;
+        _intermediateFFTResults.clear();
+        _lastIntermediateFFTCount = 0;
       });
     }
   }
@@ -416,6 +478,7 @@ class _SensorPageState extends State<SensorPage> {
 
   // sensor_page.dart
   void _savefunction() async {
+    await _exportRollDataToDownloads();
     try {
       if (_fftRollPeriod == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -441,6 +504,7 @@ class _SensorPageState extends State<SensorPage> {
           widget.vesselProfile.beam,
           widget.vesselProfile.depth,
           widget.loadingCondition.vcg,
+          widget.loadingCondition.draft,
         );
       }
 
@@ -477,7 +541,7 @@ class _SensorPageState extends State<SensorPage> {
   }
 
 // Ajoutez cette fonction utilitaire dans sensor_page.dart
-  double calculateRollPeriod(double gm, String method, double beam, double depth, double vcg) {
+  double calculateRollPeriod(double gm, String method, double beam, double depth, double vcg, double draft) {
     if (gm <= 0) return 0;
 
     switch (method) {
@@ -1034,54 +1098,6 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
 
-    // Étape 4: Bouton export
-    targets.add(
-      TargetFocus(
-        identify: "export_button",
-        keyTarget: _exportButtonKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Press here to export the measured and calculated data to a CSV file.",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          controller.previous();
-                        },
-                        child: const Text("Previous"),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          controller.next();
-                        },
-                        child: const Text("Next"),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 15,
-      ),
-    );
 
     // Étape 5: Bouton import
     targets.add(
@@ -1407,45 +1423,155 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Tuile d'affichage pour l'angle de roulis (roll)
-  /// Tuile d'affichage pour l'angle de roulis (roll)
   Widget rollTile(double? angle, {Key? key}) {
+    double maxRoll = _rollData.isNotEmpty
+        ? _rollData.map((spot) => spot.y.abs()).reduce(max)
+        : 0.0;
+
     return Card(
       color: getSmoothColorForAngle(angle, _showRollData),
       child: InkWell(
         key: key,
         onTap: () => setState(() => _showRollData = !_showRollData),
-        child: ListTile(
-          leading: const Icon(Icons.straighten, color: Colors.white, size: 40),
-          title: const Text('Roll', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          subtitle: Text(
-            _showRollData
-                ? (angle != null ? '${angle.toStringAsFixed(2)}°' : 'in degres')
-                : 'OFF',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Texte à gauche
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Text(
+                        'Roll',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Barre verticale au centre
+              Container(
+                width: 1,
+                height: 50,
+                color: Colors.white30,
+              ),
+
+              const SizedBox(width: 12),
+
+              // Valeurs à droite
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _showRollData
+                          ? (angle != null ? '${angle.toStringAsFixed(2)}°' : "0.00°")
+                          : 'OFF',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize:24,
+                      ),
+                    ),
+                    Text(
+                      'Max: ${maxRoll.toStringAsFixed(2)}°',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  /// Tuile d'affichage pour l'angle de tangage (pitch)
   Widget pitchTile(double? angle, {Key? key}) {
+    double maxPitch = _pitchData.isNotEmpty
+        ? _pitchData.map((spot) => spot.y.abs()).reduce(max)
+        : 0.0;
+
     return Card(
       color: getSmoothColorForAngle(angle, _showPitchData),
       child: InkWell(
         key: key,
         onTap: () => setState(() => _showPitchData = !_showPitchData),
-        child: ListTile(
-          leading: Transform.rotate(
-            angle: 90 * 3.1415926535 / 180,
-            child: const Icon(Icons.straighten, color: Colors.white, size: 40),
-          ),
-          title: const Text('Pitch', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          subtitle: Text(
-            _showPitchData
-                ? (angle != null ? '${angle.toStringAsFixed(2)}°' : 'in degres')
-                : 'OFF',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Texte à gauche
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Center(
+                      child: Text(
+                        'Pitch',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Barre verticale au centre
+              Container(
+                width: 1,
+                height: 50,
+                color: Colors.white30,
+              ),
+
+              const SizedBox(width: 12),
+
+              // Valeurs à droite
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _showPitchData
+                          ? (angle != null ? '${angle.toStringAsFixed(2)}°' : "0.00°")
+                          : 'OFF',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize:24,
+                      ),
+                    ),
+                    Text(
+                      'Max: ${maxPitch.toStringAsFixed(2)}°',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            ],
           ),
         ),
       ),
@@ -1453,12 +1579,13 @@ class _SensorPageState extends State<SensorPage> {
   }
 
 
+
+
   /// Tuile d'affichage du taux d'échantillonnage
-  // Modifier la fonction SampleTile()
   Widget SampleTile() {
     // Cas d'un import de fichier
     if (_hasReachedSampleCount && _rollData.isNotEmpty && !_isCollectingData) {
-      final fileName = _getImportedFileName(); // À implémenter si vous stockez le nom du fichier
+      final fileName = _getImportedFileName();
       final sampleCount = _rollData.length;
       String timeEstimate = '';
 
@@ -1475,7 +1602,7 @@ class _SensorPageState extends State<SensorPage> {
           },
           child: ListTile(
             key: _sampleButtonKey,
-            leading: const Icon(Icons.file_upload, color: Colors.white, size: 40),
+            leading: const Icon(Icons.file_upload, color: Colors.white, size: 32),
             title: Text(
               fileName ?? 'Imported Data',
               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
@@ -1490,10 +1617,21 @@ class _SensorPageState extends State<SensorPage> {
     }
 
     // Cas normal (mesure en direct)
-    String timeEstimate = '';
+    int totalSamples = _powersOfTwo[_powerIndex];
+    int collectedSamples = _collectedSamples;
+    String timeText = '';
+
     if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
-      final totalSeconds = (_powersOfTwo[_powerIndex] / _dynamicSampleRate!).ceil();
-      timeEstimate = ' (~${_formatTime(totalSeconds)})';
+      if (_isCollectingData || (_collectedSamples > 0 && !_isCollectingData)) {
+        // Pendant la collecte ou après pause
+        final remainingSamples = totalSamples - collectedSamples;
+        final remainingTime = (remainingSamples / _dynamicSampleRate!).ceil();
+        timeText = ' (${_formatTime(remainingTime)})';
+      } else {
+        // Avant démarrage
+        final estimatedTime = (totalSamples / _dynamicSampleRate!).ceil();
+        timeText = ' (${_formatTime(estimatedTime)})';
+      }
     }
 
     return Card(
@@ -1504,10 +1642,10 @@ class _SensorPageState extends State<SensorPage> {
         },
         child: ListTile(
           key: _sampleButtonKey,
-          leading: const Icon(Icons.settings, color: Colors.white, size: 40),
+          leading: const Icon(Icons.settings, color: Colors.white, size: 32),
           title: const Text('Sample Size', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           subtitle: Text(
-            '${_powersOfTwo[_powerIndex].toStringAsFixed(0)} samples$timeEstimate',
+            '${_isCollectingData || _collectedSamples > 0 ? '$collectedSamples/$totalSamples' : totalSamples.toString()} samples$timeText',
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
@@ -1516,8 +1654,8 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   void _showSampleSizeDialog(BuildContext context) {
-    final List<double> availableSizes = [512, 1024, 2048, 4096, 8192, 16384];
-    double selectedValue = _powersOfTwo[_powerIndex]!;
+    final List<int> availableSizes = [512, 1024, 2048, 4096, 8192, 16384];
+    int selectedValue = _powersOfTwo[_powerIndex]!;
 
     showDialog(
       context: context,
@@ -1545,24 +1683,24 @@ class _SensorPageState extends State<SensorPage> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   const SizedBox(height: 20),
-                  DropdownButton<double>(
+                  DropdownButton<int>(
                     value: selectedValue,
-                    onChanged: (double? newValue) {
+                    onChanged: (int? newValue) {
                       if (newValue != null) {
                         setState(() {
                           selectedValue = newValue; // Met à jour visuellement
                         });
                       }
                     },
-                    items: availableSizes.map<DropdownMenuItem<double>>((double value) {
+                    items: availableSizes.map<DropdownMenuItem<int>>((int value) {
                       final timeEstimate = _dynamicSampleRate != null && _dynamicSampleRate! > 0
                           ? ' (~${_formatTime((value / _dynamicSampleRate!).ceil())})'
                           : '';
 
-                      return DropdownMenuItem<double>(
+                      return DropdownMenuItem<int>(
                         value: value,
                         child: Text('$value samples$timeEstimate',
-                          style: const TextStyle(fontSize: 14)), // << taille définie ici),
+                            style: const TextStyle(fontSize: 14)), // << taille définie ici),
 
                       );
                     }).toList(),
@@ -1594,141 +1732,71 @@ class _SensorPageState extends State<SensorPage> {
   }
 
 
+  Widget rollPeriodAndPitchPeriodTiles() {
+    return Row(
+      children: [
+        Expanded(child: fftRollPeriodTile()),
+        Expanded(child: fftPitchPeriodTile()),
+      ],
+    );
+  }
 
 
 
-  /// Tuile d'affichage des périodes calculées par passage à zéro
-  Widget rollingPeriodTile(double? Rollperiod, double? Pitchperiod) {
+  Widget fftRollPeriodTile() {
     return Card(
-      color: Colors.teal,
-      child: SizedBox(
-        key: _rollPitchPeriodButtonKey,
-        height: 70,
-        child: Row(
+      color: Colors.deepPurple,
+      child: ListTile(
+        leading: Image.asset(
+          'assets/icons/roll.png',
+          width: 32,
+          height: 32,
+          color: Colors.white,
+        ),
+        title: const Text('Roll Period',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: PageView(
-                scrollDirection: Axis.vertical,
-                controller: _pageController,
-                onPageChanged: (int page) => setState(() => _currentPage = page),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.access_time, color: Colors.white, size: 40),
-                    title: const Text('Rolling Period (s)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: Text(
-                      Rollperiod != null ? '${Rollperiod.toStringAsFixed(2)} s' : 'Calculating...',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.access_time, color: Colors.white, size: 40),
-                    title: const Text('Pitch Period (s)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: Text(
-                      Pitchperiod != null ? '${Pitchperiod.toStringAsFixed(2)} s' : 'Calculating...',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List<Widget>.generate(2, (int index) {
-                  return Container(
-                    width: 8.0,
-                    height: 8.0,
-                    margin: const EdgeInsets.symmetric(vertical: 4.0),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _currentPage == index ? Colors.white : Colors.white.withOpacity(0.4),
-                    ),
-                  );
-                }),
-              ),
-            ),
+            if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
+              const Text('...',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            if ((_isCollectingData || _collectedSamples > 0) && _fftRollPeriod == null)
+              const Text('Calculating...',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            if (_fftRollPeriod != null)
+              Text('${_fftRollPeriod!.toStringAsFixed(2)} s',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           ],
         ),
       ),
     );
   }
 
-  /// Tuile d'affichage des périodes calculées par FFT
-  Widget fftPeriodTile() {
-    int nb_sample = _powersOfTwo[_powerIndex].toInt();
-    String timeText = '';
-
-    if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
-      if (!_isCollectingData && _fftRollSamples.isEmpty) {
-        // Estimation avant démarrage
-        final estimatedTime = (nb_sample / _dynamicSampleRate!).ceil();
-        timeText = 'Time left: ${_formatTime(estimatedTime)}';
-      } else if (_isCollectingData) {
-        // Temps restant pendant la collecte
-        final remainingSamples = nb_sample - _fftRollSamples.length;
-        final remainingTime = (remainingSamples / _dynamicSampleRate!).ceil();
-        timeText = 'Time left: ${_formatTime(remainingTime)}';
-      }
-    }
-
+  Widget fftPitchPeriodTile() {
     return Card(
-      color: Colors.deepPurple,
-      child: SizedBox(
-        key: _rollPitchFftButtonKey,
-        height: 70,
-        child: Row(
+      color: Colors.teal,
+      child: ListTile(
+        leading: Image.asset(
+          'assets/icons/pitch.png',
+          width: 32,
+          height: 32,
+          color: Colors.white,
+        ),
+        title: const Text('Pitch Period',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: PageView(
-                scrollDirection: Axis.vertical,
-                controller: _fftPageController,
-                onPageChanged: (int page) => setState(() => _currentFftPage = page),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.sync, color: Colors.white, size: 40),
-                    title: const Text('Roll Period (FFT)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: _fftRollPeriod != null
-                        ? Text('${_fftRollPeriod!.toStringAsFixed(2)} s', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-                        : Text(
-                      _isCollectingData
-                          ? '$timeText'
-                          : timeText.isNotEmpty ? timeText : 'Press Start',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.sync, color: Colors.white, size: 40),
-                    title: const Text('Pitch Period (FFT)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: _fftPitchPeriod != null
-                        ? Text('${_fftPitchPeriod!.toStringAsFixed(2)} s', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))
-                        : Text(
-                      _isCollectingData
-                          ? '$timeText'
-                          : timeText.isNotEmpty ? timeText : 'Press Start',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List<Widget>.generate(2, (int index) {
-                  return Container(
-                    width: 8.0,
-                    height: 8.0,
-                    margin: const EdgeInsets.symmetric(vertical: 4.0),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _currentFftPage == index ? Colors.white : Colors.white.withOpacity(0.4),
-                    ),
-                  );
-                }),
-              ),
-            ),
+            if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
+              const Text('...',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            if ((_isCollectingData || _collectedSamples > 0) && _fftPitchPeriod == null)
+              const Text('Calculating...',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            if (_fftPitchPeriod != null)
+              Text('${_fftPitchPeriod!.toStringAsFixed(2)} s',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           ],
         ),
       ),
@@ -1766,7 +1834,7 @@ class _SensorPageState extends State<SensorPage> {
             lineBarsData: [
               LineChartBarData(
                 spots: pitchChartData,
-                color: Colors.green,
+                color: Colors.teal,
                 barWidth: 2,
                 isCurved: false,
                 dotData: FlDotData(show: false),
@@ -1774,7 +1842,7 @@ class _SensorPageState extends State<SensorPage> {
               ),
               LineChartBarData(
                 spots: rollChartData,
-                color: Colors.blue,
+                color: Colors.deepPurple,
                 barWidth: 2,
                 isCurved: false,
                 dotData: FlDotData(show: false),
@@ -1918,8 +1986,7 @@ class _SensorPageState extends State<SensorPage> {
                   children: [
                     rollAndPitchTiles(),
                     SampleTile(),
-                    rollingPeriodTile(_RollaveragePeriod,_PitchaveragePeriod),
-                    fftPeriodTile(),
+                    rollPeriodAndPitchPeriodTiles(),
                     buildChart(),
                   ],
                 ),
@@ -1973,42 +2040,21 @@ class _SensorPageState extends State<SensorPage> {
                     ),
                     const SizedBox(width: 8),
 
-                    // Import/Export buttons
                     Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15.0),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.24),
-                              blurRadius: 2,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            InkWell(
-                              key: _importButtonKey,
-                              onTap: _handleImport,
-                              child: const Icon(Icons.download,
-                                  color: Color(0xFF012169), size: 24),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 24,
-                              color: const Color(0xFF012169),
-                            ),
-                            InkWell(
-                              key: _exportButtonKey,
-                              onTap: _exportRollDataToDownloads,
-                              child: const Icon(Icons.upload,
-                                  color: Color(0xFF012169), size: 24),
-                            ),
-                          ],
+                      child: ElevatedButton(
+                        onPressed: _handleImport,
+                        key: _importButtonKey,
+                        child: const Text('Import',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Color(0xFF012169))),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
+                          ),
                         ),
                       ),
                     ),

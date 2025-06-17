@@ -67,7 +67,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         // Charger la première condition ou créer une condition par défaut
         _currentLoadingCondition = _currentVesselProfile.loadingConditions.isNotEmpty
             ? _currentVesselProfile.loadingConditions.first
-            : LoadingCondition(name: "Default", gm: 0, vcg: 0);
+            : LoadingCondition(name: "Example", gm: 0, vcg: 0);
       });
     }
   }
@@ -129,7 +129,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                   depth: _currentVesselProfile.depth,
                   loadingConditions: [
                     LoadingCondition(
-                      name: "Default",
+                      name: "Example",
                       gm: _currentLoadingCondition.gm,
                       vcg: _currentLoadingCondition.vcg,
                     )
@@ -232,7 +232,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
       } else {
         // Créer une condition par défaut si aucune n'existe
         _currentLoadingCondition = LoadingCondition(
-          name: "Default",
+          name: "Example",
           gm: 0,
           vcg: 0,
         );
@@ -255,14 +255,14 @@ class _VesselWavePageState extends State<VesselWavePage> {
       if (_savedProfiles.isNotEmpty) {
         _currentVesselProfile = _savedProfiles.first;
         _currentLoadingCondition = _currentVesselProfile.loadingConditions.firstOrNull ??
-            LoadingCondition(name: "Default", gm: 0, vcg: 0);
+            LoadingCondition(name: "Example", gm: 0, vcg: 0);
       } else {
         _currentVesselProfile = VesselProfile(
-          name: "Default",
+          name: "Example",
           length: 0,
           beam: 0,
           depth: 0,
-          loadingConditions: [LoadingCondition(name: "Default", gm: 0, vcg: 0)],
+          loadingConditions: [LoadingCondition(name: "Example", gm: 0, vcg: 0)],
         );
         _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
       }
@@ -283,7 +283,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
       if (newConditions.isEmpty || _currentLoadingCondition == _currentVesselProfile.loadingConditions[index]) {
         _currentLoadingCondition = newConditions.isNotEmpty
             ? newConditions.first
-            : LoadingCondition(name: "Default", gm: 0, vcg: 0);
+            : LoadingCondition(name: "Example", gm: 0, vcg: 0);
 
         if (newConditions.isEmpty) {
           _currentVesselProfile = _currentVesselProfile.copyWith(
@@ -379,6 +379,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
+  // Dans la méthode _buildLoadingInfoPage() de info.dart
   Widget _buildLoadingInfoPage() {
     return SingleChildScrollView(
       child: Column(
@@ -401,6 +402,16 @@ class _VesselWavePageState extends State<VesselWavePage> {
             value: _currentLoadingCondition.vcg,
             onChanged: (val) {
               setState(() => _currentLoadingCondition = _currentLoadingCondition.copyWith(vcg: val));
+              _updateValues();
+            },
+          ),
+          _buildInputCard( // Nouveau champ
+            iconWidget: Icon(Icons.water, size: 40, color: Color(0xFF012169)),
+            label: "Draft",
+            unit: "m",
+            value: _currentLoadingCondition.draft,
+            onChanged: (val) {
+              setState(() => _currentLoadingCondition = _currentLoadingCondition.copyWith(draft: val));
               _updateValues();
             },
           ),
