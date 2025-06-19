@@ -311,7 +311,7 @@ class _AlertPageState extends State<AlertPage> {
     try {
       final buffer = StringBuffer();
       buffer.writeln(
-          'jour,mois,année,heure,minute,seconde,longitude,latitude,roll (deg)');
+          'day,month,year,hour,minute,seconde,longitude,latitude,roll (deg)');
 
       // On suppose ici que alertHistory et _rollData sont synchrones
       for (int i = 0; i < alertHistory.length && i < _rollData.length; i++) {
