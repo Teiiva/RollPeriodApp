@@ -159,12 +159,12 @@ class _VesselWavePageState extends State<VesselWavePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Save Loading Condition"),
+        title: const Text("Save voyage"),
         content: TextField(
           controller: _conditionNameController,
           decoration: const InputDecoration(
-            labelText: "Condition Name",
-            hintText: "Enter condition name",
+            labelText: "Voyage Name",
+            hintText: "Enter voyage name",
           ),
         ),
         actions: [
@@ -326,7 +326,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.balance),
-            label: 'Loading',
+            label: 'Voyage',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.navigation),
@@ -557,12 +557,12 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                      "Loading Condition",
+                      "Voyage",
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   IconButton(
                     icon: const Icon(Icons.save, color: Color(0xFF012169)),
                     onPressed: _saveCurrentLoadingCondition,
-                    tooltip: "Save current condition",
+                    tooltip: "Save current voyage",
                   ),
                 ],
               ),
