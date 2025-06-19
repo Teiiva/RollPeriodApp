@@ -83,7 +83,7 @@ class _PredictionPageState extends State<PredictionPage> {
           'beam': widget.vesselProfile.beam,
           'depth': widget.vesselProfile.depth,
         },
-        'loadingCondition': {
+        'voyage': {
           'name': widget.loadingCondition.name,
           'gm': widget.loadingCondition.gm,
           'vcg': widget.loadingCondition.vcg,
@@ -537,7 +537,7 @@ class _PredictionPageState extends State<PredictionPage> {
                         child: DropdownButtonFormField<String>(
                           value: _selectedCondition,
                           decoration: InputDecoration(
-                            labelText: 'Condition',
+                            labelText: 'Voyage',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -800,7 +800,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
                 const SizedBox(height: 16),
 
-                _buildDetailSection("Loading Condition", [
+                _buildDetailSection("Voyage", [
                   _buildDetailRow("Name", measurement.loadingCondition.name),
                   _buildDetailRow("GM", "${measurement.loadingCondition.gm.toStringAsFixed(2)} m"),
                   _buildDetailRow("VCG", "${measurement.loadingCondition.vcg.toStringAsFixed(2)} m"),
@@ -1278,7 +1278,7 @@ class _PredictionPageState extends State<PredictionPage> {
                     side: BorderSide.none,
                   ),
                   title: Text(
-                    "VESSEL & LOADING DETAILS",
+                    "VESSEL & VOYAGE DETAILS",
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.grey,
                       fontWeight: FontWeight.bold,
@@ -1343,7 +1343,7 @@ class _PredictionPageState extends State<PredictionPage> {
                                       Icon(Icons.balance, color: Color(0xFF012169)),
                                       SizedBox(width: 8),
                                       Text(
-                                        "LOADING CONDITION",
+                                        "VOYAGE",
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: Color(0xFF012169),
@@ -1361,7 +1361,7 @@ class _PredictionPageState extends State<PredictionPage> {
                                   if (widget.vesselProfile.loadingConditions.length > 1) ...[
                                     Divider(height: 24),
                                     Text(
-                                      "OTHER AVAILABLE CONDITIONS",
+                                      "OTHER AVAILABLE VOYAGES",
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey,
