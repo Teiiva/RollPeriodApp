@@ -30,8 +30,17 @@ class PredictionPage extends StatefulWidget {
 
 class _PredictionPageState extends State<PredictionPage> {
   String selectedMethod = 'Roll Coefficient';
-  final PageController _pageController = PageController(); // Ajoutez ceci
-  int _currentPage = 0; // Pour suivre la page actuelle
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  // Ajoutez ces variables pour le filtre
+  int? _selectedDay;
+  int? _selectedMonth;
+  int? _selectedYear;
+  String _filterText = '';
+  String _selectedVessel = 'All';
+  String _selectedCondition = 'All';
+  bool _sortAscending = true; // <-- Ajoutez cette ligne
 
   final Map<String, double> methodParameters = {
     'Roll Coefficient': 0.4,
@@ -451,148 +460,421 @@ class _PredictionPageState extends State<PredictionPage> {
 
 
 
+  // Dans prediction.dart, remplacer la méthode gmRollPeriodPairsTile par ceci :
+
   Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
     return FutureBuilder<List<SavedMeasurement>>(
-        future: _loadSavedMeasurements(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      future: _loadSavedMeasurements(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(4.0),
-                  child: Text(
-                    "No saved measurements yet",
-                    style: TextStyle(color: Colors.grey),
-                  ),
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Text(
+                  "No saved measurements yet",
+                  style: TextStyle(color: Colors.grey),
                 ),
-              ],
-            );
-          }
+              ),
+            ],
+          );
+        }
 
-          final measurements = snapshot.data!;
+        final measurements = snapshot.data!;
+        final vesselNames = ['All', ...measurements.map((m) => m.vesselProfile.name).toSet().toList()];
+        final conditionNames = ['All', ...measurements.map((m) => m.loadingCondition.name).toSet().toList()];
 
+        // Variable pour le tri
+        bool sortAscending = true;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Divider(),
+            // Remplacez le Card par ce Container pour les filtres
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.grey.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedVessel,
+                          decoration: InputDecoration(
+                            labelText: 'Vessel',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          items: vesselNames.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedVessel = value!;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedCondition,
+                          decoration: InputDecoration(
+                            labelText: 'Condition',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          items: conditionNames.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedCondition = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // Nouveaux menus déroulants pour jour/mois/année
+                      Expanded(
+                        child: DropdownButtonFormField<int?>(
+                          value: _selectedDay,
+                          decoration: InputDecoration(
+                            labelText: 'Day',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: null, child: Text('All')),
+                            ...List.generate(31, (index) => index + 1)
+                                .map((day) => DropdownMenuItem(
+                              value: day,
+                              child: Text(day.toString()),
+                            ))
+                                .toList(),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedDay = value;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<int?>(
+                          value: _selectedMonth,
+                          decoration: InputDecoration(
+                            labelText: 'Month',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: null, child: Text('All')),
+                            ...List.generate(12, (index) => index + 1)
+                                .map((month) => DropdownMenuItem(
+                              value: month,
+                              child: Text(month.toString()),
+                            ))
+                                .toList(),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedMonth = value;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<int?>(
+                          value: _selectedYear,
+                          decoration: InputDecoration(
+                            labelText: 'Year',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: null, child: Text('All')),
+                            ...measurements
+                                .map((m) => m.timestamp.year)
+                                .toSet()
+                                .toList()
+                                .map((year) => DropdownMenuItem(
+                              value: year,
+                              child: Text(year.toString()),
+                            ))
+                                .toList(),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedYear = value;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        icon: Icon(
+                            _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                            size: 16),
+                        label: Text(_sortAscending ? 'Oldest first' : 'Newest first'),
+                        onPressed: () {
+                          setState(() {
+                            _sortAscending = !_sortAscending;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+
+            // Le reste du code existant (Scrollbar et ListView.builder)
             Scrollbar(
               child: ListView.builder(
-                shrinkWrap: true, // Permet au ListView de s'adapter à son contenu
-                physics: const NeverScrollableScrollPhysics(), // Désactive le défilement interne
-                itemCount: measurements.length,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: measurements.where((m) {
+                  final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
+                  final matchesCondition = _selectedCondition == 'All' || m.loadingCondition.name == _selectedCondition;
+                  return matchesVessel && matchesCondition;
+                }).length,
                 itemBuilder: (context, index) {
-                  final measurement = measurements[index];
+                  // Filtrer et trier les mesures
+                  final filteredMeasurements = measurements.where((m) {
+                    final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
+                    final matchesCondition = _selectedCondition == 'All' || m.loadingCondition.name == _selectedCondition;
+                    return matchesVessel && matchesCondition;
+                  }).toList()
+                    ..sort((a, b) => _sortAscending // <-- Utilisez _sortAscending ici
+                        ? a.timestamp.compareTo(b.timestamp)
+                        : b.timestamp.compareTo(a.timestamp));
+
+                  final measurement = filteredMeasurements[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
                     color: const Color(0xFFDEDDEB),
-                    elevation: 0,
-                    child: ExpansionTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
-                      title: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    elevation: 1,
+                    child: ListTile(
+                      title: Text(measurement.vesselProfile.name),
+                      subtitle: Text(measurement.loadingCondition.name),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(measurement.vesselProfile.name),
-                          Text(
-                            "GM: ${measurement.loadingCondition.gm.toStringAsFixed(2)} m",
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF012169)),
-                          ),
-                        ],
-                      ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              _buildProfileRow(
-                                  "FFT Period",
-                                  measurement.rollPeriodFFT != null
-                                      ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
-                                      : "N/A"),
-                              ...measurement.predictedRollPeriods.entries.map(
-                                    (entry) => _buildProfileRow(
-                                    "${entry.key}",
-                                    "${entry.value.toStringAsFixed(1)} s"),
+                              Text(
+                                "${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF012169),
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.center,
-                                child: IconButton(
-                                  icon: const Icon(Icons.delete, color: Color(0xFF012169)),
-                                  onPressed: () async {
-                                    final shouldDelete = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Delete measurement?'),
-                                        content: const Text('Are you sure you want to delete this measurement?'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(true),
-                                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-
-                                    if (shouldDelete ?? false) {
-                                      await Provider.of<SharedData>(context, listen: false).deleteMeasurement(measurement);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Measurement deleted'),
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    }
-                                  },
+                              Text(
+                                _formatDate(measurement.timestamp),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
                                 ),
                               ),
                             ],
                           ),
-                        )
-                      ],
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _confirmDeleteMeasurement(context, measurement),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _showMeasurementDetails(context, measurement),
                     ),
                   );
                 },
               ),
             ),
+
           ],
         );
+      },
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  bool _matchesDate(String query, DateTime date) {
+    final formattedDate = _formatDate(date);
+    return formattedDate.contains(query);
+  }
+
+  Future<void>_confirmDeleteMeasurement(BuildContext context, SavedMeasurement measurement) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: const Text('Are you sure you want to delete this measurement?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete ?? false) {
+      await Provider.of<SharedData>(context, listen: false).deleteMeasurement(measurement);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Measurement deleted'),
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
+    }
+  }
+
+  void _showMeasurementDetails(BuildContext context, SavedMeasurement measurement) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Measurement Details"),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailSection("Vessel Profile", [
+                  _buildDetailRow("Name", measurement.vesselProfile.name),
+                  _buildDetailRow("Length", "${measurement.vesselProfile.length.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Beam", "${measurement.vesselProfile.beam.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Depth", "${measurement.vesselProfile.depth.toStringAsFixed(2)} m"),
+                ]),
+
+                const SizedBox(height: 16),
+
+                _buildDetailSection("Loading Condition", [
+                  _buildDetailRow("Name", measurement.loadingCondition.name),
+                  _buildDetailRow("GM", "${measurement.loadingCondition.gm.toStringAsFixed(2)} m"),
+                  _buildDetailRow("VCG", "${measurement.loadingCondition.vcg.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Draft", "${measurement.loadingCondition.draft.toStringAsFixed(2)} m"),
+                ]),
+
+                const SizedBox(height: 16),
+
+                _buildDetailSection("Periods", [
+                  _buildDetailRow(
+                      "FFT Period",
+                      measurement.rollPeriodFFT != null
+                          ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
+                          : "N/A"),
+                  ...measurement.predictedRollPeriods.entries.map(
+                        (entry) => _buildDetailRow(
+                        "${entry.key}",
+                        "${entry.value.toStringAsFixed(1)} s"),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+      Text(
+      title,
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        color: Color(0xFF012169),
+      ),
+      ),
+      const SizedBox(height: 8),
+      ...children,
+      ],
     );
   }
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 120,
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.black54,
+                color: Colors.black87,
               ),
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w500,
+              style: const TextStyle(
+                color: Colors.black54,
               ),
             ),
           ),
@@ -632,7 +914,7 @@ class _PredictionPageState extends State<PredictionPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Card(
-                elevation: 0,
+                elevation: 1,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -687,7 +969,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
               // Section des résultats (premier ExpansionTile)
               Card(
-                elevation: 0,
+                elevation: 1,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
@@ -751,7 +1033,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
               // Section des mesures sauvegardées (deuxième ExpansionTile)
               Card(
-                elevation: 0,
+                elevation: 1,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
@@ -774,7 +1056,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
               // Section de comparaison (troisième ExpansionTile)
               Card(
-                elevation: 0,
+                elevation: 1,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
@@ -986,7 +1268,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
 // Nouvelle section pour les détails du profil
               Card(
-                elevation: 0,
+                elevation: 1,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -1010,7 +1292,7 @@ class _PredictionPageState extends State<PredictionPage> {
                         children: [
                           // Détails du navire
                           Card(
-                            elevation: 0,
+                            elevation: 1,
                             color: Colors.grey[50],
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1046,7 +1328,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
                           // Détails de la condition de chargement
                           Card(
-                            elevation: 0,
+                            elevation: 1,
                             color: Colors.grey[50],
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

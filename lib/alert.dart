@@ -363,8 +363,11 @@ class _AlertPageState extends State<AlertPage> {
       appBar: const CustomAppBar(),
       body: SingleChildScrollView(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             _buildInputCard(
               const Icon(Icons.warning_rounded, size: 40, color: Color(0xFF012169)),
               "Threshold for\nroll angle",
@@ -449,7 +452,7 @@ class _AlertPageState extends State<AlertPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Card(
-        elevation: 2,
+        elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -602,9 +605,9 @@ class _AlertPageState extends State<AlertPage> {
       TextEditingController controller,
       ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
-        elevation: 2,
+        elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -666,9 +669,9 @@ class _AlertPageState extends State<AlertPage> {
       ValueChanged<String?> onChanged,
       ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
-        elevation: 2,
+        elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

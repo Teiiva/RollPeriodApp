@@ -17,7 +17,6 @@ import 'models/navigation_info.dart';
 import 'models/saved_measurement.dart';
 import 'package:provider/provider.dart';
 import 'shared_data.dart';
-import 'dart:convert';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,9 +45,6 @@ class _SensorPageState extends State<SensorPage> {
   // CONSTANTES ET VARIABLES D'ÉTAT
   // =============================================
 
-  // Constantes
-  static const int _maxPeriods = 5; // Nombre max de périodes à conserver
-
   // Données des capteurs
   AccelerometerEvent? _accelerometer;
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
@@ -67,16 +63,6 @@ class _SensorPageState extends State<SensorPage> {
   List<FlSpot> _rollData = [];
   List<FlSpot> _pitchData = [];
 
-  // Calcul des périodes (méthode passage par zéro)
-  List<double> _Rollperiods = [];
-  double? _RolllastZeroCrossingTime;
-  double? _RollaveragePeriod;
-  double _previousRoll = 0.0;
-
-  List<double> _Pitchperiods = [];
-  double? _PitchlastZeroCrossingTime;
-  double? _PitchaveragePeriod;
-  double _previousPitch = 0.0;
 
   // Calcul des périodes (méthode FFT)
   double? _fftRollPeriod;
@@ -90,12 +76,6 @@ class _SensorPageState extends State<SensorPage> {
   Timer? _fftTimer;
   Timer? _updateTimer;
   final Queue<DateTime> _timestampQueue = Queue<DateTime>();
-
-  // Contrôleurs de page
-  late PageController _pageController;
-  int _currentPage = 0;
-  late PageController _fftPageController;
-  int _currentFftPage = 0;
 
   int _powerIndex = 3;
   final List<int> _powersOfTwo  = [512, 1024, 2048, 4096, 8192, 16384]; // Supprimer les autres options
@@ -111,22 +91,44 @@ class _SensorPageState extends State<SensorPage> {
   final GlobalKey _rollAngleButtonKey = GlobalKey();
   final GlobalKey _pitchAngleButtonKey = GlobalKey();
   final GlobalKey _sampleButtonKey = GlobalKey();
-  final GlobalKey _rollPitchPeriodButtonKey = GlobalKey();
-  final GlobalKey _rollPitchFftButtonKey = GlobalKey();
+  final GlobalKey _rollFftButtonKey = GlobalKey();
+  final GlobalKey _pitchFftButtonKey = GlobalKey();
+
+
 
   final ScrollController _scrollController = ScrollController();
 
   List<TargetFocus> _targets = [];
 
-  // Variables pour les FFT intermédiaires
-  List<double> _intermediateFFTResults = [];
-  bool _isComputingFFT = false;
-  int _lastIntermediateFFTCount = 0;
 
   String? _importedFileName;
   String? _getImportedFileName() {
     return _importedFileName;
   }
+
+
+  late TextStyle titleStyle;
+  late TextStyle subtitleStyle;
+  late TextStyle MaxsubtitleStyle;
+  late TextStyle AngleStyle;
+  late TextStyle StartStyle;
+  late TextStyle clear_importStyle;
+  late TextStyle chartlabel;
+  late double iconsize;
+  late double iconsleftgap;
+  late double Horizontalpaddingintern;
+  late double Verticalpaddingintern;
+  late double BarVerticalpaddingintern;
+  late double BarHeight;
+  late double margin;
+  late double chartsize;
+  late double sidechartpadding;
+  late double axechartpadding;
+  late double axereservedsize;
+  late double edgepadding;
+  late double radius;
+  late double screenHeight;
+
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -134,9 +136,95 @@ class _SensorPageState extends State<SensorPage> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
-    _fftPageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkFirstLaunch());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateStyles(); // ici, context est disponible
+  }
+
+  // Méthode pour mettre à jour les styles si nécessaire
+  void _updateStyles() {
+    final basscreenWidth = 411.42857142857144;
+    final screenWidth = MediaQuery.of(context).size.width;
+    print('screenWidth: ${screenWidth}');
+    final screenHeight = MediaQuery.of(context).size.height;
+    print('screenHeight: ${screenHeight}');
+    final ratio = screenWidth/basscreenWidth;
+    print('ratio: ${ratio}');
+    setState(() {
+      titleStyle = TextStyle(
+        fontSize: 16.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      );
+      print('Title font size: ${titleStyle.fontSize}');
+      MaxsubtitleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.white70,
+      );
+      print('MaxsubtitleStyle font size: ${MaxsubtitleStyle.fontSize}');
+      subtitleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.white,
+      );
+      print('subtitleStyle font size: ${subtitleStyle.fontSize}');
+      AngleStyle = TextStyle(
+        fontSize: 24.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      );
+      print('AngleStyle font size: ${AngleStyle.fontSize}');
+      StartStyle = TextStyle(
+        fontSize: 16.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      );
+      print('StartStyle font size: ${StartStyle.fontSize}');
+      clear_importStyle = TextStyle(
+        fontSize: 16.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF012169),
+      );
+      print('clear_importStyle font size: ${clear_importStyle.fontSize}');
+      iconsize = 40.0 * ratio;
+      print('iconsize : ${iconsize}');
+      iconsleftgap = 8.0 * ratio;
+      print('iconsleftgap: ${iconsleftgap}');
+      Horizontalpaddingintern = 12.0 * ratio;
+      print('Horizontalpaddingintern: ${Horizontalpaddingintern}');
+      Verticalpaddingintern = 6 * ratio;
+      print('Verticalpaddingintern: ${Verticalpaddingintern}');
+      BarHeight= 50 * ratio;
+      print('BarHeight: ${BarHeight}');
+      margin= 4 * ratio;
+      print('margin: ${margin}');
+      BarVerticalpaddingintern = 12 * ratio;
+      print('BarVerticalpaddingintern: ${BarVerticalpaddingintern}');
+      chartsize = 0.4623 * screenHeight -62.58;
+      print('ChartSize: ${chartsize}');
+      sidechartpadding = 30 * (ratio*ratio);
+      print('sidechartpadding: ${sidechartpadding}');
+      axechartpadding = 10 * ratio;
+      print('axechartpadding: ${axechartpadding}');
+      axereservedsize = 25 * ratio;
+      print('axereservedsize: ${axereservedsize}');
+      chartlabel = TextStyle(
+        fontSize: 10.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.grey,
+      );
+      print('chartlabel font size: ${chartlabel.fontSize}');
+      edgepadding = 10 * ratio;
+      print('edgepadding: ${edgepadding}');
+      radius = 12 * ratio;
+      print('radius: ${radius}');
+    });
+
   }
 
   @override
@@ -144,8 +232,6 @@ class _SensorPageState extends State<SensorPage> {
     _updateTimer?.cancel();
     _accelerometerSubscription?.cancel();
     _fftTimer?.cancel();
-    _pageController.dispose();
-    _fftPageController.dispose();
     super.dispose();
     _scrollController.dispose();
   }
@@ -205,19 +291,6 @@ class _SensorPageState extends State<SensorPage> {
         _pitchData.clear();
         _rollAngle = null;
         _pitchAngle = null;
-
-        // Réinitialisation des calculs de période (roll)
-        _RollaveragePeriod = null;
-        _RolllastZeroCrossingTime = null;
-        _previousRoll = 0.0;
-        _Rollperiods.clear();
-
-        // Réinitialisation des calculs de période (pitch)
-        _PitchaveragePeriod = null;
-        _PitchlastZeroCrossingTime = null;
-        _previousPitch = 0.0;
-        _Pitchperiods.clear();
-
         _clearFFTData();
         _dynamicSampleRate = 5;
         _showRollData = true;
@@ -232,7 +305,6 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Traite les données de l'accéléromètre
   void _processAccelerometerData(AccelerometerEvent event) {
-    _updateSampleRate();
     _collectedSamples++; // Ajoutez cette ligne
 
     final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
@@ -251,10 +323,9 @@ class _SensorPageState extends State<SensorPage> {
           _hasReachedSampleCount = true;
         });
         _toggleDataCollection();
-        debugPrint("512 samples collected, data collection stopped.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('512 samples collected - Stopping data collection')),
+            SnackBar(content: Text('${_powersOfTwo[_powerIndex]} samples collected - Stopping data collection')),
           );
         }
       }
@@ -265,8 +336,6 @@ class _SensorPageState extends State<SensorPage> {
     _rollData.add(FlSpot(timestamp, _rollAngle!));
     _pitchData.add(FlSpot(timestamp, _pitchAngle!));
 
-    // Calcul des périodes par passage à zéro
-    _calculateZeroCrossingPeriods(timestamp);
 
     // Préparation des données pour la FFT
     _prepareFFTData();
@@ -274,54 +343,7 @@ class _SensorPageState extends State<SensorPage> {
     if (mounted) setState(() {});
   }
 
-  /// Met à jour le taux d'échantillonnage dynamique
-  void _updateSampleRate() {
-    final now = DateTime.now();
-    _timestampQueue.add(now);
 
-    if (_timestampQueue.length > 100) {
-      final first = _timestampQueue.first;
-      final last = _timestampQueue.last;
-      final duration = last.difference(first).inMilliseconds / 1000.0;
-      final rate = _timestampQueue.length / duration;
-      debugPrint('Average sampling rate: ${rate.toStringAsFixed(2)} Hz');
-      _timestampQueue.clear();
-      _dynamicSampleRate = rate;
-    }
-  }
-
-  /// Calcule les périodes par détection de passage à zéro
-  void _calculateZeroCrossingPeriods(double timestamp) {
-    // Détection du passage à zéro pour Roll
-    if (_previousRoll < 0 && _rollAngle! >= 0) {
-      if (_RolllastZeroCrossingTime != null) {
-        double period = timestamp - _RolllastZeroCrossingTime!;
-        _Rollperiods.add(period);
-        if (_Rollperiods.length > _maxPeriods) {
-          _Rollperiods.removeAt(0);
-        }
-        _RollaveragePeriod = _Rollperiods.reduce((a, b) => a + b) / _Rollperiods.length;
-      }
-      _RolllastZeroCrossingTime = timestamp;
-    }
-    _previousRoll = _rollAngle!;
-
-    // Détection du passage à zéro pour Pitch
-    if (_previousPitch < 0 && _pitchAngle! >= 0) {
-      if (_PitchlastZeroCrossingTime != null) {
-        double pitchPeriod = timestamp - _PitchlastZeroCrossingTime!;
-        _Pitchperiods.add(pitchPeriod);
-        if (_Pitchperiods.length > _maxPeriods) {
-          _Pitchperiods.removeAt(0);
-        }
-        _PitchaveragePeriod = _Pitchperiods.reduce((a, b) => a + b) / _Pitchperiods.length;
-      }
-      _PitchlastZeroCrossingTime = timestamp;
-    }
-    _previousPitch = _pitchAngle!;
-  }
-
-  /// Prépare les données pour le calcul FFT
   /// Prépare les données pour le calcul FFT
   void _prepareFFTData() {
     _fftRollSamples.add(_rollAngle!);
@@ -335,52 +357,10 @@ class _SensorPageState extends State<SensorPage> {
       _fftPitchSamples.removeAt(0);
     }
 
-    // Calcul FFT intermédiaire tous les 512 échantillons
-    if (_fftRollSamples.length >= 512 &&
-        _fftRollSamples.length % 512 == 0 &&
-        _fftRollSamples.length > _lastIntermediateFFTCount &&
-        !_isComputingFFT) {
-      _lastIntermediateFFTCount = _fftRollSamples.length;
-      _computeIntermediateFFT();
-    }
 
     // Calcul FFT final quand on a assez d'échantillons
     if (_fftRollSamples.length == _fftWindowSize && _fftRollPeriod == null) {
       _computeFFTPeriod();
-    }
-  }
-
-  /// Calcule les FFT intermédiaires pour donner un retour à l'utilisateur
-  void _computeIntermediateFFT() async {
-    if (_isComputingFFT) return;
-
-    setState(() => _isComputingFFT = true);
-
-    try {
-      final currentSamples = _fftRollSamples.length;
-      final rollperiod = await compute(_backgroundFFTCalculation, {
-        'samples': _fftRollSamples,
-        'sampleRate': _dynamicSampleRate,
-      });
-
-      if (mounted) {
-        setState(() {
-          _intermediateFFTResults.add(rollperiod!);
-          // Afficher une notification si c'est le premier résultat intermédiaire
-          if (_intermediateFFTResults.length == 1) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('First intermediate result: ${rollperiod.toStringAsFixed(2)}s (${currentSamples} samples)'),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error computing intermediate FFT: $e');
-    } finally {
-      setState(() => _isComputingFFT = false);
     }
   }
 
@@ -430,15 +410,6 @@ class _SensorPageState extends State<SensorPage> {
         });
       }
     }
-
-    // Programmer le prochain calcul dans 1 minute si la collecte est toujours active
-    if (_isCollectingData && mounted) {
-      Future.delayed(const Duration(minutes: 1), () {
-        if (_isCollectingData && mounted) {
-          _computeFFTPeriod();
-        }
-      });
-    }
   }
 
   /// Fonction de calcul FFT exécutée dans un isolate séparé
@@ -450,7 +421,6 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   /// Réinitialise les données FFT
-  /// Réinitialise les données FFT
   void _clearFFTData() {
     _fftRollSamples.clear();
     _fftPitchSamples.clear();
@@ -459,8 +429,6 @@ class _SensorPageState extends State<SensorPage> {
         _fftRollPeriod = null;
         _fftPitchPeriod = null;
         _hasReachedSampleCount = false;
-        _intermediateFFTResults.clear();
-        _lastIntermediateFFTCount = 0;
       });
     }
   }
@@ -487,14 +455,7 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
-      final predictionMethods = [
-        'Roll Coefficient',
-        'Doyere',
-        'JSRA',
-        'Beam',
-        'ITTC',
-        'Grin',
-      ];
+      final predictionMethods = ['Roll Coefficient','Doyere','JSRA','Beam','ITTC','Grin',];
 
       final predictedPeriods = <String, double>{};
       for (final method in predictionMethods) {
@@ -526,11 +487,6 @@ class _SensorPageState extends State<SensorPage> {
           const SnackBar(content: Text('Measurement saved successfully')),
         );
       }
-
-      setState(() {
-        _hasReachedSampleCount = false;
-        _clearData();
-      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -595,17 +551,13 @@ class _SensorPageState extends State<SensorPage> {
       if (_fftRollSamples.isNotEmpty) {
         powerSpectrum = FFTProcessor.computePowerSpectrum(_fftRollSamples);
       }
-
       // Données fixes
       final now = DateTime.now();
       final wavePeriod = widget.navigationInfo.wavePeriod;
       final direction = widget.navigationInfo.direction;
       final sampleRate = _dynamicSampleRate;
-      final sampleRateStr = sampleRate?.toStringAsFixed(2);
       final rollCount = _rollData.length;
-      final rollPeriodZero = _RollaveragePeriod?.toStringAsFixed(2);
       final rollPeriodFFT = _fftRollPeriod?.toStringAsFixed(2);
-      final pitchPeriodZero = _PitchaveragePeriod?.toStringAsFixed(2);
       final pitchPeriodFFT = _fftPitchPeriod?.toStringAsFixed(2);
       final vessel = widget.vesselProfile;
       final loading = widget.loadingCondition;
@@ -630,9 +582,7 @@ class _SensorPageState extends State<SensorPage> {
         'Sample Rate (Hz): $sampleRate',
         'Samples Count: $rollCount',
         'Duration (s): $duration',
-        'Roll Period (Zero Crossing)(s): $rollPeriodZero',
         'Roll Period (FFT)(s): $rollPeriodFFT',
-        'Pitch Period (Zero Crossing)(s): $pitchPeriodZero',
         'Pitch Period (FFT)(s): $pitchPeriodFFT',
         'Vessel Profile: ${vessel.name}',
         'Length (m): ${vessel.length}',
@@ -810,58 +760,10 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Calcule les périodes à partir des données importées
   void _calculatePeriodFromImportedData() {
-    // Réinitialisation des calculs
-    _Rollperiods.clear();
-    _RolllastZeroCrossingTime = null;
-    _RollaveragePeriod = null;
-    _previousRoll = 0.0;
-
-    _Pitchperiods.clear();
-    _PitchlastZeroCrossingTime = null;
-    _PitchaveragePeriod = null;
-    _previousPitch = 0.0;
 
     _stopwatch.reset();
-    if (_rollData.isNotEmpty) {
-      _stopwatch.elapsedMicroseconds + (_rollData.last.x * 1000000).toInt();
-    }
 
-    // Calcul des périodes pour les données importées
-    for (final spot in _rollData) {
-      final timestamp = spot.x;
-      final roll = spot.y;
-      final pitch = _pitchData.isNotEmpty ? _pitchData[_rollData.indexOf(spot)].y : 0.0;
-
-      // Calcul pour le roll
-      if (_previousRoll < 0 && roll >= 0) {
-        if (_RolllastZeroCrossingTime != null) {
-          double period = timestamp - _RolllastZeroCrossingTime!;
-          _Rollperiods.add(period);
-          if (_Rollperiods.length > _maxPeriods) {
-            _Rollperiods.removeAt(0);
-          }
-          _RollaveragePeriod = _Rollperiods.reduce((a, b) => a + b) / _Rollperiods.length;
-        }
-        _RolllastZeroCrossingTime = timestamp;
-      }
-      _previousRoll = roll;
-
-      // Calcul pour le pitch
-      if (_previousPitch < 0 && pitch >= 0) {
-        if (_PitchlastZeroCrossingTime != null) {
-          double period = timestamp - _PitchlastZeroCrossingTime!;
-          _Pitchperiods.add(period);
-          if (_Pitchperiods.length > _maxPeriods) {
-            _Pitchperiods.removeAt(0);
-          }
-          _PitchaveragePeriod = _Pitchperiods.reduce((a, b) => a + b) / _Pitchperiods.length;
-        }
-        _PitchlastZeroCrossingTime = timestamp;
-      }
-      _previousPitch = pitch;
-    }
-
-    // Préparation des données pour la FFT
+      // Préparation des données pour la FFT
     _fftRollSamples.clear();
     _fftPitchSamples.clear();
     _fftRollPeriod = null;
@@ -989,7 +891,7 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 15,
+        radius: radius,
       ),
     );
 
@@ -1036,7 +938,7 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 15,
+        radius: radius,
         enableOverlayTab: true, // Permet de cliquer sur l'overlay
       ),
     );
@@ -1094,7 +996,7 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 15,
+        radius: radius,
       ),
     );
 
@@ -1150,7 +1052,7 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 15,
+        radius: radius,
       ),
     );
 
@@ -1200,7 +1102,7 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 10,
+        radius: radius,
       ),
     );
 
@@ -1252,7 +1154,7 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 10,
+        radius: radius,
       ),
     );
 
@@ -1303,15 +1205,16 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 10,
+        radius: radius,
       ),
     );
 
-    // Étape 10 : Roll Pitch period
+
+// Étape 11 : Roll Pitch fft
     targets.add(
       TargetFocus(
-        identify: "roll_pitch_period",
-        keyTarget: _rollPitchPeriodButtonKey,
+        identify: "roll_fft",
+        keyTarget: _rollFftButtonKey,
         contents: [
           TargetContent(
             align: ContentAlign.bottom,
@@ -1320,7 +1223,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Displays the estimated roll period using zero crossing. Scroll to see the pitch period.",
+                    "Displays the actual rolling period value using spectral analysis.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1352,58 +1255,58 @@ class _SensorPageState extends State<SensorPage> {
           ),
         ],
         shape: ShapeLightFocus.RRect,
-        radius: 10,
+        radius: radius,
       ),
     );
 
-// Étape 11 : Roll Pitch fft
+    // Étape 12 :  Pitch fft
     targets.add(
-      TargetFocus(
-        identify: "roll_pitch_fft",
-        keyTarget: _rollPitchFftButtonKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Displays the actual rolling period value using spectral analysis. Scroll to access the pitch period. \n Displays an estimated measurement time indicator based on the number of samples and the sampling frequency.",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+        TargetFocus(
+          identify: "pitch_fft",
+          keyTarget: _pitchFftButtonKey,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Displays the actual pitch period value using spectral analysis.",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.justify, // Ajout de cette ligne
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
-                        },
-                        child: const Text("Previous"),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          controller.skip(); // Termine le tutoriel
-                        },
-                        child: const Text("End"),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 10,
-      ),
-    );
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            controller.previous(); // Retour à l'étape précédente
+                          },
+                          child: const Text("Previous"),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            controller.skip(); // Termine le tutoriel
+                          },
+                          child: const Text("End"),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+          shape: ShapeLightFocus.RRect,
+          radius: radius,
+        ),
+      );
 
     return targets;
   }
@@ -1429,12 +1332,13 @@ class _SensorPageState extends State<SensorPage> {
         : 0.0;
 
     return Card(
+      margin: EdgeInsets.all(margin),
       color: getSmoothColorForAngle(angle, _showRollData),
       child: InkWell(
         key: key,
         onTap: () => setState(() => _showRollData = !_showRollData),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern*0.5,vertical: Verticalpaddingintern*1.5),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -1447,21 +1351,18 @@ class _SensorPageState extends State<SensorPage> {
                     Center(
                       child: Text(
                         'Roll',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
+                        style: titleStyle,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 2),
 
               // Barre verticale au centre
               Container(
                 width: 1,
-                height: 50,
+                height: BarHeight,
                 color: Colors.white30,
               ),
 
@@ -1475,20 +1376,13 @@ class _SensorPageState extends State<SensorPage> {
                   children: [
                     Text(
                       _showRollData
-                          ? (angle != null ? '${angle.toStringAsFixed(2)}°' : "0.00°")
+                          ? (angle != null ? '${angle.toStringAsFixed(1)}°' : "0.0°")
                           : 'OFF',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize:24,
-                      ),
+                      style: AngleStyle,
                     ),
                     Text(
-                      'Max: ${maxRoll.toStringAsFixed(2)}°',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                      'Max: ${maxRoll.toStringAsFixed(1)}°',
+                      style: MaxsubtitleStyle,
                     ),
                   ],
                 ),
@@ -1506,12 +1400,13 @@ class _SensorPageState extends State<SensorPage> {
         : 0.0;
 
     return Card(
+      margin: EdgeInsets.all(margin),
       color: getSmoothColorForAngle(angle, _showPitchData),
       child: InkWell(
         key: key,
         onTap: () => setState(() => _showPitchData = !_showPitchData),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern*0.5,vertical: Verticalpaddingintern*1.5),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -1520,25 +1415,21 @@ class _SensorPageState extends State<SensorPage> {
                 flex: 3,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Center(
                       child: Text(
                         'Pitch',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
+                        style: titleStyle,
                       ),
                     ),
                   ],
                 ),
               ),
-
+              const SizedBox(width: 2),
               // Barre verticale au centre
               Container(
                 width: 1,
-                height: 50,
+                height: BarHeight,
                 color: Colors.white30,
               ),
 
@@ -1552,20 +1443,13 @@ class _SensorPageState extends State<SensorPage> {
                   children: [
                     Text(
                       _showPitchData
-                          ? (angle != null ? '${angle.toStringAsFixed(2)}°' : "0.00°")
+                          ? (angle != null ? '${angle.toStringAsFixed(1)}°' : "0.0°")
                           : 'OFF',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize:24,
-                      ),
+                      style: AngleStyle,
                     ),
                     Text(
-                      'Max: ${maxPitch.toStringAsFixed(2)}°',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                      'Max: ${maxPitch.toStringAsFixed(1)}°',
+                      style:MaxsubtitleStyle,
                     ),
                   ],
                 ),
@@ -1595,21 +1479,32 @@ class _SensorPageState extends State<SensorPage> {
       }
 
       return Card(
+        margin: EdgeInsets.all(margin),
         color: Colors.blueGrey,
         child: InkWell(
           onTap: () {
             _showSampleSizeDialog(context);
           },
           child: ListTile(
+            minLeadingWidth: 0, // ⬅️ Par exemple pour supprimer l’espace inutile
+            horizontalTitleGap: iconsleftgap,
             key: _sampleButtonKey,
-            leading: const Icon(Icons.file_upload, color: Colors.white, size: 32),
-            title: Text(
-              fileName ?? 'Imported Data',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            subtitle: Text(
-              '$sampleCount samples$timeEstimate',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
+            leading: Icon(Icons.file_upload, color: Colors.white, size: iconsize),
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  fileName ?? 'Imported Data',
+                  style: titleStyle,
+                ),
+                Text(
+                  '$sampleCount samples$timeEstimate',
+                  style: subtitleStyle,
+                ),
+              ],
             ),
           ),
         ),
@@ -1635,18 +1530,29 @@ class _SensorPageState extends State<SensorPage> {
     }
 
     return Card(
+      margin: EdgeInsets.all(margin),
       color: Colors.blueGrey,
       child: InkWell(
         onTap: () {
           _showSampleSizeDialog(context);
         },
         child: ListTile(
+          minLeadingWidth: 0,
+          horizontalTitleGap: iconsleftgap,
+          contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
           key: _sampleButtonKey,
-          leading: const Icon(Icons.settings, color: Colors.white, size: 32),
-          title: const Text('Sample Size', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          subtitle: Text(
-            '${_isCollectingData || _collectedSamples > 0 ? '$collectedSamples/$totalSamples' : totalSamples.toString()} samples$timeText',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          leading: Icon(Icons.settings, color: Colors.white, size: iconsize),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Sample Size', style: titleStyle),
+              Text(
+                '${_isCollectingData || _collectedSamples > 0 ? '$collectedSamples/$totalSamples' : totalSamples.toString()} samples$timeText',
+                style: subtitleStyle,
+              ),
+            ],
           ),
         ),
       ),
@@ -1735,79 +1641,130 @@ class _SensorPageState extends State<SensorPage> {
   Widget rollPeriodAndPitchPeriodTiles() {
     return Row(
       children: [
-        Expanded(child: fftRollPeriodTile()),
-        Expanded(child: fftPitchPeriodTile()),
+        Expanded(child: fftRollPeriodTile(key: _rollFftButtonKey)),
+        Expanded(child: fftPitchPeriodTile(key: _pitchFftButtonKey)),
       ],
     );
   }
 
 
 
-  Widget fftRollPeriodTile() {
+  Widget fftRollPeriodTile({Key? key}) {
+
+    // Couleurs conditionnelles
+    Color rollColor;
+    if (_rollData.isEmpty) {
+      rollColor = Colors.deepPurple;
+    } else {
+      rollColor = _isCollectingData || _hasReachedSampleCount
+          ? Colors.deepPurple
+          : const Color(0xFF505050);
+    }
+
     return Card(
-      color: Colors.deepPurple,
+      margin: EdgeInsets.all(margin),
+      color: rollColor,
       child: ListTile(
+        key: key,
+        minLeadingWidth: 0, // ⬅️ Par exemple pour supprimer l’espace inutile
+        horizontalTitleGap: iconsleftgap,
+        contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
         leading: Image.asset(
           'assets/icons/roll.png',
-          width: 32,
-          height: 32,
+          width: iconsize,
+          height: iconsize,
           color: Colors.white,
         ),
-        title: const Text('Roll Period',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Column(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
-              const Text('...',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            if ((_isCollectingData || _collectedSamples > 0) && _fftRollPeriod == null)
-              const Text('Calculating...',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            if (_fftRollPeriod != null)
-              Text('${_fftRollPeriod!.toStringAsFixed(2)} s',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            Text('Roll Period', style: titleStyle),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
+                  Text('...',
+                      style: subtitleStyle),
+                if ((_isCollectingData || _collectedSamples > 0) && _fftRollPeriod == null)
+                  Text('Calculating...',
+                      style: subtitleStyle),
+                if (_fftRollPeriod != null)
+                  Text('${_fftRollPeriod!.toStringAsFixed(1)} s',
+                      style: subtitleStyle),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget fftPitchPeriodTile() {
+  Widget fftPitchPeriodTile({Key? key}) {
+    // Couleurs conditionnelles
+    Color pitchColor;
+    if (_rollData.isEmpty) {
+      pitchColor = Colors.teal;
+    } else {
+      pitchColor = _isCollectingData || _hasReachedSampleCount
+          ? Colors.teal
+          : Colors.grey;
+    }
+
     return Card(
-      color: Colors.teal,
+      margin: EdgeInsets.all(margin),
+      color: pitchColor,
       child: ListTile(
+        key: key,
+        minLeadingWidth: 0, // ⬅️ Par exemple pour supprimer l’espace inutile
+        horizontalTitleGap: iconsleftgap,
+        contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
         leading: Image.asset(
           'assets/icons/pitch.png',
-          width: 32,
-          height: 32,
+          width: iconsize,
+          height: iconsize,
           color: Colors.white,
         ),
-        title: const Text('Pitch Period',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Column(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
-              const Text('...',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            if ((_isCollectingData || _collectedSamples > 0) && _fftPitchPeriod == null)
-              const Text('Calculating...',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            if (_fftPitchPeriod != null)
-              Text('${_fftPitchPeriod!.toStringAsFixed(2)} s',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            Text('Pitch Period',
+                style: titleStyle),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
+                  Text('...',
+                      style: subtitleStyle),
+                if ((_isCollectingData || _collectedSamples > 0) && _fftPitchPeriod == null)
+                  Text('Calculating...',
+                      style: subtitleStyle),
+                if (_fftPitchPeriod != null)
+                  Text('${_fftPitchPeriod!.toStringAsFixed(1)} s',
+                      style: subtitleStyle),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// Construit le graphique des données
+  /// Construit le graphique des données dans une Card
   Widget buildChart() {
-
     final rollChartData = _showRollData ? _rollData : <FlSpot>[];
     final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
+
+    // Couleurs conditionnelles
+    final rollColor = _isCollectingData || _hasReachedSampleCount
+        ? Colors.deepPurple
+        : const Color(0xFF505050);
+    final pitchColor = _isCollectingData || _hasReachedSampleCount
+        ? Colors.teal
+        : Colors.grey;
 
     final visibleData = [
       if (_showRollData) rollChartData,
@@ -1818,91 +1775,116 @@ class _SensorPageState extends State<SensorPage> {
         ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
         : 30;
 
-    return Padding(
-
-      padding: const EdgeInsets.all(16.0),
-      child: SizedBox(
-        key: _chartKey, // <-- Ajoutez cette ligne
-        height: 270,
-        child: LineChart(
-          LineChartData(
-            minX: _getminVisibleDuration(),
-            maxX: _getmaxVisibleDuration(),
-            minY: -maxAbsY.toDouble(),
-            maxY: maxAbsY.toDouble(),
-            clipData: FlClipData.all(),
-            lineBarsData: [
-              LineChartBarData(
-                spots: pitchChartData,
-                color: Colors.teal,
-                barWidth: 2,
-                isCurved: false,
-                dotData: FlDotData(show: false),
-                belowBarData: BarAreaData(show: false),
-              ),
-              LineChartBarData(
-                spots: rollChartData,
-                color: Colors.deepPurple,
-                barWidth: 2,
-                isCurved: false,
-                dotData: FlDotData(show: false),
-                belowBarData: BarAreaData(show: false),
-              ),
-
-            ],
-            titlesData: FlTitlesData(
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: ((maxAbsY * 2) / 3).toDouble(),
-                  reservedSize: 40,
-                  getTitlesWidget: (value, meta) => Text(
-                    '${value.toInt()}°',
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                ),
-              ),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: _getTimeInterval().toDouble(),
-                  getTitlesWidget: (value, meta) => Text(
-                    '${value.toInt()}s',
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                ),
-              ),
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            ),
-            gridData: FlGridData(
-              show: true,
-              horizontalInterval: (maxAbsY / 3).toDouble(),
-              verticalInterval: _getTimeInterval().toDouble(),
-            ),
-            borderData: FlBorderData(
-              show: true,
-              border: Border.all(color: Colors.grey.withOpacity(0.3)),
-            ),
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                getTooltipItems: (List<LineBarSpot> touchedSpots) {
-                  return touchedSpots.map((spot) {
-                    final text = spot.barIndex == 0
-                        ? 'Roll: ${spot.y.toStringAsFixed(2)}°'
-                        : 'Pitch: ${spot.y.toStringAsFixed(2)}°';
-                    return LineTooltipItem(
-                      text,
-                      TextStyle(
-                        color: spot.barIndex == 0 ? Colors.blue : Colors.green,
-                        fontWeight: FontWeight.bold,
+    return Card(
+      color: Colors.white,
+      margin: EdgeInsets.all(margin),
+      child: Padding(
+        key: _chartKey,
+        padding: EdgeInsets.only(left: axechartpadding,top: sidechartpadding,right: sidechartpadding,bottom: axechartpadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: chartsize,
+              child: LineChart(
+                LineChartData(
+                  minX: _getminVisibleDuration(),
+                  maxX: _getmaxVisibleDuration(),
+                  minY: -maxAbsY.toDouble(),
+                  maxY: maxAbsY.toDouble(),
+                  clipData: FlClipData.all(),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: pitchChartData,
+                      color: pitchColor,
+                      barWidth: 2,
+                      isCurved: true,
+                      dotData: FlDotData(show: false),
+                      belowBarData: BarAreaData(show: false),
+                    ),
+                    LineChartBarData(
+                      spots: rollChartData,
+                      color: rollColor,
+                      barWidth: 2,
+                      isCurved: true,
+                      dotData: FlDotData(show: false),
+                      belowBarData: BarAreaData(show: false),
+                    ),
+                  ],
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: ((maxAbsY * 2) / 3).toDouble(),
+                        reservedSize: axereservedsize,
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}°',
+                          style: chartlabel
+                        ),
                       ),
-                    );
-                  }).toList();
-                },
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: _getTimeInterval().toDouble(),
+                        reservedSize: axereservedsize,
+                        getTitlesWidget: (value, meta) {
+                          final maxX = _getmaxVisibleDuration();
+                          final epsilon = 0.01;
+
+                          if ((value - maxX).abs() < epsilon) {
+                            return const SizedBox.shrink();
+                          }
+
+                          int totalSeconds = value.toInt();
+                          if (totalSeconds < 60) {
+                            return Text(
+                              '${totalSeconds}s',
+                              textAlign: TextAlign.center,
+                              style: chartlabel,
+                            );
+                          } else {
+                            int minutes = totalSeconds ~/ 60;
+                            int seconds = totalSeconds % 60;
+                            return Text(
+                              '${minutes}min\n ${seconds}s',
+                              textAlign: TextAlign.center,
+                              style: chartlabel
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    horizontalInterval: (maxAbsY / 3).toDouble(),
+                    verticalInterval: _getTimeInterval().toDouble(),
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey.withOpacity(0.1),
+                      strokeWidth: 1,
+                    ),
+                    getDrawingVerticalLine: (value) => FlLine(
+                      color: Colors.grey.withOpacity(0.1),
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(
+                      color: Colors.grey.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  lineTouchData: LineTouchData(
+                    enabled: false,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -1944,6 +1926,34 @@ class _SensorPageState extends State<SensorPage> {
     return 10.0;
   }
 
+  void _showClearConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Clear'),
+          content: const Text('Are you sure you want to clear all data? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Clear', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _clearData();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   // =============================================
   // BUILD PRINCIPAL
   // =============================================
@@ -1959,7 +1969,6 @@ class _SensorPageState extends State<SensorPage> {
               setState(() {
                 _showTutorial = true;
                 _createTutorial();
-                // Faites défiler vers le haut avant d'afficher le tutoriel
                 _scrollController.animateTo(
                   0,
                   duration: const Duration(milliseconds: 500),
@@ -1972,98 +1981,87 @@ class _SensorPageState extends State<SensorPage> {
               });
             },
           ),
-
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(12),
-                  children: [
-                    rollAndPitchTiles(),
-                    SampleTile(),
-                    rollPeriodAndPitchPeriodTiles(),
-                    buildChart(),
-                  ],
+          Expanded(
+            child: ListView(
+              controller: _scrollController,
+              padding: EdgeInsets.all(edgepadding),
+              children: [
+                rollAndPitchTiles(),
+                SampleTile(),
+                rollPeriodAndPitchPeriodTiles(),
+                buildChart(),
+                Container(
+                  margin: EdgeInsets.all(margin),
+                  child: Row(
+
+                    children: [
+                      // Clear button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _showClearConfirmationDialog, // ← Nouvelle ligne
+                          key: _clearButtonKey,
+                          child: Text('Clear', style: clear_importStyle),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(radius),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: margin*2),
+                      // Start/Pause button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _hasReachedSampleCount
+                              ? _savefunction
+                              : _toggleDataCollection,
+                          key: _startButtonKey,
+                          child: Text(
+                            _hasReachedSampleCount
+                                ? 'Save'
+                                : (_isCollectingData ? 'Pause' : 'Start'),
+                            style: StartStyle,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _hasReachedSampleCount
+                                ? Colors.green
+                                : const Color(0xFF012169),
+                            padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(radius),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: margin*2),
+                      // Import button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _handleImport,
+                          key: _importButtonKey,
+                          child: Text('Import', style: clear_importStyle),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(radius),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  children: [
-                    // Clear button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _clearData,
-                        key: _clearButtonKey,
-                        child: const Text('Clear',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF012169))),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Start/Pause button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _hasReachedSampleCount ? _savefunction : _toggleDataCollection,
-                        key: _startButtonKey,
-                        child: Text(
-                          _hasReachedSampleCount ? 'Save' : (_isCollectingData ? 'Pause' : 'Start'),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: _hasReachedSampleCount ? Colors.white : Colors.white,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _hasReachedSampleCount ? Colors.green : const Color(0xFF012169),
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15.0),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _handleImport,
-                        key: _importButtonKey,
-                        child: const Text('Import',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF012169))),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15.0), // <<< AJOUT ICI
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-
-            ],
+              ],
+            ),
           ),
+
         ],
       ),
     );
