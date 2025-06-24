@@ -322,7 +322,7 @@ class _PredictionPageState extends State<PredictionPage> {
           padding: const EdgeInsets.only(left:25), // <-- espace entre le titre et les ticks
           child: Center(
             child: Text(
-              'Roll Period (s)',
+              'Roll Natural Period (s)',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey,
@@ -807,14 +807,19 @@ class _PredictionPageState extends State<PredictionPage> {
                   _buildDetailRow("Draft", "${measurement.loadingCondition.draft.toStringAsFixed(2)} m"),
                 ]),
 
+
                 const SizedBox(height: 16),
 
-                _buildDetailSection("Periods", [
+                _buildDetailSection("Roll Period measured", [
                   _buildDetailRow(
                       "FFT Period",
                       measurement.rollPeriodFFT != null
                           ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
                           : "N/A"),
+                ]),
+                const SizedBox(height: 16),
+
+                _buildDetailSection("Roll Natural Prediction", [
                   ...measurement.predictedRollPeriods.entries.map(
                         (entry) => _buildDetailRow(
                         "${entry.key}",
@@ -974,7 +979,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 child: ExpansionTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
                   title: Text(
-                    "ROLL PERIOD RESULTS",
+                    "ROLL NATURAL PERIOD RESULTS",
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.grey,
                       fontWeight: FontWeight.bold,
@@ -995,7 +1000,7 @@ class _PredictionPageState extends State<PredictionPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  "Estimated roll period:",
+                                  "Estimated roll natural period:",
                                   style: Theme.of(context).textTheme.titleMedium,
                                 ),
                                 Text(
@@ -1017,7 +1022,7 @@ class _PredictionPageState extends State<PredictionPage> {
                           _buildChart(),
                           const SizedBox(height: 16),
                           Text(
-                            "The dot indicates the current GM value and its corresponding roll period.",
+                            "The dot indicates the current GM value and its corresponding roll natural period.",
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                               fontStyle: FontStyle.italic,

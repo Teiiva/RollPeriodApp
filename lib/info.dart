@@ -450,7 +450,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
           ),
           _buildSliderCard(
             iconWidget: Image.asset('assets/images/direction.png', width: 40, height: 40),
-            label: "Wave direction",
+            label: "Waves direction",
             unit: "°",
             value: _navigationInfo.direction,
             min: 0,

@@ -365,7 +365,6 @@ class _AlertPageState extends State<AlertPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
             _buildInputCard(
