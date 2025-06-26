@@ -154,7 +154,9 @@ class _MenuPageState extends State<MenuPage> {
           BottomNavigationBar(
                 key: const ValueKey('visibleBar'),
                 currentIndex: _selectedIndex,
-                selectedItemColor: const Color(0xFF012169),
+            selectedItemColor: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : const Color(0xFF012169),
                 unselectedItemColor: Colors.grey,
                 onTap: (index) {
                   setState(() {

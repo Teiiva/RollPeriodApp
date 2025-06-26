@@ -12,6 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'android_widget_provider.dart';
 import 'package:flutter/services.dart';
+import 'models/vessel_profile.dart';
+import 'models/loading_condition.dart';
+import 'models/navigation_info.dart';
 
 
 // 🔑 Clé globale pour accéder à l'état de AlertPage
@@ -49,6 +52,7 @@ class _AlertPageState extends State<AlertPage> {
   late TextStyle ExtractStyle;
   late TextStyle clear_importStyle;
   late TextStyle chartlabel;
+  late TextStyle coordonnees;
   late double iconsize;
   late double iconsleftgap;
   late double Horizontalpaddingintern;
@@ -84,7 +88,6 @@ class _AlertPageState extends State<AlertPage> {
     });
     await prefs.setString('alertHistoryData', historyJson);
 
-    // Appel plus robuste pour mettre à jour le widget
     try {
       await MethodChannel('com.example.marin/widget').invokeMethod('updateWidget');
     } catch (e) {
@@ -106,9 +109,9 @@ class _AlertPageState extends State<AlertPage> {
           return {
             'time': item['time']?.toString() ?? '--:--:--',
             'date': item['date']?.toString() ?? '----/--/--',
+            'vessel': item['vessel']?.toString() ?? 'N/A',
+            'voyage': item['voyage']?.toString() ?? 'N/A',
             'rollPeriod': item['rollPeriod']?.toString() ?? 'N/A',
-            'latitude': item['latitude']?.toString() ?? 'N/A',
-            'longitude': item['longitude']?.toString() ?? 'N/A',
           };
         }).toList();
 
@@ -132,6 +135,7 @@ class _AlertPageState extends State<AlertPage> {
       }
     }
   }
+
 
 
   @override
@@ -158,9 +162,9 @@ class _AlertPageState extends State<AlertPage> {
       );
       print('Title font size: ${titleStyle.fontSize}');
       subtitleStyle = TextStyle(
-        fontSize: 14.0 * ratio,
+        fontSize: 10.0 * ratio,
         fontWeight: FontWeight.normal,
-        color: Colors.white,
+        color: Colors.grey[600],
       );
       print('subtitleStyle font size: ${subtitleStyle.fontSize}');
       historyStyle  = TextStyle(
@@ -172,6 +176,15 @@ class _AlertPageState extends State<AlertPage> {
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
           color: Color(0xFF012169),
+      );
+      coordonnees = TextStyle(
+        fontSize: 12.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.black,
+      );
+      AngleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.bold,
       );
       print('ExtractStyle font size: ${ExtractStyle.fontSize}');
       iconsize = 40.0 * ratio;
@@ -256,6 +269,8 @@ class _AlertPageState extends State<AlertPage> {
   // Modifie cette méthode pour inclure la position dans l'historique des alertes
   void checkForAlert({
     required rollAngle,
+    required VesselProfile vesselProfile,
+    required LoadingCondition loadingCondition,
   }) {
     final threshold = double.tryParse(thresholdController.text) ?? 0;
     final now = DateTime.now();
@@ -285,9 +300,9 @@ class _AlertPageState extends State<AlertPage> {
         alertHistory.insert(0, {
           'time': "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}",
           'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+          'vessel': vesselProfile.name,
+          'voyage': loadingCondition.name,
           'rollPeriod': "${rollAngle.toStringAsFixed(1)}°",
-          'latitude': _currentPosition?.latitude.toString() ?? 'N/A',
-          'longitude': _currentPosition?.longitude.toString() ?? 'N/A',
         });
         _rollData.add(FlSpot(now.second.toDouble(), rollAngle));
       });
@@ -410,7 +425,7 @@ class _AlertPageState extends State<AlertPage> {
     try {
       final buffer = StringBuffer();
       buffer.writeln(
-          'day,month,year,hour,minute,seconde,longitude,latitude,roll (deg)');
+          'day,month,year,hour,minute,seconde,vessel,voyage,roll (deg)');
 
       // On suppose ici que alertHistory et _rollData sont synchrones
       for (int i = 0; i < alertHistory.length && i < _rollData.length; i++) {
@@ -419,8 +434,8 @@ class _AlertPageState extends State<AlertPage> {
 
         final dateParts = alert['date']?.split('-') ?? ['----', '--', '--'];
         final timeParts = alert['time']?.split(':') ?? ['--', '--', '--'];
-        final longitude = alert['longitude'] ?? 'N/A';
-        final latitude = alert['latitude'] ?? 'N/A';
+        final vessel = alert['vessel'] ?? 'N/A';
+        final voyage = alert['voyage'] ?? 'N/A';
         final rollDeg = roll.y.toStringAsFixed(1);
 
         final jour = dateParts[2];
@@ -431,7 +446,7 @@ class _AlertPageState extends State<AlertPage> {
         final seconde = timeParts[2];
 
         buffer.writeln(
-            '$jour,$mois,$annee,$heure,$minute,$seconde,$longitude,$latitude,$rollDeg');
+            '$jour,$mois,$annee,$heure,$minute,$seconde,$vessel,$voyage,$rollDeg');
       }
 
       final directory = Directory('/storage/emulated/0/Download');
@@ -563,25 +578,25 @@ class _AlertPageState extends State<AlertPage> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: Text('Date/Time', style: titleStyle,textAlign: TextAlign.center)
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text('Position', style: titleStyle,textAlign: TextAlign.center),
+                      child: Text('Time\nDate', style: titleStyle, textAlign: TextAlign.center),
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text('Roll angle', style: titleStyle,textAlign: TextAlign.center),
+                      child: Text('Vessel\nVoyage', style: titleStyle, textAlign: TextAlign.center),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text('Roll\nangle', style: titleStyle, textAlign: TextAlign.center),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete, color: Color(0xFF012169)),
                       tooltip: 'Tout supprimer',
-                      onPressed: _deleteAllAlerts, // Utilise la nouvelle méthode
+                      onPressed: _deleteAllAlerts,
                     ),
                   ],
                 ),
               ),
-
+              const SizedBox(height: 8),
               // Contenu du tableau
               ListView.builder(
                 shrinkWrap: true,
@@ -604,42 +619,37 @@ class _AlertPageState extends State<AlertPage> {
                             Expanded(
                               flex: 2,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
                                     alert['time'] ?? '--:--:--',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-
-                                    ),
+                                    style: titleStyle,
+                                    textAlign: TextAlign.center,
                                   ),
                                   Text(
                                     alert['date'] ?? '----/--/--',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey[600],
-                                    ),
+                                    style: subtitleStyle,
+                                    textAlign: TextAlign.center,
                                   ),
                                 ],
                               ),
                             ),
 
-                            // Position
+                            // Vessel/Voyage
                             Expanded(
-                              flex: 3,
+                              flex: 2,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'Lat: ${alert['latitude'] ?? 'N/A'}',
-                                    style: const TextStyle(fontSize: 12,),
-                                    textAlign: TextAlign.center, // Centrer le texte horizontalement
+                                    alert['vessel'] ?? 'N/A',
+                                    style: subtitleStyle,
+                                    textAlign: TextAlign.center,
                                   ),
                                   Text(
-                                    'Lon: ${alert['longitude'] ?? 'N/A'}',
-                                    style: const TextStyle(fontSize: 12),
-                                    textAlign: TextAlign.center, // Centrer le texte horizontalement
+                                    alert['voyage'] ?? 'N/A',
+                                    style: subtitleStyle,
+                                    textAlign: TextAlign.center,
                                   ),
                                 ],
                               ),
@@ -648,7 +658,7 @@ class _AlertPageState extends State<AlertPage> {
                             // Roll Period
                             Expanded(
                               flex: 2,
-                              child:Center(
+                              child: Center(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                                   decoration: BoxDecoration(
@@ -660,8 +670,7 @@ class _AlertPageState extends State<AlertPage> {
                                   child: Text(
                                     rollPeriod,
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                    style: AngleStyle.copyWith(
                                       color: rollPeriodValue.abs() > 25
                                           ? Colors.red
                                           : Colors.green,
@@ -671,12 +680,11 @@ class _AlertPageState extends State<AlertPage> {
                               ),
                             ),
 
-
                             // Bouton de suppression
                             IconButton(
                               icon: const Icon(Icons.close, color: Color(0xFF012169)),
                               tooltip: 'Supprimer',
-                              onPressed: () => _deleteAlertAtIndex(index), // Utilise la nouvelle méthode
+                              onPressed: () => _deleteAlertAtIndex(index),
                             ),
                           ],
                         ),
@@ -718,10 +726,7 @@ class _AlertPageState extends State<AlertPage> {
                         child: Text(
                           label,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: titleStyle.copyWith(fontWeight: FontWeight.normal),
                         ),
                       ),
                     ),
@@ -782,10 +787,7 @@ class _AlertPageState extends State<AlertPage> {
                         child: Text(
                           label,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: titleStyle.copyWith(fontWeight: FontWeight.normal),
                         ),
                       ),
                     ),

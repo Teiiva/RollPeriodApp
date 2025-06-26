@@ -129,6 +129,8 @@ class _SensorPageState extends State<SensorPage> {
   late double radius;
   late double screenHeight;
 
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
+
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -315,7 +317,11 @@ class _SensorPageState extends State<SensorPage> {
     if (_rollAngle == null || _pitchAngle == null) return;
 
     // Vérifie les alertes
-    alertPageKey.currentState?.checkForAlert(rollAngle: _rollAngle);
+    alertPageKey.currentState?.checkForAlert(
+      rollAngle: _rollAngle!,
+      vesselProfile: widget.vesselProfile,
+      loadingCondition: widget.loadingCondition,
+    );
 
     // Arrête la collecte si on a assez de points
     if (_rollData.length >= _powersOfTwo[_powerIndex]) {
@@ -764,7 +770,7 @@ class _SensorPageState extends State<SensorPage> {
 
     _stopwatch.reset();
 
-      // Préparation des données pour la FFT
+    // Préparation des données pour la FFT
     _fftRollSamples.clear();
     _fftPitchSamples.clear();
     _fftRollPeriod = null;
@@ -1262,52 +1268,52 @@ class _SensorPageState extends State<SensorPage> {
 
     // Étape 12 :  Pitch fft
     targets.add(
-        TargetFocus(
-          identify: "pitch_fft",
-          keyTarget: _pitchFftButtonKey,
-          contents: [
-            TargetContent(
-              align: ContentAlign.bottom,
-              builder: (context, controller) {
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Displays the actual pitch period value using spectral analysis.",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+      TargetFocus(
+        identify: "pitch_fft",
+        keyTarget: _pitchFftButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Displays the actual pitch period value using spectral analysis.",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.previous(); // Retour à l'étape précédente
+                        },
+                        child: const Text("Previous"),
                       ),
-                      textAlign: TextAlign.justify, // Ajout de cette ligne
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            controller.previous(); // Retour à l'étape précédente
-                          },
-                          child: const Text("Previous"),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            controller.skip(); // Termine le tutoriel
-                          },
-                          child: const Text("End"),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-          shape: ShapeLightFocus.RRect,
-          radius: radius,
-        ),
-      );
+                      ElevatedButton(
+                        onPressed: () {
+                          controller.skip(); // Termine le tutoriel
+                        },
+                        child: const Text("End"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: radius,
+      ),
+    );
 
     return targets;
   }
@@ -1759,6 +1765,9 @@ class _SensorPageState extends State<SensorPage> {
     final rollChartData = _showRollData ? _rollData : <FlSpot>[];
     final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
 
+    // Détecter le mode sombre
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     // Couleurs conditionnelles
     final rollColor = _isCollectingData || _hasReachedSampleCount
         ? Colors.deepPurple
@@ -1766,6 +1775,12 @@ class _SensorPageState extends State<SensorPage> {
     final pitchColor = _isCollectingData || _hasReachedSampleCount
         ? Colors.teal
         : Colors.grey;
+
+    // Couleurs pour le mode sombre
+    final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+    final gridColor = isDarkMode ? Colors.grey[700]!.withOpacity(0.3) : Colors.grey.withOpacity(0.1);
+    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withOpacity(0.2);
+    final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
 
     final visibleData = [
       if (_showRollData) rollChartData,
@@ -1777,11 +1792,16 @@ class _SensorPageState extends State<SensorPage> {
         : 30;
 
     return Card(
-      color: Colors.white,
+      color: backgroundColor, // Utiliser la couleur de fond en fonction du mode
       margin: EdgeInsets.all(margin),
       child: Padding(
         key: _chartKey,
-        padding: EdgeInsets.only(left: axechartpadding,top: sidechartpadding,right: sidechartpadding,bottom: axechartpadding),
+        padding: EdgeInsets.only(
+          left: axechartpadding,
+          top: sidechartpadding,
+          right: sidechartpadding,
+          bottom: axechartpadding,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1820,7 +1840,7 @@ class _SensorPageState extends State<SensorPage> {
                         reservedSize: axereservedsize,
                         getTitlesWidget: (value, meta) => Text(
                           '${value.toInt()}°',
-                          style: chartlabel
+                          style: chartlabel.copyWith(color: textColor), // Ajouter la couleur du texte
                         ),
                       ),
                     ),
@@ -1842,7 +1862,7 @@ class _SensorPageState extends State<SensorPage> {
                             return Text(
                               '${totalSeconds}s',
                               textAlign: TextAlign.center,
-                              style: chartlabel,
+                              style: chartlabel.copyWith(color: textColor), // Ajouter la couleur du texte
                             );
                           } else {
                             int minutes = totalSeconds ~/ 60;
@@ -1850,7 +1870,7 @@ class _SensorPageState extends State<SensorPage> {
                             return Text(
                               '${minutes}min\n ${seconds}s',
                               textAlign: TextAlign.center,
-                              style: chartlabel
+                              style: chartlabel.copyWith(color: textColor), // Ajouter la couleur du texte
                             );
                           }
                         },
@@ -1864,18 +1884,18 @@ class _SensorPageState extends State<SensorPage> {
                     horizontalInterval: (maxAbsY / 3).toDouble(),
                     verticalInterval: _getTimeInterval().toDouble(),
                     getDrawingHorizontalLine: (value) => FlLine(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: gridColor, // Utiliser la couleur de grille en fonction du mode
                       strokeWidth: 1,
                     ),
                     getDrawingVerticalLine: (value) => FlLine(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: gridColor, // Utiliser la couleur de grille en fonction du mode
                       strokeWidth: 1,
                     ),
                   ),
                   borderData: FlBorderData(
                     show: true,
                     border: Border.all(
-                      color: Colors.grey.withOpacity(0.2),
+                      color: borderColor, // Utiliser la couleur de bordure en fonction du mode
                       width: 1,
                     ),
                   ),
@@ -1890,7 +1910,6 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
   }
-
   // =============================================
   // FONCTIONS UTILITAIRES
   // =============================================
@@ -1998,16 +2017,15 @@ class _SensorPageState extends State<SensorPage> {
                 Container(
                   margin: EdgeInsets.all(margin),
                   child: Row(
-
                     children: [
                       // Clear button
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _showClearConfirmationDialog, // ← Nouvelle ligne
+                          onPressed: _showClearConfirmationDialog,
                           key: _clearButtonKey,
                           child: Text('Clear', style: clear_importStyle),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
+                            backgroundColor: _isDarkMode ? Colors.grey : Colors.white,
                             padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),
@@ -2048,7 +2066,7 @@ class _SensorPageState extends State<SensorPage> {
                           key: _importButtonKey,
                           child: Text('Import', style: clear_importStyle),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
+                            backgroundColor: _isDarkMode ? Colors.grey : Colors.white,
                             padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),
