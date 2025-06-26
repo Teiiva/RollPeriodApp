@@ -147,6 +147,7 @@ class _SensorPageState extends State<SensorPage> {
 
   // Méthode pour mettre à jour les styles si nécessaire
   void _updateStyles() {
+    print('Page Measure');
     final basscreenWidth = 411.42857142857144;
     final screenWidth = MediaQuery.of(context).size.width;
     print('screenWidth: ${screenWidth}');

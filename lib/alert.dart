@@ -41,6 +41,29 @@ class _AlertPageState extends State<AlertPage> {
   final List<Map<String, String>> alertHistory = [];
   final List<FlSpot> _rollData = []; // Ajout du tableau de données pour l'export
 
+  late TextStyle titleStyle;
+  late TextStyle subtitleStyle;
+  late TextStyle historyStyle;
+  late TextStyle MaxsubtitleStyle;
+  late TextStyle AngleStyle;
+  late TextStyle ExtractStyle;
+  late TextStyle clear_importStyle;
+  late TextStyle chartlabel;
+  late double iconsize;
+  late double iconsleftgap;
+  late double Horizontalpaddingintern;
+  late double Verticalpaddingintern;
+  late double BarVerticalpaddingintern;
+  late double BarHeight;
+  late double margin;
+  late double chartsize;
+  late double sidechartpadding;
+  late double axechartpadding;
+  late double axereservedsize;
+  late double edgepadding;
+  late double radius;
+  late double screenHeight;
+
 
   @override
   void initState() {
@@ -110,6 +133,82 @@ class _AlertPageState extends State<AlertPage> {
     }
   }
 
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateStyles(); // ici, context est disponible
+  }
+
+  // Méthode pour mettre à jour les styles si nécessaire
+  void _updateStyles() {
+    print('Page Measure');
+    final basscreenWidth = 411.42857142857144;
+    final screenWidth = MediaQuery.of(context).size.width;
+    print('screenWidth: ${screenWidth}');
+    final screenHeight = MediaQuery.of(context).size.height;
+    print('screenHeight: ${screenHeight}');
+    final ratio = screenWidth/basscreenWidth;
+    print('ratio: ${ratio}');
+    setState(() {
+      titleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      );
+      print('Title font size: ${titleStyle.fontSize}');
+      subtitleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.white,
+      );
+      print('subtitleStyle font size: ${subtitleStyle.fontSize}');
+      historyStyle  = TextStyle(
+        fontSize: 18 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.grey[800],
+      );
+      ExtractStyle = TextStyle(
+        fontSize: 16.0 * ratio,
+        fontWeight: FontWeight.bold,
+          color: Color(0xFF012169),
+      );
+      print('ExtractStyle font size: ${ExtractStyle.fontSize}');
+      iconsize = 40.0 * ratio;
+      print('iconsize : ${iconsize}');
+      iconsleftgap = 8.0 * ratio;
+      print('iconsleftgap: ${iconsleftgap}');
+      Horizontalpaddingintern = 12.0 * ratio;
+      print('Horizontalpaddingintern: ${Horizontalpaddingintern}');
+      Verticalpaddingintern = 6 * ratio;
+      print('Verticalpaddingintern: ${Verticalpaddingintern}');
+      BarHeight= 50 * ratio;
+      print('BarHeight: ${BarHeight}');
+      margin= 4 * ratio;
+      print('margin: ${margin}');
+      BarVerticalpaddingintern = 12 * ratio;
+      print('BarVerticalpaddingintern: ${BarVerticalpaddingintern}');
+      chartsize = 0.4623 * screenHeight -62.58;
+      print('ChartSize: ${chartsize}');
+      sidechartpadding = 30 * (ratio*ratio);
+      print('sidechartpadding: ${sidechartpadding}');
+      axechartpadding = 10 * ratio;
+      print('axechartpadding: ${axechartpadding}');
+      axereservedsize = 25 * ratio;
+      print('axereservedsize: ${axereservedsize}');
+      chartlabel = TextStyle(
+        fontSize: 10.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.grey,
+      );
+      print('chartlabel font size: ${chartlabel.fontSize}');
+      edgepadding = 10 * ratio;
+      print('edgepadding: ${edgepadding}');
+      radius = 12 * ratio;
+      print('radius: ${radius}');
+    });
+
+  }
 
   @override
   void dispose() {
@@ -368,13 +467,13 @@ class _AlertPageState extends State<AlertPage> {
           children: [
             const SizedBox(height: 10),
             _buildInputCard(
-              const Icon(Icons.warning_rounded, size: 40, color: Color(0xFF012169)),
+              Icon(Icons.warning_rounded, size: iconsize, color: Color(0xFF012169)),
               "Threshold for\nroll angle",
               "",
               thresholdController,
             ),
             _buildDropdownCard(
-              const Icon(Icons.vibration, size: 40, color: Color(0xFF002868)),
+              Icon(Icons.vibration, size: iconsize, color: Color(0xFF002868)),
               "Vibration",
               selectedVibration,
               vibrationoptions,
@@ -385,7 +484,7 @@ class _AlertPageState extends State<AlertPage> {
               },
             ),
             _buildDropdownCard(
-              const Icon(Icons.notifications_active, size: 40, color: Color(0xFF002868)),
+              Icon(Icons.notifications_active, size: iconsize, color: Color(0xFF002868)),
               "Alarm",
               selectedAlarme,
               alarmoptions,
@@ -396,7 +495,7 @@ class _AlertPageState extends State<AlertPage> {
               },
             ),
             _buildDropdownCard(
-              const Icon(Icons.flash_on, size: 40, color: Color(0xFF002868)),
+              Icon(Icons.flash_on, size: iconsize, color: Color(0xFF002868)),
               "Flash",
               selectedFlash,
               flashoptions,
@@ -412,15 +511,11 @@ class _AlertPageState extends State<AlertPage> {
               padding: const EdgeInsets.only(top: 30, left: 40, right: 20, bottom: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.history, size: 40, color: Color(0xFF012169)),
+                  Icon(Icons.history, size: iconsize, color: Color(0xFF012169)),
                   const SizedBox(width: 10),
                   Text(
                     'Alert History',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
-                    ),
+                    style: historyStyle,
                   ),
                 ],
               ),
@@ -430,9 +525,9 @@ class _AlertPageState extends State<AlertPage> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _exportRollDataToDownloads,
-              child: const Text(
+              child: Text(
                 'Extract',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF012169)),
+                style: ExtractStyle,
               ),
               style: ButtonStyle(
                 backgroundColor: MaterialStateProperty.all<Color>(Colors.white), // Couleur de fond
@@ -466,17 +561,17 @@ class _AlertPageState extends State<AlertPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       flex: 2,
-                      child: Text('Date/Time', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                      child: Text('Date/Time', style: titleStyle,textAlign: TextAlign.center)
                     ),
-                    const Expanded(
+                    Expanded(
                       flex: 3,
-                      child: Text('Position', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                      child: Text('Position', style: titleStyle,textAlign: TextAlign.center),
                     ),
-                    const Expanded(
+                    Expanded(
                       flex: 2,
-                      child: Text('Roll angle', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                      child: Text('Roll angle', style: titleStyle,textAlign: TextAlign.center),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete, color: Color(0xFF012169)),

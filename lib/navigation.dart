@@ -39,41 +39,9 @@ class _NavigationPageState extends State<NavigationPage> {
               ),
             ),
           ),
-          _buildSpeedTile(),
         ],
       ),
     );
   }
 
-  Widget _buildSpeedTile() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.speed, size: 40, color: Color(0xFF012169)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Text(
-                        "Speed: ${widget.navigationInfo.speed.toStringAsFixed(1)} Knots",
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

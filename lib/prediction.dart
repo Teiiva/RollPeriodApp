@@ -668,6 +668,7 @@ class _PredictionPageState extends State<PredictionPage> {
               ),
             ),
             const Divider(height: 1),
+            const SizedBox(height: 8),
 
             // Le reste du code existant (Scrollbar et ListView.builder)
             Scrollbar(
@@ -693,7 +694,7 @@ class _PredictionPageState extends State<PredictionPage> {
                   final measurement = filteredMeasurements[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
-                    color: const Color(0xFFDEDDEB),
+                    color: const Color(0xFFFFFFFF),
                     elevation: 1,
                     child: ListTile(
                       title: Text(measurement.vesselProfile.name),
@@ -970,7 +971,7 @@ class _PredictionPageState extends State<PredictionPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
               // Section des résultats (premier ExpansionTile)
               Card(
@@ -1034,7 +1035,7 @@ class _PredictionPageState extends State<PredictionPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
               // Section des mesures sauvegardées (deuxième ExpansionTile)
               Card(
@@ -1057,7 +1058,7 @@ class _PredictionPageState extends State<PredictionPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
               // Section de comparaison (troisième ExpansionTile)
               Card(
@@ -1269,7 +1270,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
               ),
               // Dans la méthode build(), ajoutez cette nouvelle Card après la section "METHOD SELECTION"
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
 // Nouvelle section pour les détails du profil
               Card(
@@ -1298,7 +1299,7 @@ class _PredictionPageState extends State<PredictionPage> {
                           // Détails du navire
                           Card(
                             elevation: 1,
-                            color: Colors.grey[50],
+                            color: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1334,7 +1335,7 @@ class _PredictionPageState extends State<PredictionPage> {
                           // Détails de la condition de chargement
                           Card(
                             elevation: 1,
-                            color: Colors.grey[50],
+                            color: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

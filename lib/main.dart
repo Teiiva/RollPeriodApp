@@ -32,8 +32,16 @@ class MyApp extends StatelessWidget {
       title: 'Sensors Kinetics Clone',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        fontFamily: 'CustomFont',  // Remplacez par le nom de votre famille de police
+        fontFamily: 'CustomFont',
+        brightness: Brightness.light, // Thème clair par défaut
       ),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.blue,
+        fontFamily: 'CustomFont',
+        brightness: Brightness.dark, // Thème sombre
+        // Ajoutez d'autres personnalisations pour le mode sombre ici
+      ),
+      themeMode: ThemeMode.system, // Suit le paramètre système
       home: const MenuPage(),
     );
   }
