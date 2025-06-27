@@ -42,6 +42,51 @@ class _PredictionPageState extends State<PredictionPage> {
   String _selectedCondition = 'All';
   bool _sortAscending = true; // <-- Ajoutez cette ligne
 
+  late TextStyle titleStyle;
+  late TextStyle subtitleStyle;
+  late TextStyle Axeslegend;
+  late double iconsize;
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateStyles(); // ici, context est disponible
+  }
+
+  // Méthode pour mettre à jour les styles si nécessaire
+  void _updateStyles() {
+    print('Page Measure');
+    final basscreenWidth = 411.42857142857144;
+    final screenWidth = MediaQuery.of(context).size.width;
+    print('screenWidth: ${screenWidth}');
+    final screenHeight = MediaQuery.of(context).size.height;
+    print('screenHeight: ${screenHeight}');
+    final ratio = screenWidth/basscreenWidth;
+    print('ratio: ${ratio}');
+    iconsize = 40.0 * ratio;
+    print('iconsize : ${iconsize}');
+    setState(() {
+      titleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.grey,
+      );
+      subtitleStyle = TextStyle(
+        fontSize: 12.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.black,
+      );
+      print('subtitleStyle font size: ${subtitleStyle.fontSize}');
+      Axeslegend = TextStyle(
+        fontSize: 12.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.grey,
+      );
+    });
+
+  }
+
   final Map<String, double> methodParameters = {
     'Roll Coefficient': 0.4,
     'Doyere': 0.34,
@@ -188,21 +233,22 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   Widget _buildWarningMessage() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: MediaQuery.of(context).size.height * 0.4,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: isDarkMode ? Colors.grey[700] : Colors.white,
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.warning_amber_rounded,
               color: Colors.amber,
-              size: 40,
+              size: iconsize,
             ),
             const SizedBox(height: 16),
             Text(
@@ -240,17 +286,11 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   BoxDecoration _buildChartDecoration() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
       borderRadius: BorderRadius.circular(12),
-      color: Colors.white,
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.2),
-          spreadRadius: 2,
-          blurRadius: 8,
-          offset: const Offset(0, 4),
-        ),
-      ],
+      color: isDarkMode ? Colors.grey[700] : Colors.white,
+
     );
   }
 
@@ -285,10 +325,7 @@ class _PredictionPageState extends State<PredictionPage> {
         padding: const EdgeInsets.only(top: 0),
         child: Text(
           'GM (m)',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
+          style: Axeslegend,
         ),
       ),
       sideTitles: SideTitles(
@@ -301,10 +338,7 @@ class _PredictionPageState extends State<PredictionPage> {
               padding: const EdgeInsets.only(top: 8.0),
               child: Text(
                 value.toStringAsFixed(0),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
+                style: Axeslegend,
               ),
             );
           }
@@ -323,10 +357,7 @@ class _PredictionPageState extends State<PredictionPage> {
           child: Center(
             child: Text(
               'Roll Natural Period (s)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: Axeslegend,
             ),
           ),
         ),
@@ -341,10 +372,7 @@ class _PredictionPageState extends State<PredictionPage> {
             padding: const EdgeInsets.only(right: 8.0),
             child: Text(
               value.toStringAsFixed(0),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: Axeslegend,
             ),
           );
         },
@@ -365,14 +393,15 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   List<LineChartBarData> _buildLineBarsData(List<FlSpot> spots, FlSpot currentSpot) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return [
       LineChartBarData(
         spots: spots,
         isCurved: true,
-        color: const Color(0xFF012169),
+        color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
         barWidth: 4,
         shadow: BoxShadow(
-          color: const Color(0xFF012169).withOpacity(0.3),
+          color: isDarkMode ? Colors.deepPurple.withOpacity(0.3) : const Color(0xFF012169).withOpacity(0.3),
           blurRadius: 8,
           spreadRadius: 2,
         ),
@@ -382,8 +411,8 @@ class _PredictionPageState extends State<PredictionPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF012169).withOpacity(0.2),
-              const Color(0xFF012169).withOpacity(0.01),
+              isDarkMode ? Colors.deepPurple.withOpacity(0.2) : const Color(0xFF012169).withOpacity(0.2),
+              isDarkMode ? Colors.deepPurple.withOpacity(0.01) :  Color(0xFF012169).withOpacity(0.01),
             ],
           ),
         ),
@@ -392,15 +421,15 @@ class _PredictionPageState extends State<PredictionPage> {
       LineChartBarData(
         spots: [currentSpot],
         isCurved: false,
-        color: const Color(0xFF012169),
+        color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
         barWidth: 0,
         dotData: FlDotData(
           show: true,
           getDotPainter: (spot, percent, barData, index) {
             return FlDotCirclePainter(
               radius: 8,
-              color: const Color(0xFF012169),
-              strokeWidth: 3,
+              color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
+              strokeWidth: 2,
               strokeColor: Colors.white,
             );
           },
@@ -410,13 +439,14 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   LineTouchData _buildTouchData() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return LineTouchData(
       touchTooltipData: LineTouchTooltipData(
         getTooltipItems: (touchedSpots) {
           return touchedSpots.map((touchedSpot) {
             return LineTooltipItem(
               'GM: ${touchedSpot.x.toStringAsFixed(1)}\nPeriod: ${touchedSpot.y.toStringAsFixed(1)}s',
-              const TextStyle(color: Colors.white),
+              TextStyle(color: isDarkMode ? Colors.black : Colors.white),
             );
           }).toList();
         },
@@ -426,43 +456,14 @@ class _PredictionPageState extends State<PredictionPage> {
 
 
 
-  Widget _buildProfileRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120, // largeur fixe ou adaptative du label
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              softWrap: true,
-              overflow: TextOverflow.visible,
-              style: const TextStyle(
-                color: Colors.black54,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
 
 
   // Dans prediction.dart, remplacer la méthode gmRollPeriodPairsTile par ceci :
 
   Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return FutureBuilder<List<SavedMeasurement>>(
       future: _loadSavedMeasurements(),
       builder: (context, snapshot) {
@@ -474,11 +475,11 @@ class _PredictionPageState extends State<PredictionPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(4.0),
                 child: Text(
                   "No saved measurements yet",
-                  style: TextStyle(color: Colors.grey),
+                  style: Axeslegend,
                 ),
               ),
             ],
@@ -497,7 +498,7 @@ class _PredictionPageState extends State<PredictionPage> {
             // Remplacez le Card par ce Container pour les filtres
             Container(
               decoration: BoxDecoration(
-                color: Colors.white10,
+                color: isDarkMode ? Colors.grey[850] : Colors.white,
                 border: Border(
                   bottom: BorderSide(
                     color: Colors.grey.withOpacity(0.2),
@@ -694,11 +695,11 @@ class _PredictionPageState extends State<PredictionPage> {
                   final measurement = filteredMeasurements[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
-                    color: const Color(0xFFFFFFFF),
+                    color:  isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
                     elevation: 1,
                     child: ListTile(
-                      title: Text(measurement.vesselProfile.name),
-                      subtitle: Text(measurement.loadingCondition.name),
+                      title: Text(measurement.vesselProfile.name, style: titleStyle.copyWith(fontWeight: FontWeight.bold,color: isDarkMode ? Colors.white : Color(0xFF012169))),
+                      subtitle: Text(measurement.loadingCondition.name,style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -708,22 +709,19 @@ class _PredictionPageState extends State<PredictionPage> {
                             children: [
                               Text(
                                 "${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}",
-                                style: const TextStyle(
+                                style: titleStyle.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF012169),
+                                  color: isDarkMode ? Colors.white : Color(0xFF012169),
                                 ),
                               ),
                               Text(
                                 _formatDate(measurement.timestamp),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                ),
+                                style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
                               ),
                             ],
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
+                            icon: Icon(Icons.delete, color: isDarkMode ? Colors.deepPurple : Color(0xFF012169)),
                             onPressed: () => _confirmDeleteMeasurement(context, measurement),
                           ),
                         ],
@@ -842,16 +840,13 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   Widget _buildDetailSection(String title, List<Widget> children) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
       Text(
       title,
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 16,
-        color: Color(0xFF012169),
-      ),
+      style: titleStyle.copyWith(color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169))
       ),
       const SizedBox(height: 8),
       ...children,
@@ -860,6 +855,7 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   Widget _buildDetailRow(String label, String value) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -869,19 +865,14 @@ class _PredictionPageState extends State<PredictionPage> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
+              style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.black54,
-              ),
+              style: subtitleStyle.copyWith(color:  isDarkMode ? Colors.grey[300] : Colors.black54),
             ),
           ),
         ],
@@ -910,6 +901,7 @@ class _PredictionPageState extends State<PredictionPage> {
   Widget build(BuildContext context) {
     final sharedData = Provider.of<SharedData>(context);
     final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm, selectedMethod);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: const CustomAppBar(),
@@ -919,488 +911,380 @@ class _PredictionPageState extends State<PredictionPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            color: isDarkMode ? Colors.grey[850] : Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "METHOD SELECTION",
+                    style: titleStyle.copyWith(
+                      color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedMethod,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none, // retirer le contour visible
+                  ),
+                  filled: true,
+                  fillColor: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0), // même fond que le Dropdown
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "METHOD SELECTION",
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                        ),
+                dropdownColor: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
+                style: TextStyle(
+                  color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  fontWeight: FontWeight.w500,
+                ),
+                icon: Icon(
+                  Icons.arrow_drop_down,
+                  color: isDarkMode ? Colors.grey[300] : Colors.black,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                hint: Text(
+                  'Select',
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.grey[500] : Colors.grey.shade500,
+                  ),
+                ),
+                items: methods.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(
+                      value,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: isDarkMode ? Colors.grey[300] : Colors.black,
                       ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: selectedMethod,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(
+                    ),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  setState(() {
+                    selectedMethod = newValue!;
+                  });
+                },
+              ),
+
+              ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Section des résultats (premier ExpansionTile)
+            Card(
+                elevation: 1,
+                color: isDarkMode ? Colors.grey[850] : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ExpansionTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
+                title: Text(
+                  "ROLL NATURAL PERIOD RESULTS",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? Colors.grey[700]
+                                : const Color(0xFF012169).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.grey.withOpacity(0.5),
-                            ),
                           ),
-                          filled: true,
-                          fillColor: Colors.grey.withOpacity(0.05),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Estimated roll natural period:",
+                                style: titleStyle.copyWith(
+                                  color: isDarkMode ? Colors.grey[300] : Colors.black,
+                                  fontSize: (titleStyle.fontSize ?? 14.0) * 1.1,
+                                  fontWeight: FontWeight.normal,
+                                ),
+                              ),
+                              Text(
+                                "${currentPeriod.toStringAsFixed(1)} s",
+                                style: titleStyle.copyWith(
+                                  color: isDarkMode ? Colors.white : const Color(0xFF012169),
+                                  fontSize: (titleStyle.fontSize ?? 14.0) * 1.8,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        items: methods.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(
-                              value,
-                              style: Theme.of(context).textTheme.bodyLarge,
+                        const SizedBox(height: 8),
+                        Text(
+                          "Current GM: ${widget.loadingCondition.gm.toStringAsFixed(2)} m",
+                          style: Axeslegend.copyWith(
+                            color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildChart(),
+                        const SizedBox(height: 16),
+                        Text(
+                          "The dot indicates the current GM value and its corresponding roll natural period.",
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Section des mesures sauvegardées (deuxième ExpansionTile)
+            Card(
+              elevation: 1,
+              color: isDarkMode ? Colors.grey[850] : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ExpansionTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
+                title: Text(
+                  "SAVED MEASUREMENTS",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: gmRollPeriodPairsTile(measurements: sharedData.savedMeasurements),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Section de comparaison (troisième ExpansionTile)
+            Card(
+              elevation: 1,
+              color: isDarkMode ? Colors.grey[850] : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ExpansionTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
+                title: Text(
+                  "COMPARISON",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: FutureBuilder<List<SavedMeasurement>>(
+                      future: _loadSavedMeasurements(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                          return Text(
+                            "No measurement data available for comparison",
+                            style: Axeslegend.copyWith(
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey,
                             ),
                           );
-                        }).toList(),
-                        onChanged: (newValue) {
-                          setState(() {
-                            selectedMethod = newValue!;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
+                        }
 
-              // Section des résultats (premier ExpansionTile)
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
-                child: ExpansionTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
-                  title: Text(
-                    "ROLL NATURAL PERIOD RESULTS",
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF012169).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Estimated roll natural period:",
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                ),
-                                Text(
-                                  "${currentPeriod.toStringAsFixed(1)} s",
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF012169),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Current GM: ${widget.loadingCondition.gm.toStringAsFixed(2)} m",
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildChart(),
-                          const SizedBox(height: 16),
-                          Text(
-                            "The dot indicates the current GM value and its corresponding roll natural period.",
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
+                        final measurements = snapshot.data!;
+                        final spots = _generateComparisonChartData(measurements);
 
-              // Section des mesures sauvegardées (deuxième ExpansionTile)
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
-                child: ExpansionTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
-                  title: Text(
-                    "SAVED MEASUREMENTS",
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: gmRollPeriodPairsTile(measurements: sharedData.savedMeasurements),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Section de comparaison (troisième ExpansionTile)
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
-                child: ExpansionTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
-                  title: Text(
-                    "COMPARISON",
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: FutureBuilder<List<SavedMeasurement>>(
-                        future: _loadSavedMeasurements(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-
-                          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                            return const Text("No measurement data available for comparison", style: TextStyle(color: Colors.grey));
-                          }
-
-                          final measurements = snapshot.data!;
-                          final spots = _generateComparisonChartData(measurements);
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Center(
-                                child:Text(
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Text(
                                 "Measured vs Estimation from $selectedMethod",
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),),
-                              const SizedBox(height: 8),
-                              // Dans la section COMPARISON, remplacez le LineChart actuel par ceci :
-                              Container(
-                                height: 300,
-                                padding: const EdgeInsets.only(left: 6, top: 16, right: 16,bottom: 8),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: Colors.white,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.2),
-                                      spreadRadius: 2,
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  color: isDarkMode ? Colors.grey[300] : Colors.black,
                                 ),
-                                child: LineChart(
-                                  LineChartData(
-                                    gridData: FlGridData(
-                                      show: true,
-                                      drawHorizontalLine: true,
-                                      drawVerticalLine: true,
-                                      getDrawingHorizontalLine: (value) => FlLine(
-                                        color: Colors.grey.withOpacity(0.2),
-                                        strokeWidth: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              height: 300,
+                              padding: const EdgeInsets.only(left: 6, top: 16, right: 16,bottom: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: isDarkMode ? Colors.grey[800] : Colors.white,
+                              ),
+                              child: LineChart(
+                                LineChartData(
+                                  gridData: FlGridData(
+                                    show: true,
+                                    drawHorizontalLine: true,
+                                    drawVerticalLine: true,
+                                    getDrawingHorizontalLine: (value) => FlLine(
+                                      color: isDarkMode ? Colors.grey[600] : Colors.grey.withOpacity(0.2),
+                                      strokeWidth: 1,
+                                    ),
+                                    getDrawingVerticalLine: (value) => FlLine(
+                                      color: isDarkMode ? Colors.grey[600] : Colors.grey.withOpacity(0.2),
+                                      strokeWidth: 1,
+                                    ),
+                                  ),
+                                  titlesData: FlTitlesData(
+                                    show: true,
+                                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                    bottomTitles: AxisTitles(
+                                      axisNameWidget: Padding(
+                                        padding: const EdgeInsets.only(top: 0),
+                                        child: Text(
+                                          'Measured Period (s)',
+                                          style: Axeslegend.copyWith(
+                                            color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                                          ),
+                                        ),
                                       ),
-                                      getDrawingVerticalLine: (value) => FlLine(
-                                        color: Colors.grey.withOpacity(0.2),
-                                        strokeWidth: 1,
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 30,
+                                        interval: 10,
+                                        getTitlesWidget: (value, meta) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(top: 8.0),
+                                            child: Text(
+                                              value.toStringAsFixed(0),
+                                              style: Axeslegend.copyWith(
+                                                color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
-                                    titlesData: FlTitlesData(
-                                      show: true,
-                                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      bottomTitles: AxisTitles(
-                                        axisNameWidget: Padding(
-                                          padding: const EdgeInsets.only(top: 0),
-                                          child: Text(
-                                            'Measured Period (s)',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
+                                    leftTitles: AxisTitles(
+                                      axisNameWidget: RotatedBox(
+                                        quarterTurns: 0,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(left: 25),
+                                          child: Center(
+                                            child: Text(
+                                              'Estimated Period (s)',
+                                              style: Axeslegend.copyWith(
+                                                color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                        sideTitles: SideTitles(
-                                          showTitles: true,
-                                          reservedSize: 30,
-                                          interval: 10,
-                                          getTitlesWidget: (value, meta) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(top: 8.0),
-                                              child: Text(
-                                                value.toStringAsFixed(0),
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
                                       ),
-                                      leftTitles: AxisTitles(
-                                        axisNameWidget: RotatedBox(
-                                          quarterTurns: 0,
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(left: 25),
-                                            child: Center(
-                                              child: Text(
-                                                'Estimated Period (s)',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey,
-                                                ),
+                                      axisNameSize: 28,
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 26,
+                                        interval: 10,
+                                        getTitlesWidget: (value, meta) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(right: 8.0),
+                                            child: Text(
+                                              value.toStringAsFixed(0),
+                                              style: Axeslegend.copyWith(
+                                                color: isDarkMode ? Colors.grey[300] : Colors.grey,
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                        axisNameSize: 28,
-                                        sideTitles: SideTitles(
-                                          showTitles: true,
-                                          reservedSize: 26,
-                                          interval: 10,
-                                          getTitlesWidget: (value, meta) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(right: 8.0),
-                                              child: Text(
-                                                value.toStringAsFixed(0),
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    borderData: FlBorderData(
-                                      show: true,
-                                      border: Border.all(
-                                        color: Colors.grey.withOpacity(0.2),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    minX: 0,
-                                    maxX: 40,
-                                    minY: 0,
-                                    maxY: 40,
-                                    lineBarsData: [
-                                      // Ligne x=y de référence
-                                      LineChartBarData(
-                                        spots: [FlSpot(0, 0), FlSpot(40, 40)],
-                                        isCurved: true,
-                                        color: Colors.grey.withOpacity(0.5),
-                                        barWidth: 2,
-                                        dotData: const FlDotData(show: false),
-                                      ),
-                                      // Points de données
-                                      LineChartBarData(
-                                        spots: spots,
-                                        isCurved: false,
-                                        color: const Color(0xFF012169),
-                                        barWidth: 0,
-                                        dotData: FlDotData(
-                                          show: true,
-                                          getDotPainter: (spot, percent, barData, index) {
-                                            return FlDotCirclePainter(
-                                              radius: 6,
-                                              color: const Color(0xFF012169),
-                                              strokeWidth: 2,
-                                              strokeColor: Colors.white,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                    lineTouchData: LineTouchData(
-                                      touchTooltipData: LineTouchTooltipData(
-                                        getTooltipItems: (touchedSpots) {
-                                          return touchedSpots.map((touchedSpot) {
-                                            return LineTooltipItem(
-                                              'Measured: ${touchedSpot.x.toStringAsFixed(1)}s\nEstimated: ${touchedSpot.y.toStringAsFixed(1)}s',
-                                              const TextStyle(color: Colors.white),
-                                            );
-                                          }).toList();
+                                          );
                                         },
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Each point represents a measurement. The diagonal line shows perfect agreement.",
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Dans la méthode build(), ajoutez cette nouvelle Card après la section "METHOD SELECTION"
-              const SizedBox(height: 8),
-
-// Nouvelle section pour les détails du profil
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ExpansionTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero,
-                    side: BorderSide.none,
-                  ),
-                  title: Text(
-                    "VESSEL & VOYAGE DETAILS",
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Détails du navire
-                          Card(
-                            elevation: 1,
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.directions_boat, color: Color(0xFF012169)),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        "VESSEL PROFILE",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF012169),
-                                        ),
-                                      ),
-                                    ],
+                                  borderData: FlBorderData(
+                                    show: true,
+                                    border: Border.all(
+                                      color: isDarkMode ? Colors.grey[600]! : Colors.grey.withOpacity(0.2),
+                                      width: 1,
+                                    ),
                                   ),
-                                  SizedBox(height: 12),
-                                  _buildDetailRow("Name", widget.vesselProfile.name),
-                                  _buildDetailRow("Length", "${widget.vesselProfile.length.toStringAsFixed(2)} m"),
-                                  _buildDetailRow("Beam", "${widget.vesselProfile.beam.toStringAsFixed(2)} m"),
-                                  _buildDetailRow("Depth", "${widget.vesselProfile.depth.toStringAsFixed(2)} m"),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 16),
-
-                          // Détails de la condition de chargement
-                          Card(
-                            elevation: 1,
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.balance, color: Color(0xFF012169)),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        "VOYAGE",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF012169),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 12),
-                                  _buildDetailRow("Name", widget.loadingCondition.name),
-                                  _buildDetailRow("GM", "${widget.loadingCondition.gm.toStringAsFixed(2)} m"),
-                                  _buildDetailRow("VCG", "${widget.loadingCondition.vcg.toStringAsFixed(2)} m"),
-                                  _buildDetailRow("Draft", "${widget.loadingCondition.draft.toStringAsFixed(2)} m"),
-
-                                  // Liste des autres conditions de chargement disponibles
-                                  if (widget.vesselProfile.loadingConditions.length > 1) ...[
-                                    Divider(height: 24),
-                                    Text(
-                                      "OTHER AVAILABLE VOYAGES",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                        fontWeight: FontWeight.bold,
+                                  minX: 0,
+                                  maxX: 40,
+                                  minY: 0,
+                                  maxY: 40,
+                                  lineBarsData: [
+                                    // Ligne x=y de référence
+                                    LineChartBarData(
+                                      spots: [FlSpot(0, 0), FlSpot(40, 40)],
+                                      isCurved: true,
+                                      color: isDarkMode ? Colors.grey[500] : Colors.grey.withOpacity(0.5),
+                                      barWidth: 2,
+                                      dotData: const FlDotData(show: false),
+                                    ),
+                                    // Points de données
+                                    LineChartBarData(
+                                      spots: spots,
+                                      isCurved: false,
+                                      color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
+                                      barWidth: 0,
+                                      dotData: FlDotData(
+                                        show: true,
+                                        getDotPainter: (spot, percent, barData, index) {
+                                          return FlDotCirclePainter(
+                                            radius: 6,
+                                            color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
+                                            strokeWidth: 1,
+                                            strokeColor: Colors.white,
+                                          );
+                                        },
                                       ),
                                     ),
-                                    SizedBox(height: 8),
-                                    ...widget.vesselProfile.loadingConditions
-                                        .where((cond) => cond.name != widget.loadingCondition.name)
-                                        .map((condition) => Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              condition.name,
-                                              style: TextStyle(color: Colors.black87),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )),
                                   ],
-                                ],
+                                  // Correction pour tooltipBgColor (ligne ~1261)
+                        lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                        getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((touchedSpot) {
+                        return LineTooltipItem(
+                        'Measured: ${touchedSpot.x.toStringAsFixed(1)}s\nEstimated: ${touchedSpot.y.toStringAsFixed(1)}s',
+                        const TextStyle(color: Colors.white),
+                        );
+                        }).toList();
+                        },
+                        ),
+                        ),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Each point represents a measurement. The diagonal line shows perfect agreement.",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
+            const SizedBox(height: 8),
             ],
           ),
         ),

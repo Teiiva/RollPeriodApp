@@ -36,8 +36,8 @@ class _AlertPageState extends State<AlertPage> {
   Position? _currentPosition; // Position actuelle de l'utilisateur
 
   final List<String> alarmoptions = ['Disable','Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4'];
-  final List<String> vibrationoptions = ['Enable', 'Disable'];
-  final List<String> flashoptions = ['Enable', 'Disable'];
+  final List<String> vibrationoptions = ['Disable','Enable'];
+  final List<String> flashoptions = ['Disable','Enable'];
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool isVibrationEnabled = false;
@@ -175,7 +175,7 @@ class _AlertPageState extends State<AlertPage> {
       ExtractStyle = TextStyle(
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
-          color: Color(0xFF012169),
+        color: Color(0xFF012169),
       );
       coordonnees = TextStyle(
         fontSize: 12.0 * ratio,
@@ -473,6 +473,8 @@ class _AlertPageState extends State<AlertPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: const CustomAppBar(),
       body: SingleChildScrollView(
@@ -481,73 +483,96 @@ class _AlertPageState extends State<AlertPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 10),
-            _buildInputCard(
-              Icon(Icons.warning_rounded, size: iconsize, color: Color(0xFF012169)),
-              "Threshold for\nroll angle",
-              "",
-              thresholdController,
+            // Section Paramètres sans Card
+            Column(
+              children: [
+                _buildInputCard(
+                  Icon(Icons.warning_rounded,
+                      size: iconsize,
+                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF012169)),
+                  "Threshold for roll angle",
+                  "",
+                  thresholdController,
+                ),
+                _buildDropdownCard(
+                  Icon(Icons.vibration,
+                      size: iconsize,
+                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
+                  "Vibration",
+                  selectedVibration,
+                  vibrationoptions,
+                      (value) {
+                    setState(() {
+                      selectedVibration = value;
+                    });
+                  },
+                ),
+                _buildDropdownCard(
+                  Icon(Icons.notifications_active,
+                      size: iconsize,
+                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
+                  "Alarm",
+                  selectedAlarme,
+                  alarmoptions,
+                      (value) {
+                    setState(() {
+                      selectedAlarme = value;
+                    });
+                  },
+                ),
+                _buildDropdownCard(
+                  Icon(Icons.flash_on,
+                      size: iconsize,
+                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
+                  "Flash",
+                  selectedFlash,
+                  flashoptions,
+                      (value) {
+                    setState(() {
+                      selectedFlash = value;
+                    });
+                  },
+                ),
+              ],
             ),
-            _buildDropdownCard(
-              Icon(Icons.vibration, size: iconsize, color: Color(0xFF002868)),
-              "Vibration",
-              selectedVibration,
-              vibrationoptions,
-                  (value) {
-                setState(() {
-                  selectedVibration = value;
-                });
-              },
-            ),
-            _buildDropdownCard(
-              Icon(Icons.notifications_active, size: iconsize, color: Color(0xFF002868)),
-              "Alarm",
-              selectedAlarme,
-              alarmoptions,
-                  (value) {
-                setState(() {
-                  selectedAlarme = value;
-                });
-              },
-            ),
-            _buildDropdownCard(
-              Icon(Icons.flash_on, size: iconsize, color: Color(0xFF002868)),
-              "Flash",
-              selectedFlash,
-              flashoptions,
-                  (value) {
-                setState(() {
-                  selectedFlash = value;
-                });
-              },
-            ),
+
 
             // Section Alert History
             Padding(
               padding: const EdgeInsets.only(top: 30, left: 40, right: 20, bottom: 10),
               child: Row(
                 children: [
-                  Icon(Icons.history, size: iconsize, color: Color(0xFF012169)),
+                  Icon(Icons.history,
+                      size: iconsize,
+                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF012169)),
                   const SizedBox(width: 10),
                   Text(
                     'Alert History',
-                    style: historyStyle,
+                    style: historyStyle.copyWith(
+                      color: isDarkMode ? Colors.grey[300]! : Colors.grey[800],
+                    ),
                   ),
                 ],
               ),
             ),
-            _buildAlertHistoryTable(),
+
+            _buildAlertHistoryTable(isDarkMode),
 
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _exportRollDataToDownloads,
               child: Text(
                 'Extract',
-                style: ExtractStyle,
+                style: ExtractStyle.copyWith(
+                  color: isDarkMode ? Colors.grey[300]! : const Color(0xFF012169),
+                ),
               ),
-              style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.all<Color>(Colors.white), // Couleur de fond
-                padding: MaterialStateProperty.all<EdgeInsetsGeometry>(EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0)), // Padding
-                foregroundColor: MaterialStateProperty.all<Color>(Color(0xFF012169)), // Couleur du texte
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDarkMode ? Colors.grey[700]! : Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 30.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(radius),
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -557,11 +582,13 @@ class _AlertPageState extends State<AlertPage> {
     );
   }
 
-  Widget _buildAlertHistoryTable() {
+  Widget _buildAlertHistoryTable(bool isDarkMode) {
+    final threshold = double.tryParse(thresholdController.text) ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Card(
         elevation: 1,
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -570,7 +597,9 @@ class _AlertPageState extends State<AlertPage> {
               // En-tête du tableau
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF012169).withOpacity(0.1),
+                  color: isDarkMode
+                      ? Colors.grey[700]
+                      : const Color(0xFF012169).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -578,18 +607,31 @@ class _AlertPageState extends State<AlertPage> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: Text('Time\nDate', style: titleStyle, textAlign: TextAlign.center),
+                      child: Text('Time\nDate',
+                          style: titleStyle.copyWith(
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
+                          textAlign: TextAlign.center),
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text('Vessel\nVoyage', style: titleStyle, textAlign: TextAlign.center),
+                      child: Text('Vessel\nVoyage',
+                          style: titleStyle.copyWith(
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
+                          textAlign: TextAlign.center),
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text('Roll\nangle', style: titleStyle, textAlign: TextAlign.center),
+                      child: Text('Roll\nangle',
+                          style: titleStyle.copyWith(
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
+                          textAlign: TextAlign.center),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete, color: Color(0xFF012169)),
+                      icon: Icon(Icons.delete,
+                          color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                       tooltip: 'Tout supprimer',
                       onPressed: _deleteAllAlerts,
                     ),
@@ -609,7 +651,10 @@ class _AlertPageState extends State<AlertPage> {
 
                   return Column(
                     children: [
-                      Divider(height: 1, color: Colors.grey[300]),
+                      Divider(
+                        height: 1,
+                        color: isDarkMode ? Colors.grey[600] : Colors.grey[300],
+                      ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         child: Row(
@@ -623,12 +668,16 @@ class _AlertPageState extends State<AlertPage> {
                                 children: [
                                   Text(
                                     alert['time'] ?? '--:--:--',
-                                    style: titleStyle,
+                                    style: titleStyle.copyWith(
+                                      color: isDarkMode ? Colors.grey[300] : Colors.black,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                   Text(
                                     alert['date'] ?? '----/--/--',
-                                    style: subtitleStyle,
+                                    style: subtitleStyle.copyWith(
+                                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -643,12 +692,16 @@ class _AlertPageState extends State<AlertPage> {
                                 children: [
                                   Text(
                                     alert['vessel'] ?? 'N/A',
-                                    style: subtitleStyle,
+                                    style: subtitleStyle.copyWith(
+                                      color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                   Text(
                                     alert['voyage'] ?? 'N/A',
-                                    style: subtitleStyle,
+                                    style: subtitleStyle.copyWith(
+                                      color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -662,18 +715,16 @@ class _AlertPageState extends State<AlertPage> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                                   decoration: BoxDecoration(
-                                    color: rollPeriodValue.abs() > 25
-                                        ? Colors.red.withOpacity(0.2)
-                                        : Colors.green.withOpacity(0.2),
+                                    color: Colors.red.withOpacity(isDarkMode ? 0.4 : 0.2),
+
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
                                     rollPeriod,
                                     textAlign: TextAlign.center,
                                     style: AngleStyle.copyWith(
-                                      color: rollPeriodValue.abs() > 25
-                                          ? Colors.red
-                                          : Colors.green,
+                                      color: Colors.red[300]
+
                                     ),
                                   ),
                                 ),
@@ -682,7 +733,8 @@ class _AlertPageState extends State<AlertPage> {
 
                             // Bouton de suppression
                             IconButton(
-                              icon: const Icon(Icons.close, color: Color(0xFF012169)),
+                              icon: Icon(Icons.close,
+                                  color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                               tooltip: 'Supprimer',
                               onPressed: () => _deleteAlertAtIndex(index),
                             ),
@@ -706,10 +758,13 @@ class _AlertPageState extends State<AlertPage> {
       String hint,
       TextEditingController controller,
       ) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
         elevation: 1,
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -721,12 +776,16 @@ class _AlertPageState extends State<AlertPage> {
                 child: Row(
                   children: [
                     Expanded(
-                      flex: 2,
-                      child: Center(
+                      flex: 4,
+                      child: Align(
+                        alignment: Alignment.center,
                         child: Text(
                           label,
                           textAlign: TextAlign.center,
-                          style: titleStyle.copyWith(fontWeight: FontWeight.normal),
+                          style: titleStyle.copyWith(
+                            fontWeight: FontWeight.normal,
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
                         ),
                       ),
                     ),
@@ -736,16 +795,23 @@ class _AlertPageState extends State<AlertPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDarkMode ? Colors.grey[700] : const Color(0xFF012169).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: TextField(
                           controller: controller,
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
                           decoration: InputDecoration(
                             hintText: hint,
+                            hintStyle: TextStyle(
+                                color: isDarkMode ? Colors.grey[500] : Colors.grey.shade500),
                             border: InputBorder.none,
                             suffixText: '°',
+                            suffixStyle: TextStyle(
+                              color: isDarkMode ? Colors.grey[300] : Colors.black,
+                            ),
                           ),
                         ),
                       ),
@@ -760,6 +826,7 @@ class _AlertPageState extends State<AlertPage> {
     );
   }
 
+
   Widget _buildDropdownCard(
       Widget iconWidget,
       String label,
@@ -767,27 +834,34 @@ class _AlertPageState extends State<AlertPage> {
       List<String> items,
       ValueChanged<String?> onChanged,
       ) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
         elevation: 1,
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               iconWidget,
-              const SizedBox(width: 16),
+              const SizedBox(width: 25),
               Expanded(
                 child: Row(
                   children: [
                     Expanded(
                       flex: 2,
-                      child: Center(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
                         child: Text(
                           label,
-                          textAlign: TextAlign.center,
-                          style: titleStyle.copyWith(fontWeight: FontWeight.normal),
+                          textAlign: TextAlign.left,
+                          style: titleStyle.copyWith(
+                            fontWeight: FontWeight.normal,
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
                         ),
                       ),
                     ),
@@ -797,26 +871,43 @@ class _AlertPageState extends State<AlertPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDarkMode ? Colors.grey[700]! : const Color(0xFF012169).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
                         ),
+
                         child: DropdownButton<String>(
                           value: currentValue,
                           isExpanded: true,
                           underline: const SizedBox(),
+                          dropdownColor: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0), // fond du menu
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.grey[300] : Colors.black, // texte sélectionné
+                            fontWeight: FontWeight.w500,
+                          ),
+                          icon: Icon(Icons.arrow_drop_down,
+                              color: isDarkMode ? Colors.grey[300] : Colors.black),
                           hint: Text(
                             'Select',
-                            style: TextStyle(color: Colors.grey.shade500),
+                            style: TextStyle(
+                                color: isDarkMode ? Colors.grey[500] : Colors.grey.shade500),
                           ),
+                          borderRadius: BorderRadius.circular(12), // ✅ arrondir le menu déroulant
                           items: items.map((String value) {
                             return DropdownMenuItem<String>(
                               value: value,
-                              child: Text(value),
+                              child: Text(
+                                value,
+                                style: TextStyle(
+                                  color: isDarkMode ? Colors.grey[300] : Colors.black,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.normal,
+                                ),
+                              ),
                             );
                           }).toList(),
                           onChanged: onChanged,
                         ),
+
                       ),
                     ),
                   ],

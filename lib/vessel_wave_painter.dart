@@ -8,14 +8,16 @@ class VesselWavePainter extends StatefulWidget {
   final double boatlength;
   final double waveDirection;
   final double wavePeriod;
-  final double course; // Nouveau paramètre pour la course
+  final double course;
+  final bool isDarkMode; // Nouveau paramètre pour le dark mode
 
   const VesselWavePainter({
     super.key,
     required this.boatlength,
     required this.waveDirection,
     required this.wavePeriod,
-    required this.course, // Ajout du paramètre
+    required this.course,
+    required this.isDarkMode, // Ajout du paramètre
   });
 
   @override
@@ -62,8 +64,9 @@ class _VesselWavePainterState extends State<VesselWavePainter> {
                       waveDirection: widget.waveDirection,
                       boatlength: widget.boatlength,
                       wavePeriod: widget.wavePeriod,
-                      course: widget.course, // Passage de la course
+                      course: widget.course,
                       boatImage: boatImage!,
+                      isDarkMode: widget.isDarkMode, // Passage du paramètre
                     ),
                   ),
                 ),
@@ -80,15 +83,17 @@ class _CompassPainter extends CustomPainter {
   final double waveDirection;
   final double boatlength;
   final double wavePeriod;
-  final double course; // Nouveau paramètre pour la course
+  final double course;
   final ui.Image boatImage;
+  final bool isDarkMode; // Nouveau paramètre
 
   _CompassPainter({
     required this.waveDirection,
     required this.boatlength,
     required this.wavePeriod,
-    required this.course, // Ajout du paramètre
+    required this.course,
     required this.boatImage,
+    required this.isDarkMode, // Ajout du paramètre
   });
 
   @override
@@ -96,8 +101,20 @@ class _CompassPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 20;
 
+    // Couleurs adaptées au dark mode
+    final backgroundColor = isDarkMode ? Colors.grey[900]! : Colors.white;
+    final circleGradientColor1 = isDarkMode ? Colors.grey[800]! : Colors.blue.shade100;
+    final circleGradientColor2 = isDarkMode ? Colors.grey[700]! : Colors.white;
+    final borderColor = isDarkMode ? Colors.grey[600]! : Colors.grey.shade800;
+    final waveLinesColor = isDarkMode
+        ? Colors.teal.withOpacity(0.4)
+        : Colors.blue.shade300.withOpacity(0.4);
+    final textColor = isDarkMode ? Colors.grey[300]! : Colors.black87;
+    final mainArrowColor = isDarkMode ? Colors.teal : const Color(0xFF012169);
+    final courseArrowColor = Colors.deepPurple; // Gardé en rouge pour la visibilité
+
     final gradient = RadialGradient(
-      colors: [Colors.blue.shade100, Colors.white],
+      colors: [circleGradientColor1, circleGradientColor2],
       center: Alignment.center,
       radius: 0.85,
     );
@@ -108,16 +125,16 @@ class _CompassPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final paintBorder = Paint()
-      ..color = Colors.grey.shade800
+      ..color = borderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
     final paintArrow = Paint()
-      ..color = Color(0xFF012169)
+      ..color = mainArrowColor
       ..style = PaintingStyle.fill;
 
     final paintWaveLines = Paint()
-      ..color = Colors.blue.shade300.withOpacity(0.4)
+      ..color = waveLinesColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
@@ -138,10 +155,10 @@ class _CompassPainter extends CustomPainter {
 
       textPainter.text = TextSpan(
         text: '$i°',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.normal,
-          color: Colors.black87,
+          color: textColor,
         ),
       );
       textPainter.layout();
@@ -202,7 +219,7 @@ class _CompassPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
-    canvas.rotate((course) * pi / 180); // Rotation selon la course (-90 pour compenser l'orientation initiale)
+    canvas.rotate((course) * pi / 180);
     canvas.translate(-center.dx, -center.dy);
 
     final dstRect = Rect.fromCenter(
@@ -232,18 +249,16 @@ class _CompassPainter extends CustomPainter {
       )
       ..close();
 
-
-
     canvas.drawPath(arrowPath, paintArrow);
 
-    // Flèche de direction du bateau (course) - en rouge
+    // Flèche de direction du bateau (course)
     final paintCourseArrow = Paint()
-      ..color = Colors.red
+      ..color = courseArrowColor
       ..style = PaintingStyle.fill;
 
     final courseAngle = course * pi / 180;
-    final courseArrowX = center.dx + cos(courseAngle) * (radius );
-    final courseArrowY = center.dy + sin(courseAngle) * (radius );
+    final courseArrowX = center.dx + cos(courseAngle) * (radius);
+    final courseArrowY = center.dy + sin(courseAngle) * (radius);
 
     final courseArrowPath = Path()
       ..moveTo(courseArrowX, courseArrowY)

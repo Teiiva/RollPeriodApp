@@ -22,6 +22,7 @@ class NavigationPage extends StatefulWidget {
 class _NavigationPageState extends State<NavigationPage> {
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: const CustomAppBar(),
       body: Column(
@@ -35,6 +36,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   waveDirection: widget.navigationInfo.direction,
                   wavePeriod: widget.navigationInfo.wavePeriod,
                   course: widget.navigationInfo.course,
+                  isDarkMode: isDarkMode, // Assurez-vous que VesselWavePainter accepte ce paramètre
                 ),
               ),
             ),

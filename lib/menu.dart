@@ -141,61 +141,84 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
+    final basscreenWidth = 411.42857142857144;
+    final screenWidth = MediaQuery.of(context).size.width;
+    print('screenWidth: ${screenWidth}');
+    final screenHeight = MediaQuery.of(context).size.height;
+    print('screenHeight: ${screenHeight}');
+    final ratio = screenWidth/basscreenWidth;
+    print('ratio: ${ratio}');
+    final double padding_value = 2 * ratio;
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
       ),
-    bottomNavigationBar: Container(
-      color: Color(0xE60000), // <-- Couleur du fond autour de l'encoche et de la barre
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          BottomNavigationBar(
-                key: const ValueKey('visibleBar'),
-                currentIndex: _selectedIndex,
-            selectedItemColor: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : const Color(0xFF012169),
-                unselectedItemColor: Colors.grey,
-                onTap: (index) {
-                  setState(() {
-                    _selectedIndex = index;
-                    if (index == 0) {
-                      _pages[0] = NavigationPage(
-                        vesselProfile: _currentVesselProfile,
-                        navigationInfo: _navigationInfo,
-                      );
-                    }
-                  });
-                },
-                type: BottomNavigationBarType.fixed,
-                items: const [
-                  BottomNavigationBarItem(
-                  icon: Icon(Icons.explore),
-                  label: 'Roll Risk',
-                  ),
-                  BottomNavigationBarItem(
-                  icon: Icon(Icons.notifications_active),
-                  label: 'Alert',
-                  ),
-                  BottomNavigationBarItem(
-                  icon: Icon(Icons.sensors),
-                  label: 'Measure',
-                  ),
-                  BottomNavigationBarItem(
-                  icon: Icon(Icons.directions_boat_filled_rounded),
-                  label: 'Info',
-                  ),
-                  BottomNavigationBarItem(
-                  icon: Icon(Icons.timeline),
-                  label: 'Prediction',
-                  ),
-                ],
-              )
-      ],
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[850]
+            : Colors.white,
+        key: const ValueKey('visibleBar'),
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : const Color(0xFF012169),
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+            if (index == 0) {
+              _pages[0] = NavigationPage(
+                vesselProfile: _currentVesselProfile,
+                navigationInfo: _navigationInfo,
+              );
+            }
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        iconSize: 26.0 * ratio, // Taille fixe pour les icônes
+        selectedFontSize: 14.0 * ratio, // Taille de police pour l'élément sélectionné
+        unselectedFontSize: 12.0 * ratio, // Taille de police pour les éléments non sélectionnés
+        selectedLabelStyle: TextStyle(height: 0), // Réduire l'espace sous le texte
+        unselectedLabelStyle: TextStyle(height: 0), // Réduire l'espace sous le texte
+        items: [
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
+              child: Icon(Icons.explore),
+            ),
+            label: 'Roll Risk',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
+              child: Icon(Icons.notifications_active),
+            ),
+            label: 'Alert',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
+              child: Icon(Icons.sensors),
+            ),
+            label: 'Measure',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
+              child: Icon(Icons.directions_boat_filled_rounded),
+            ),
+            label: 'Info',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
+              child: Icon(Icons.timeline),
+            ),
+            label: 'Prediction',
+          ),
+        ],
       ),
-    ),
     );
   }
 }

@@ -191,7 +191,9 @@ class _SensorPageState extends State<SensorPage> {
       clear_importStyle = TextStyle(
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF012169),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : Color(0xFF012169),
       );
       print('clear_importStyle font size: ${clear_importStyle.fontSize}');
       iconsize = 40.0 * ratio;
@@ -1474,6 +1476,8 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Tuile d'affichage du taux d'échantillonnage
   Widget SampleTile() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     // Cas d'un import de fichier
     if (_hasReachedSampleCount && _rollData.isNotEmpty && !_isCollectingData) {
       final fileName = _getImportedFileName();
@@ -1487,7 +1491,9 @@ class _SensorPageState extends State<SensorPage> {
 
       return Card(
         margin: EdgeInsets.all(margin),
-        color: Colors.blueGrey,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[850]
+            : Colors.blueGrey,
         child: InkWell(
           onTap: () {
             _showSampleSizeDialog(context);
@@ -1497,7 +1503,7 @@ class _SensorPageState extends State<SensorPage> {
             horizontalTitleGap: iconsleftgap,
             key: _sampleButtonKey,
             contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
-            leading: Icon(Icons.file_upload, color: Colors.white, size: iconsize),
+            leading: Icon(Icons.file_upload, color: isDarkMode ? Colors.grey[300] : Colors.white, size: iconsize),
             title: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1505,11 +1511,11 @@ class _SensorPageState extends State<SensorPage> {
               children: [
                 Text(
                   fileName ?? 'Imported Data',
-                  style: titleStyle,
+                  style: titleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white),
                 ),
                 Text(
                   '$sampleCount samples$timeEstimate',
-                  style: subtitleStyle,
+                  style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white),
                 ),
               ],
             ),
@@ -1538,7 +1544,9 @@ class _SensorPageState extends State<SensorPage> {
 
     return Card(
       margin: EdgeInsets.all(margin),
-      color: Colors.blueGrey,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]
+          : Colors.blueGrey,
       child: InkWell(
         onTap: () {
           _showSampleSizeDialog(context);
@@ -1548,16 +1556,16 @@ class _SensorPageState extends State<SensorPage> {
           horizontalTitleGap: iconsleftgap,
           contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
           key: _sampleButtonKey,
-          leading: Icon(Icons.settings, color: Colors.white, size: iconsize),
+          leading: Icon(Icons.settings, color: isDarkMode ? Colors.grey[300] : Colors.white, size: iconsize),
           title: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Sample Size', style: titleStyle),
+              Text('Sample Size', style: titleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white)),
               Text(
                 '${_isCollectingData || _collectedSamples > 0 ? '$collectedSamples/$totalSamples' : totalSamples.toString()} samples$timeText',
-                style: subtitleStyle,
+                style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white),
               ),
             ],
           ),
@@ -1657,16 +1665,22 @@ class _SensorPageState extends State<SensorPage> {
 
 
   Widget fftRollPeriodTile({Key? key}) {
-
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     // Couleurs conditionnelles
     Color rollColor;
     if (_rollData.isEmpty) {
-      rollColor = Colors.deepPurple;
+      rollColor = Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]!
+          : Colors.deepPurple;
     } else {
-      rollColor = _isCollectingData || _hasReachedSampleCount
-          ? Colors.deepPurple
-          : const Color(0xFF505050);
+      rollColor = (_isCollectingData || _hasReachedSampleCount)
+          ? (Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]!
+          : Colors.deepPurple)
+          : Colors.grey[850]!;
     }
+
+
 
     return Card(
       margin: EdgeInsets.all(margin),
@@ -1680,26 +1694,25 @@ class _SensorPageState extends State<SensorPage> {
           'assets/icons/roll.png',
           width: iconsize,
           height: iconsize,
-          color: Colors.white,
-        ),
+            color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Roll Period', style: titleStyle),
+            Text('Roll Period', style: titleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white)),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
                   Text('...',
-                      style: subtitleStyle),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white)),
                 if ((_isCollectingData || _collectedSamples > 0) && _fftRollPeriod == null)
                   Text('Calculating...',
-                      style: subtitleStyle),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white)),
                 if (_fftRollPeriod != null)
                   Text('${_fftRollPeriod!.toStringAsFixed(1)} s',
-                      style: subtitleStyle),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : const Color(0xFF505050) : Colors.white)),
               ],
             ),
           ],
@@ -1710,14 +1723,20 @@ class _SensorPageState extends State<SensorPage> {
 
   Widget fftPitchPeriodTile({Key? key}) {
     // Couleurs conditionnelles
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     Color pitchColor;
     if (_rollData.isEmpty) {
-      pitchColor = Colors.teal;
+      pitchColor = Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]!
+          : Colors.teal;
     } else {
       pitchColor = _isCollectingData || _hasReachedSampleCount
-          ? Colors.teal
-          : Colors.grey;
+          ? (Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]!
+          : Colors.teal)
+          : Colors.grey[850]!;
     }
+
 
     return Card(
       margin: EdgeInsets.all(margin),
@@ -1731,27 +1750,25 @@ class _SensorPageState extends State<SensorPage> {
           'assets/icons/pitch.png',
           width: iconsize,
           height: iconsize,
-          color: Colors.white,
-        ),
+            color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Pitch Period',
-                style: titleStyle),
+            Text('Pitch Period', style: titleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
                   Text('...',
-                      style: subtitleStyle),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
                 if ((_isCollectingData || _collectedSamples > 0) && _fftPitchPeriod == null)
                   Text('Calculating...',
-                      style: subtitleStyle),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
                 if (_fftPitchPeriod != null)
                   Text('${_fftPitchPeriod!.toStringAsFixed(1)} s',
-                      style: subtitleStyle),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
               ],
             ),
           ],
@@ -1771,10 +1788,11 @@ class _SensorPageState extends State<SensorPage> {
     // Couleurs conditionnelles
     final rollColor = _isCollectingData || _hasReachedSampleCount
         ? Colors.deepPurple
-        : const Color(0xFF505050);
+        : Colors.grey;
     final pitchColor = _isCollectingData || _hasReachedSampleCount
         ? Colors.teal
-        : Colors.grey;
+        : const Color(0xFF6F6F6F);
+
 
     // Couleurs pour le mode sombre
     final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
@@ -1915,9 +1933,11 @@ class _SensorPageState extends State<SensorPage> {
   // =============================================
 
   /// Retourne une couleur en fonction de l'angle (pour le dégradé)
-  Color getSmoothColorForAngle(double? angle, bool isVisible) {
-    if (!isVisible) return Colors.blueGrey; // Gris quand désactivé
-    if (angle == null) return const Color(0xFF012169);
+  Color? getSmoothColorForAngle(double? angle, bool isVisible) {
+    if (!isVisible) return Colors.grey[850]; // Gris quand désactivé
+    if (angle == null) return Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey[700]
+        : Color(0xFF012169);
     double absAngle = angle.abs().clamp(0, 90);
     if (absAngle <= 40) return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
     else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
@@ -1980,6 +2000,8 @@ class _SensorPageState extends State<SensorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: CustomAppBar(
         actions: [
@@ -2023,9 +2045,9 @@ class _SensorPageState extends State<SensorPage> {
                         child: ElevatedButton(
                           onPressed: _showClearConfirmationDialog,
                           key: _clearButtonKey,
-                          child: Text('Clear', style: clear_importStyle),
+                          child: Text('Clear', style: clear_importStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Color(0xFF012169))),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _isDarkMode ? Colors.grey : Colors.white,
+                            backgroundColor: _isDarkMode ? Colors.grey[850] : Colors.white,
                             padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),
@@ -2050,6 +2072,8 @@ class _SensorPageState extends State<SensorPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _hasReachedSampleCount
                                 ? Colors.green
+                                : Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[700]
                                 : const Color(0xFF012169),
                             padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
                             shape: RoundedRectangleBorder(
@@ -2064,9 +2088,9 @@ class _SensorPageState extends State<SensorPage> {
                         child: ElevatedButton(
                           onPressed: _handleImport,
                           key: _importButtonKey,
-                          child: Text('Import', style: clear_importStyle),
+                          child: Text('Import', style: clear_importStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Color(0xFF012169))),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _isDarkMode ? Colors.grey : Colors.white,
+                            backgroundColor: _isDarkMode ? Colors.grey[850] : Colors.white,
                             padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),

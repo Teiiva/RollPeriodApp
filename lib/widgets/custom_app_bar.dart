@@ -30,7 +30,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Padding(
           padding: const EdgeInsets.only(top:25),
           child: Image.asset(
-            'assets/images/logo_marin.png',
+            Theme.of(context).brightness == Brightness.dark
+                ? 'assets/images/logo_marin_dark.png'
+                : 'assets/images/logo_marin.png',
+
             width: 120,
             height: 120,
           ),
@@ -38,7 +41,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       )
           : null,
       leading: leading,
-      backgroundColor: const Color(0xFF012169),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]
+          : const Color(0xFF012169),
+      surfaceTintColor: Colors.transparent, // empêche les modifications visuelles au scroll
       elevation: 0,
     );
   }

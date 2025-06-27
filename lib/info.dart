@@ -25,6 +25,8 @@ class VesselWavePage extends StatefulWidget {
 
   @override
   State<VesselWavePage> createState() => _VesselWavePageState();
+
+
 }
 
 class _VesselWavePageState extends State<VesselWavePage> {
@@ -33,6 +35,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
   List<VesselProfile> _savedProfiles = [];
   int _currentPageIndex = 0;
   late LoadingCondition _currentLoadingCondition;
+
 
   // Contrôleurs pour l'édition
   final _profileFormKey = GlobalKey<FormState>();
@@ -88,20 +91,23 @@ class _VesselWavePageState extends State<VesselWavePage> {
     _updateStyles();
   }
 
+
+// Modifiez les styles dans _updateStyles pour prendre en compte le dark mode :
   void _updateStyles() {
     final screenWidth = MediaQuery.of(context).size.width;
     final ratio = screenWidth / 411.42857142857144;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     setState(() {
       titleStyle = TextStyle(
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
-        color: Colors.black,
+        color: isDarkMode ? Colors.grey[300] : Colors.black,
       );
       subtitleStyle = TextStyle(
         fontSize: 14.0 * ratio,
         fontWeight: FontWeight.normal,
-        color: Colors.black,
+        color: isDarkMode ? Colors.grey[300] : Colors.black,
       );
       cardRadius = 12 * ratio;
       iconSize = 40.0 * ratio;
@@ -265,7 +271,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             onPressed: () => Navigator.pop(context),
             child: Text("Cancel"),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
               if (_profileFormKey.currentState!.validate()) {
                 _saveProfile(isEditing, profileToEdit);
@@ -411,7 +417,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             onPressed: () => Navigator.pop(context),
             child: Text("Cancel"),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
               if (_conditionFormKey.currentState!.validate()) {
                 _saveCondition(isEditing, conditionToEdit);
@@ -541,6 +547,12 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final basscreenWidth = 411.42857142857144;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final ratio = screenWidth / basscreenWidth;
+    final double paddingValue = 2 * ratio;
+
     return Scaffold(
       appBar: const CustomAppBar(),
       body: IndexedStack(
@@ -554,22 +566,38 @@ class _VesselWavePageState extends State<VesselWavePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentPageIndex,
         onTap: (index) => setState(() => _currentPageIndex = index),
-        items: const [
+        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: isDarkMode ? Colors.white : const Color(0xFF012169),
+        unselectedItemColor: isDarkMode ? Colors.grey[500] : Colors.grey,
+        iconSize: 26.0 * ratio,
+        selectedFontSize: 14.0 * ratio,
+        unselectedFontSize: 12.0 * ratio,
+        selectedLabelStyle:  TextStyle(height: 0),
+        unselectedLabelStyle:  TextStyle(height: 0),
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.directions_boat),
+            icon: Padding(
+              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
+              child: const Icon(Icons.directions_boat),
+            ),
             label: 'Vessel',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.balance),
+            icon: Padding(
+              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
+              child: const Icon(Icons.balance),
+            ),
             label: 'Voyage',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.navigation),
+            icon: Padding(
+              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
+              child: const Icon(Icons.navigation),
+            ),
             label: 'Navigation',
           ),
         ],
-        selectedItemColor: const Color(0xFF012169),
-        unselectedItemColor: Colors.grey,
       ),
     );
   }
@@ -600,6 +628,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
+  // Modifiez _buildInputCard pour le dark mode :
   Widget _buildInputCard({
     required Widget iconWidget,
     required String label,
@@ -607,12 +636,14 @@ class _VesselWavePageState extends State<VesselWavePage> {
     required double value,
     required ValueChanged<double> onChanged,
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final _controller = TextEditingController(text: value.toStringAsFixed(2));
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
         elevation: 1,
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -621,48 +652,60 @@ class _VesselWavePageState extends State<VesselWavePage> {
               iconWidget,
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      label,
-                      style: subtitleStyle,
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        suffixText: unit,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    Expanded(
+                      flex: 4,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: titleStyle.copyWith(
+                            fontWeight: FontWeight.normal,
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
                         ),
-                        contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
                       ),
-                      keyboardType: TextInputType.number,
-                      style: subtitleStyle,
-                      onTap: () {
-                        // Sélectionne tout le texte lorsque le champ est tapé
-                        _controller.selection = TextSelection(
-                          baseOffset: 0,
-                          extentOffset: _controller.text.length,
-                        );
-                      },
-                      onSubmitted: (text) {
-                        final parsedValue = double.tryParse(text);
-                        if (parsedValue != null) {
-                          onChanged(parsedValue);
-                        }
-
-                      },
-                      onEditingComplete: () {
-                        // Valide et met à jour la valeur lorsque l'édition est terminée
-                        final parsedValue = double.tryParse(_controller.text);
-                        if (parsedValue != null) {
-                          onChanged(parsedValue);
-                        }
-                      },
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.grey[700]
+                              : const Color(0xFF012169).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: _controller,
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.grey[300] : Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: value.toStringAsFixed(2),
+                            hintStyle: TextStyle(
+                              color: isDarkMode
+                                  ? Colors.grey[500]
+                                  : Colors.grey.shade500,
+                            ),
+                            suffixText: unit,
+                            suffixStyle: TextStyle(
+                              color: isDarkMode ? Colors.grey[300] : Colors.black,
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onSubmitted: (text) {
+                            final parsedValue = double.tryParse(text);
+                            if (parsedValue != null) {
+                              onChanged(parsedValue);
+                            }
+                          },
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -674,6 +717,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
+
+
+  // Modifiez _buildSliderCard pour le dark mode :
   Widget _buildSliderCard({
     required Widget iconWidget,
     required String label,
@@ -684,16 +730,24 @@ class _VesselWavePageState extends State<VesselWavePage> {
     required ValueChanged<double> onChanged,
     ValueChanged<double>? onChangeEnd,
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
         elevation: 1,
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              iconWidget,
+              IconTheme(
+                data: IconThemeData(
+                  color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169),
+                ),
+                child: iconWidget,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -701,15 +755,19 @@ class _VesselWavePageState extends State<VesselWavePage> {
                   children: [
                     Text(
                       "$label: ${value.toStringAsFixed(2)} $unit",
-                      style: subtitleStyle,
+                      style: subtitleStyle.copyWith(
+                        color: isDarkMode ? Colors.grey[300] : Colors.black,
+                      ),
                     ),
                     Slider(
-                      padding: EdgeInsets.symmetric(horizontal: 10,vertical: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       value: value,
                       min: min,
                       max: max,
                       divisions: ((max - min) ~/ 1),
                       label: value.toStringAsFixed(2),
+                      activeColor: isDarkMode ? Colors.white : Color(0xFF012169),
+                      inactiveColor: isDarkMode ? Colors.grey[600] : Colors.grey[300],
                       onChanged: onChanged,
                       onChangeEnd: onChangeEnd,
                     ),
@@ -725,12 +783,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
   // Puis modifiez la méthode _buildNavigationInfoPage comme suit:
   Widget _buildNavigationInfoPage() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       child: Column(
         children: [
           _buildWaveAnimationCard(), // Ajoutez cette ligne en premier
           _buildSliderCard(
-            iconWidget: Icon(Icons.navigation, size: 40, color: Color(0xFF012169)),
+            iconWidget: Icon(Icons.navigation, size: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
             label: "Course of ship",
             unit: "°",
             value: _navigationInfo.course,
@@ -744,7 +803,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             },
           ),
           _buildSliderCard(
-            iconWidget: Image.asset('assets/images/direction.png', width: 40, height: 40),
+            iconWidget: Image.asset('assets/images/direction.png', width: iconSize, height: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
             label: "Waves direction",
             unit: "°",
             value: _navigationInfo.direction,
@@ -758,7 +817,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             },
           ),
           _buildInputCard(
-            iconWidget: Icon(Icons.waves, size: 40, color: Color(0xFF002868)),
+            iconWidget: Icon(Icons.waves, size: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
             label: "Waves period",
             unit: "s",
             value: _navigationInfo.wavePeriod,
@@ -768,7 +827,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             },
           ),
           _buildInputCard(
-            iconWidget: Icon(Icons.speed, size: 40, color: Color(0xFF012169)),
+            iconWidget: Icon(Icons.speed, size: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
             label: "Vessel speed",
             unit: "Knots",
             value: _navigationInfo.speed,
@@ -783,8 +842,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   Widget _buildProfileManagementSection() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(cardRadius),
       ),
@@ -798,10 +860,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
               children: [
                 Text(
                   "Vessel Profiles",
-                  style: titleStyle,
+                  style: titleStyle.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.add, color: Color(0xFF012169)),
+                  icon: Icon(Icons.add,
+                      color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                   onPressed: () => _showEditProfileDialog(),
                 ),
               ],
@@ -812,7 +877,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   "No profiles yet. Create your first vessel profile.",
-                  style: subtitleStyle.copyWith(color: Colors.grey),
+                  style: subtitleStyle.copyWith(
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey),
                 ),
               ),
             if (_savedProfiles.isNotEmpty)
@@ -828,16 +894,21 @@ class _VesselWavePageState extends State<VesselWavePage> {
                           size: 20,
                           color: _currentVesselProfile.name == profile.name
                               ? Colors.white
-                              : Color(0xFF012169)),
+                              : isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                     ),
                     label: Text(profile.name),
                     backgroundColor: _currentVesselProfile.name == profile.name
-                        ? Color(0xFF012169)
-                        : Colors.white,
+                        ? isDarkMode ? Colors.teal : Color(0xFF012169)
+                        : isDarkMode ? Colors.grey[700] : Colors.grey[300],
                     labelStyle: TextStyle(
                       color: _currentVesselProfile.name == profile.name
                           ? Colors.white
-                          : Colors.black,
+                          : isDarkMode ? Colors.grey[300] : Colors.black,
+                    ),
+                    side: BorderSide.none, // 🔥 supprime la bordure
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide.none, // 🔥 aucun contour visible
                     ),
                     onPressed: () {
                       setState(() {
@@ -849,9 +920,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
                       _updateValues();
                     },
                     onDeleted: () => _confirmDeleteProfile(profile),
-                    deleteIcon: Icon(Icons.close, size: 18,color: _currentVesselProfile.name == profile.name
-                    ? Colors.white
-                        : Colors.black,),
+                    deleteIcon: Icon(Icons.close,
+                        size: 18,
+                        color: _currentVesselProfile.name == profile.name
+                            ? Colors.white
+                            : isDarkMode ? Colors.grey[300] : Colors.black),
                   );
                 }).toList(),
               ),
@@ -862,8 +935,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   Widget _buildConditionManagementSection() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(cardRadius),
       ),
@@ -877,10 +953,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
               children: [
                 Text(
                   "Voyages for ${_currentVesselProfile.name}",
-                  style: titleStyle,
+                  style: titleStyle.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.add, color: Color(0xFF012169)),
+                  icon: Icon(Icons.add,
+                      color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                   onPressed: () => _showEditConditionDialog(),
                 ),
               ],
@@ -891,7 +970,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   "No voyages yet. Create your first voyage for this vessel.",
-                  style: subtitleStyle.copyWith(color: Colors.grey),
+                  style: subtitleStyle.copyWith(
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey),
                 ),
               ),
             if (_currentVesselProfile.loadingConditions.isNotEmpty)
@@ -907,27 +987,34 @@ class _VesselWavePageState extends State<VesselWavePage> {
                           size: 20,
                           color: _currentLoadingCondition.name == condition.name
                               ? Colors.white
-                              : Color(0xFF012169)),
+                              : isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                     ),
-                  label: Text(condition.name),
-                  backgroundColor: _currentLoadingCondition.name == condition.name
-                  ? Color(0xFF012169)
-                      : Colors.grey[200],
-                  labelStyle: TextStyle(
-                  color: _currentLoadingCondition.name == condition.name
-                  ? Colors.white
-                      : Colors.black,
-                  ),
-                  onPressed: () {
-                  setState(() {
-                  _currentLoadingCondition = condition;
-                  });
-                  _updateValues();
-                  },
-                  onDeleted: () => _confirmDeleteCondition(condition),
-                    deleteIcon: Icon(Icons.close, size: 18,color: _currentLoadingCondition.name == condition.name
-                        ? Colors.white
-                        : Colors.black,),
+                    label: Text(condition.name),
+                    backgroundColor: _currentLoadingCondition.name == condition.name
+                        ? isDarkMode ? Colors.teal : Color(0xFF012169)
+                        : isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                    labelStyle: TextStyle(
+                      color: _currentLoadingCondition.name == condition.name
+                          ? Colors.white
+                          : isDarkMode ? Colors.grey[300] : Colors.black,
+                    ),
+                    side: BorderSide.none, // 🔥 supprime la bordure
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide.none, // 🔥 aucun contour visible
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _currentLoadingCondition = condition;
+                      });
+                      _updateValues();
+                    },
+                    onDeleted: () => _confirmDeleteCondition(condition),
+                    deleteIcon: Icon(Icons.close,
+                        size: 18,
+                        color: _currentLoadingCondition.name == condition.name
+                            ? Colors.white
+                            : isDarkMode ? Colors.grey[300] : Colors.black),
                   );
                 }).toList(),
               ),
@@ -938,8 +1025,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   Widget _buildVesselDetailsCard() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(cardRadius),
       ),
@@ -953,10 +1043,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
               children: [
                 Text(
                   "Vessel Details",
-                  style: titleStyle,
+                  style: titleStyle.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.edit, color: Color(0xFF012169)),
+                  icon: Icon(Icons.edit,
+                      color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                   onPressed: () => _showEditProfileDialog(profileToEdit: _currentVesselProfile),
                 ),
               ],
@@ -973,8 +1066,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   Widget _buildConditionDetailsCard() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(cardRadius),
       ),
@@ -988,10 +1084,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
               children: [
                 Text(
                   "Voyage Details",
-                  style: titleStyle,
+                  style: titleStyle.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.edit, color: Color(0xFF012169)),
+                  icon: Icon(Icons.edit,
+                      color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
                   onPressed: () => _showEditConditionDialog(conditionToEdit: _currentLoadingCondition),
                 ),
               ],
@@ -1007,73 +1106,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
-  Widget _buildNavigationDetailsCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(cardRadius),
-      ),
-      child: Padding(
-        padding: cardPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Navigation Details",
-              style: titleStyle,
-            ),
-            SizedBox(height: 8),
-            _buildNavigationInput(
-              icon: Icons.speed,
-              label: "Vessel Speed",
-              unit: "knots",
-              value: _navigationInfo.speed,
-              onChanged: (val) {
-                setState(() => _navigationInfo = _navigationInfo.copyWith(speed: val));
-                _updateValues();
-              },
-            ),
-            _buildNavigationSlider(
-              icon: Icons.navigation,
-              label: "Course",
-              unit: "°",
-              value: _navigationInfo.course,
-              min: 0,
-              max: 360,
-              onChanged: (val) {
-                setState(() => _navigationInfo = _navigationInfo.copyWith(course: val));
-              },
-              onChangeEnd: (val) => _updateValues(),
-            ),
-            _buildNavigationSlider(
-              icon: Icons.waves,
-              label: "Wave Direction",
-              unit: "°",
-              value: _navigationInfo.direction,
-              min: 0,
-              max: 360,
-              onChanged: (val) {
-                setState(() => _navigationInfo = _navigationInfo.copyWith(direction: val));
-              },
-              onChangeEnd: (val) => _updateValues(),
-            ),
-            _buildNavigationInput(
-              icon: Icons.timer,
-              label: "Wave Period",
-              unit: "s",
-              value: _navigationInfo.wavePeriod,
-              onChanged: (val) {
-                setState(() => _navigationInfo = _navigationInfo.copyWith(wavePeriod: val));
-                _updateValues();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildDetailRow(String label, String value) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -1082,14 +1118,19 @@ class _VesselWavePageState extends State<VesselWavePage> {
             flex: 2,
             child: Text(
               label,
-              style: subtitleStyle.copyWith(fontWeight: FontWeight.bold),
+              style: subtitleStyle.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.grey[300] : Colors.black,
+              ),
             ),
           ),
           Expanded(
             flex: 3,
             child: Text(
               value,
-              style: subtitleStyle,
+              style: subtitleStyle.copyWith(
+                color: isDarkMode ? Colors.grey[300] : Colors.black,
+              ),
               textAlign: TextAlign.end,
             ),
           ),
@@ -1098,98 +1139,21 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
-  Widget _buildNavigationInput({
-    required IconData icon,
-    required String label,
-    required String unit,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    final controller = TextEditingController(text: value.toStringAsFixed(2));
 
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: iconSize, color: Color(0xFF012169)),
-          SizedBox(width: 16),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: "$label ($unit)",
-                border: OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.check),
-                  onPressed: () {
-                    final parsedValue = double.tryParse(controller.text);
-                    if (parsedValue != null) {
-                      onChanged(parsedValue);
-                    }
-                  },
-                ),
-              ),
-              keyboardType: TextInputType.number,
-              onSubmitted: (value) {
-                final parsedValue = double.tryParse(value);
-                if (parsedValue != null) {
-                  onChanged(parsedValue);
-                }
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildNavigationSlider({
-    required IconData icon,
-    required String label,
-    required String unit,
-    required double value,
-    required double min,
-    required double max,
-    required ValueChanged<double> onChanged,
-    required ValueChanged<double> onChangeEnd,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: iconSize, color: Color(0xFF012169)),
-              SizedBox(width: 16),
-              Text(
-                "$label: ${value.toStringAsFixed(1)} $unit",
-                style: subtitleStyle,
-              ),
-            ],
-          ),
-          Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: (max - min).toInt(),
-            label: value.toStringAsFixed(1),
-            onChanged: onChanged,
-            onChangeEnd: onChangeEnd,
-          ),
-        ],
-      ),
-    );
-  }
-
+  // Modifiez _buildWaveAnimationCard pour le dark mode :
   Widget _buildWaveAnimationCard() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: EdgeInsets.only(left: 20, top: 8 ,right: 20, bottom: 1),
       child: Card(
         elevation: 1,
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Container(
-          height: 300, // Utilisez la même hauteur que pour votre animation principale
-          padding: EdgeInsets.symmetric(horizontal: 30,vertical: 0),
+          height: 300,
+          padding: EdgeInsets.symmetric(horizontal: 30, vertical: 0),
           child: Column(
             children: [
               Expanded(
@@ -1201,6 +1165,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                       waveDirection: _navigationInfo.direction,
                       wavePeriod: _navigationInfo.wavePeriod,
                       course: _navigationInfo.course,
+                      isDarkMode: isDarkMode, // Assurez-vous que VesselWavePainter accepte ce paramètre
                     ),
                   ),
                 ),
