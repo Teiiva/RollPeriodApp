@@ -135,7 +135,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
         _currentLoadingCondition = _currentVesselProfile.loadingConditions.isNotEmpty
             ? _currentVesselProfile.loadingConditions.first
-            : LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0);
+            : LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
       });
       _initializeControllers();
     }
@@ -293,7 +293,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
       depth: double.parse(_vesselDepthController.text),
       loadingConditions: isEditing
           ? profileToEdit!.loadingConditions
-          : [LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0)],
+          : [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)],
     );
 
     setState(() {
@@ -481,11 +481,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
           _currentVesselProfile = _savedProfiles.isNotEmpty
               ? _savedProfiles.first
               : VesselProfile(
-            name: "Default",
-            length: 0,
-            beam: 0,
-            depth: 0,
-            loadingConditions: [LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0)],
+            name: "LPG Carrier",
+            length: 107.0,
+            beam: 17.6,
+            depth: 9.8,
+            loadingConditions: [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)],
           );
           _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
         }
@@ -519,7 +519,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
         // Si c'était le dernier voyage, créer un nouveau voyage par défaut
         if (_currentVesselProfile.loadingConditions.isEmpty) {
-          final defaultCondition = LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0);
+          final defaultCondition = LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
           _currentVesselProfile.loadingConditions.add(defaultCondition);
           _currentLoadingCondition = defaultCondition;
         }
@@ -915,7 +915,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                         _currentVesselProfile = profile;
                         _currentLoadingCondition = profile.loadingConditions.isNotEmpty
                             ? profile.loadingConditions.first
-                            : LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0);
+                            : LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
                       });
                       _updateValues();
                     },

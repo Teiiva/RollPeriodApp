@@ -591,7 +591,7 @@ class _AlertPageState extends State<AlertPage> {
         color: isDarkMode ? Colors.grey[850] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(8),
           child: Column(
             children: [
               // En-tête du tableau
@@ -638,7 +638,7 @@ class _AlertPageState extends State<AlertPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              if (alertHistory.isNotEmpty) SizedBox(height: 8),
               // Contenu du tableau
               ListView.builder(
                 shrinkWrap: true,

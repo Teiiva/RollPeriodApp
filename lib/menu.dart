@@ -31,16 +31,16 @@ class _MenuPageState extends State<MenuPage> {
 
     // Initialisation avec un profil par défaut et une condition de chargement par défaut
     _currentVesselProfile = VesselProfile(
-      name: "Example",
-      length: 100.0,
-      beam: 20.0,
-      depth: 10.0,
+      name: "LPG Carrier",
+      length: 107.0,
+      beam: 17.6,
+      depth: 9.8,
       loadingConditions: [
         LoadingCondition(
-          name: "Example",
-          gm: 1.0,
-          vcg: 10.0,
-          draft: 5.0,
+          name: "Ballast",
+          gm: 1.2,
+          vcg: 6.6,
+          draft: 5.4,
         )
       ],
     );

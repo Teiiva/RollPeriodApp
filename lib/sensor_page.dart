@@ -1576,7 +1576,7 @@ class _SensorPageState extends State<SensorPage> {
 
   void _showSampleSizeDialog(BuildContext context) {
     final List<int> availableSizes = [512, 1024, 2048, 4096, 8192, 16384];
-    int selectedValue = _powersOfTwo[_powerIndex]!;
+    int selectedValue = _powersOfTwo[_powerIndex];
 
     showDialog(
       context: context,
