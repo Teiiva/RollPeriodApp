@@ -719,7 +719,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
 
 
-  // Modifiez _buildSliderCard pour le dark mode :
   Widget _buildSliderCard({
     required Widget iconWidget,
     required String label,
@@ -731,6 +730,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
     ValueChanged<double>? onChangeEnd,
   }) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    const double step = 1.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
@@ -754,22 +755,60 @@ class _VesselWavePageState extends State<VesselWavePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "$label: ${value.toStringAsFixed(2)} $unit",
+                      "$label: ${value.toStringAsFixed(0)} $unit",
                       style: subtitleStyle.copyWith(
                         color: isDarkMode ? Colors.grey[300] : Colors.black,
                       ),
                     ),
-                    Slider(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      value: value,
-                      min: min,
-                      max: max,
-                      divisions: ((max - min) ~/ 1),
-                      label: value.toStringAsFixed(2),
-                      activeColor: isDarkMode ? Colors.white : Color(0xFF012169),
-                      inactiveColor: isDarkMode ? Colors.grey[600] : Colors.grey[300],
-                      onChanged: onChanged,
-                      onChangeEnd: onChangeEnd,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: value,
+                            min: min,
+                            max: max,
+                            divisions: ((max - min) ~/ step),
+                            label: value.toStringAsFixed(0),
+                            activeColor: isDarkMode ? Colors.white : const Color(0xFF012169),
+                            inactiveColor: isDarkMode ? Colors.grey[600] : Colors.grey[300],
+                            onChanged: onChanged,
+                            onChangeEnd: onChangeEnd,
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                double newValue = (value + step).clamp(min, max);
+                                onChanged(newValue);
+                                if (onChangeEnd != null) onChangeEnd(newValue);
+                              },
+                              child: Icon(
+                                Icons.add,
+                                size: 16,
+                                color: isDarkMode ? Colors.grey[300] : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 2), // très petit espace
+                            GestureDetector(
+                              onTap: () {
+                                double newValue = (value - step).clamp(min, max);
+                                onChanged(newValue);
+                                if (onChangeEnd != null) onChangeEnd(newValue);
+                              },
+                              child: Icon(
+                                Icons.remove,
+                                size: 16,
+                                color: isDarkMode ? Colors.grey[300] : Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+
+
+                      ],
                     ),
                   ],
                 ),
@@ -780,6 +819,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
       ),
     );
   }
+
+
+
 
   // Puis modifiez la méthode _buildNavigationInfoPage comme suit:
   Widget _buildNavigationInfoPage() {

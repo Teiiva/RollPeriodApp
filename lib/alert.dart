@@ -15,7 +15,7 @@ import 'package:flutter/services.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
 import 'models/navigation_info.dart';
-
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 // 🔑 Clé globale pour accéder à l'état de AlertPage
 final GlobalKey<_AlertPageState> alertPageKey = GlobalKey<_AlertPageState>();
@@ -68,6 +68,12 @@ class _AlertPageState extends State<AlertPage> {
   late double radius;
   late double screenHeight;
 
+  final GlobalKey _alertHistoryKey = GlobalKey();
+  final GlobalKey _extractButtonKey = GlobalKey();
+  final GlobalKey _settingsKey = GlobalKey();
+  late TutorialCoachMark tutorialCoachMark;
+  final ScrollController _scrollController = ScrollController();
+
 
   @override
   void initState() {
@@ -98,7 +104,6 @@ class _AlertPageState extends State<AlertPage> {
   Future<void> _loadAlertHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final historyJson = prefs.getString('alertHistoryData');
-    debugPrint("History : ${historyJson}");
 
     if (historyJson != null) {
       try {
@@ -135,8 +140,6 @@ class _AlertPageState extends State<AlertPage> {
       }
     }
   }
-
-
 
   @override
   void didChangeDependencies() {
@@ -228,6 +231,7 @@ class _AlertPageState extends State<AlertPage> {
     _audioPlayer.dispose();
     thresholdController.dispose();
     super.dispose();
+    _scrollController.dispose();
   }
 
   // Méthode pour récupérer la position actuelle
@@ -384,7 +388,6 @@ class _AlertPageState extends State<AlertPage> {
     AndroidAlertWidgetProvider.updateWidget();
   }
 
-
   Future<void> _exportRollDataToDownloads() async {
     if (Platform.isAndroid) {
       var status = await Permission.manageExternalStorage.status;
@@ -468,6 +471,208 @@ class _AlertPageState extends State<AlertPage> {
     }
   }
 
+  void _showTutorial() {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black.withOpacity(0.8),
+      paddingFocus: 0,
+      opacityShadow: 0.8,
+      focusAnimationDuration: const Duration(milliseconds: 600),
+      unFocusAnimationDuration: const Duration(milliseconds: 400),
+      onClickTarget: (target) {
+        _handleTargetScroll(target.identify);
+      },
+      onSkip: () {
+        // Supprimer async/await et simplement faire le scroll
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        return true; // ou false selon votre logique
+      },
+      onFinish: () {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      },
+    )..show(context: context);
+  }
+
+
+
+  void _handleTargetScroll(String targetIdentify) {
+    if (!_scrollController.hasClients) return; // Add this safety check
+
+    switch (targetIdentify) {
+      case "alert_parameters":
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        break;
+
+      case "extract_button":
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        break;
+    }
+  }
+
+
+
+  List<TargetFocus> _createTargets() {
+    List<TargetFocus> targets = [];
+
+    // Étape 1: Paramètres d'alerte
+    targets.add(
+      TargetFocus(
+        identify: "alert_parameters",
+        keyTarget: _settingsKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Here you can choose the type of alert you want",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Scroll vers la prochaine cible avant de l'afficher
+                      _handleTargetScroll("alert_table");
+                      controller.next();
+                    },
+                    child: const Text("Next"),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: radius,
+      ),
+    );
+
+    // Étape 2: Historique des alertes
+    targets.add(
+      TargetFocus(
+        identify: "alert_table",
+        keyTarget: _alertHistoryKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "In this table you can find the different alerts detected by the phone",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          _handleTargetScroll("alert_parameters");
+                          controller.previous();
+                        },
+                        child: const Text("Previous"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          // Scroll vers le bas avant d'afficher la dernière cible
+                          _handleTargetScroll("extract_button");
+                          controller.next();
+                        },
+                        child: const Text("Next"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: radius,
+      ),
+    );
+
+    // Étape 3: Bouton d'export
+    targets.add(
+      TargetFocus(
+        identify: "extract_button",
+        keyTarget: _extractButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Press here to save the history table in a csv file",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          _handleTargetScroll("alert_table");
+                          controller.previous();
+                        },
+                        child: const Text("Previous"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => controller.next(),
+                        child: const Text("Finish"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: radius,
+      ),
+    );
+
+    return targets;
+  }
+
 
 
 
@@ -476,69 +681,81 @@ class _AlertPageState extends State<AlertPage> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: const CustomAppBar(),
+      appBar: CustomAppBar(
+        actions: [
+          IconButton(
+            icon: Icon(Icons.help_outline, color: Colors.white),
+            onPressed: _showTutorial,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 10),
             // Section Paramètres sans Card
-            Column(
-              children: [
-                _buildInputCard(
-                  Icon(Icons.warning_rounded,
-                      size: iconsize,
-                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF012169)),
-                  "Threshold for roll angle",
-                  "",
-                  thresholdController,
-                ),
-                _buildDropdownCard(
-                  Icon(Icons.vibration,
-                      size: iconsize,
-                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
-                  "Vibration",
-                  selectedVibration,
-                  vibrationoptions,
-                      (value) {
-                    setState(() {
-                      selectedVibration = value;
-                    });
-                  },
-                ),
-                _buildDropdownCard(
-                  Icon(Icons.notifications_active,
-                      size: iconsize,
-                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
-                  "Alarm",
-                  selectedAlarme,
-                  alarmoptions,
-                      (value) {
-                    setState(() {
-                      selectedAlarme = value;
-                    });
-                  },
-                ),
-                _buildDropdownCard(
-                  Icon(Icons.flash_on,
-                      size: iconsize,
-                      color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
-                  "Flash",
-                  selectedFlash,
-                  flashoptions,
-                      (value) {
-                    setState(() {
-                      selectedFlash = value;
-                    });
-                  },
-                ),
-              ],
+            Container(
+              key: _settingsKey, // Clé pour le tutoriel
+              child: Column(
+                children: [
+                  _buildInputCard(
+                    Icon(Icons.warning_rounded,
+                        size: iconsize,
+                        color: isDarkMode ? Colors.grey[300]! : const Color(0xFF012169)),
+                    "Threshold for roll angle",
+                    "",
+                    thresholdController,
+                  ),
+                  _buildDropdownCard(
+                    Icon(Icons.vibration,
+                        size: iconsize,
+                        color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
+                    "Vibration",
+                    selectedVibration,
+                    vibrationoptions,
+                        (value) {
+                      setState(() {
+                        selectedVibration = value;
+                      });
+                    },
+                  ),
+                  _buildDropdownCard(
+                    Icon(Icons.notifications_active,
+                        size: iconsize,
+                        color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
+                    "Alarm",
+                    selectedAlarme,
+                    alarmoptions,
+                        (value) {
+                      setState(() {
+                        selectedAlarme = value;
+                      });
+                    },
+                  ),
+                  _buildDropdownCard(
+                    Icon(Icons.flash_on,
+                        size: iconsize,
+                        color: isDarkMode ? Colors.grey[300]! : const Color(0xFF002868)),
+                    "Flash",
+                    selectedFlash,
+                    flashoptions,
+                        (value) {
+                      setState(() {
+                        selectedFlash = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
 
 
             // Section Alert History
             Padding(
+
               padding: const EdgeInsets.only(top: 30, left: 40, right: 20, bottom: 10),
               child: Row(
                 children: [
@@ -546,6 +763,7 @@ class _AlertPageState extends State<AlertPage> {
                       size: iconsize,
                       color: isDarkMode ? Colors.grey[300]! : const Color(0xFF012169)),
                   const SizedBox(width: 10),
+
                   Text(
                     'Alert History',
                     style: historyStyle.copyWith(
@@ -560,6 +778,7 @@ class _AlertPageState extends State<AlertPage> {
 
             const SizedBox(height: 20),
             ElevatedButton(
+              key: _extractButtonKey,
               onPressed: _exportRollDataToDownloads,
               child: Text(
                 'Extract',
@@ -596,6 +815,7 @@ class _AlertPageState extends State<AlertPage> {
             children: [
               // En-tête du tableau
               Container(
+                key: _alertHistoryKey,
                 decoration: BoxDecoration(
                   color: isDarkMode
                       ? Colors.grey[700]
@@ -723,7 +943,7 @@ class _AlertPageState extends State<AlertPage> {
                                     rollPeriod,
                                     textAlign: TextAlign.center,
                                     style: AngleStyle.copyWith(
-                                      color: Colors.red[300]
+                                        color: Colors.red[300]
 
                                     ),
                                   ),
@@ -756,11 +976,13 @@ class _AlertPageState extends State<AlertPage> {
       Widget iconWidget,
       String label,
       String hint,
-      TextEditingController controller,
-      ) {
+      TextEditingController controller, {
+        Key? key,
+      }) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
         elevation: 1,
@@ -832,11 +1054,13 @@ class _AlertPageState extends State<AlertPage> {
       String label,
       String? currentValue,
       List<String> items,
-      ValueChanged<String?> onChanged,
-      ) {
+      ValueChanged<String?> onChanged, {
+        Key? key,
+      }) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
       child: Card(
         elevation: 1,

@@ -383,7 +383,6 @@ class _SensorPageState extends State<SensorPage> {
       if (acc.x == 0 && acc.z == 0) return null;
       return atan2(acc.x, acc.z) * 180 / pi;
     } catch (e) {
-      debugPrint('Error calculating roll: $e');
       return null;
     }
   }
@@ -394,14 +393,14 @@ class _SensorPageState extends State<SensorPage> {
       if (acc.y == 0 && acc.z == 0) return null;
       return atan2(acc.y, acc.z) * 180 / pi;
     } catch (e) {
-      debugPrint('Error calculating pitch: $e');
       return null;
     }
   }
 
   /// Calcule les périodes avec la FFT
   void _computeFFTPeriod() async {
-    if (_fftRollSamples.length >= _fftWindowSize) {
+    debugPrint("---------------------------------------------------------- Compute fft period  ---------------------------------------------------");
+    if (_fftRollSamples.length > 0) {
       final rollperiod = await compute(_backgroundFFTCalculation, {
         'samples': _fftRollSamples,
         'sampleRate': _dynamicSampleRate,
@@ -423,7 +422,6 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Fonction de calcul FFT exécutée dans un isolate séparé
   static double? _backgroundFFTCalculation(Map<String, dynamic> params) {
-    debugPrint('_backgroundFFTCalculation');
     final samples = List<double>.from(params['samples']);
     final sampleRate = (params['sampleRate'] as num).toDouble();
     return FFTProcessor.findRollingPeriod(samples, sampleRate);
@@ -769,7 +767,7 @@ class _SensorPageState extends State<SensorPage> {
 
   /// Calcule les périodes à partir des données importées
   void _calculatePeriodFromImportedData() {
-
+    debugPrint("---------------------------------------------------------- IMPORT transfer au calcul ---------------------------------------------------");
     _stopwatch.reset();
 
     // Préparation des données pour la FFT
@@ -785,7 +783,7 @@ class _SensorPageState extends State<SensorPage> {
       _fftPitchSamples.add(spot.y);
     }
 
-    if (_fftRollSamples.length >= _fftWindowSize && _fftPitchSamples.length >= _fftWindowSize) {
+    if (_fftRollSamples.length > 0 && _fftPitchSamples.length > 0) {
       _computeFFTPeriod();
     }
   }
