@@ -10,6 +10,7 @@ import 'models/saved_measurement.dart';
 import 'package:provider/provider.dart';
 import 'shared_data.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 class PredictionPage extends StatefulWidget {
   final VesselProfile vesselProfile;
@@ -34,10 +35,10 @@ class _PredictionPageState extends State<PredictionPage> {
   int? _selectedDay;
   int? _selectedMonth;
   int? _selectedYear;
-  String _filterText = '';
   String _selectedVessel = 'All';
-  String _selectedCondition = 'All';
   bool _sortAscending = true;
+  DateTime? _selectedStartDate;  // Déplacé ici
+  DateTime? _selectedEndDate;    // Déplacé ici
 
   late TextStyle titleStyle;
   late TextStyle subtitleStyle;
@@ -48,6 +49,14 @@ class _PredictionPageState extends State<PredictionPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _updateStyles();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialiser avec une plage par défaut (par exemple, dernier mois)
+    _selectedEndDate = DateTime.now();
+    _selectedStartDate = DateTime.now().subtract(const Duration(days: 30));
   }
 
   void _updateStyles() {
@@ -198,7 +207,7 @@ class _PredictionPageState extends State<PredictionPage> {
     final comparisonSpots = _generateComparisonChartData(Provider.of<SharedData>(context).savedMeasurements);
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.4,
+      height: MediaQuery.of(context).size.height * 0.3,
       padding: const EdgeInsets.only(left: 6, top: 16, right: 16, bottom: 8),
       decoration: _buildChartDecoration(),
       child: LineChart(
@@ -415,6 +424,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
   Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return FutureBuilder<List<SavedMeasurement>>(
       future: _loadSavedMeasurements(),
       builder: (context, snapshot) {
@@ -439,14 +449,10 @@ class _PredictionPageState extends State<PredictionPage> {
 
         final measurements = snapshot.data!;
         final vesselNames = ['All', ...measurements.map((m) => m.vesselProfile.name).toSet().toList()];
-        final conditionNames = ['All', ...measurements.map((m) => m.loadingCondition.name).toSet().toList()];
 
-        // Variable pour le tri
-        bool sortAscending = true;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Remplacez le Card par ce Container pour les filtres
             Container(
               decoration: BoxDecoration(
                 color: isDarkMode ? Colors.grey[850] : Colors.white,
@@ -459,160 +465,137 @@ class _PredictionPageState extends State<PredictionPage> {
               ),
               child: Column(
                 children: [
+                  // Filtre Vessel uniquement
+                  DropdownButtonFormField<String>(
+                    value: _selectedVessel,
+                    decoration: InputDecoration(
+                      labelText: 'Vessel',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    items: vesselNames.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedVessel = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Sélecteur de période
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedVessel,
-                          decoration: InputDecoration(
-                            labelText: 'Vessel',
-                            border: OutlineInputBorder(
+                        child: InkWell(
+                          onTap: () async {
+                            final selectedDate = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedStartDate ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: _selectedEndDate ?? DateTime.now(),
+                            );
+                            if (selectedDate != null) {
+                              setState(() {
+                                _selectedStartDate = selectedDate;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _selectedStartDate != null
+                                      ? 'From: ${DateFormat('dd/MM/yyyy').format(_selectedStartDate!)}'
+                                      : 'Select start date',
+                                  style: subtitleStyle,
+                                ),
+                              ],
+                            ),
                           ),
-                          items: vesselNames.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedVessel = value!;
-                            });
-                          },
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedCondition,
-                          decoration: InputDecoration(
-                            labelText: 'Voyage',
-                            border: OutlineInputBorder(
+                        child: InkWell(
+                          onTap: () async {
+                            final selectedDate = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedEndDate ?? DateTime.now(),
+                              firstDate: _selectedStartDate ?? DateTime(2000),
+                              lastDate: DateTime.now(),
+                            );
+                            if (selectedDate != null) {
+                              setState(() {
+                                _selectedEndDate = selectedDate;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _selectedEndDate != null
+                                      ? 'To: ${DateFormat('dd/MM/yyyy').format(_selectedEndDate!)}'
+                                      : 'Select end date',
+                                  style: subtitleStyle,
+                                ),
+                              ],
+                            ),
                           ),
-                          items: conditionNames.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedCondition = value!;
-                            });
-                          },
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
                   Row(
-                    children: [
-                      // Nouveaux menus déroulants pour jour/mois/année
-                      Expanded(
-                        child: DropdownButtonFormField<int?>(
-                          value: _selectedDay,
-                          decoration: InputDecoration(
-                            labelText: 'Day',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          items: [
-                            DropdownMenuItem(value: null, child: Text('All')),
-                            ...List.generate(31, (index) => index + 1)
-                                .map((day) => DropdownMenuItem(
-                              value: day,
-                              child: Text(day.toString()),
-                            ))
-                                .toList(),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedDay = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<int?>(
-                          value: _selectedMonth,
-                          decoration: InputDecoration(
-                            labelText: 'Month',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          items: [
-                            DropdownMenuItem(value: null, child: Text('All')),
-                            ...List.generate(12, (index) => index + 1)
-                                .map((month) => DropdownMenuItem(
-                              value: month,
-                              child: Text(month.toString()),
-                            ))
-                                .toList(),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedMonth = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<int?>(
-                          value: _selectedYear,
-                          decoration: InputDecoration(
-                            labelText: 'Year',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          items: [
-                            DropdownMenuItem(value: null, child: Text('All')),
-                            ...measurements
-                                .map((m) => m.timestamp.year)
-                                .toSet()
-                                .toList()
-                                .map((year) => DropdownMenuItem(
-                              value: year,
-                              child: Text(year.toString()),
-                            ))
-                                .toList(),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedYear = value;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       TextButton.icon(
                         icon: Icon(
-                            _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                            size: 16),
-                        label: Text(_sortAscending ? 'Oldest first' : 'Newest first'),
+                          _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                          size: 16, color: Color(0xFF012169)
+                        ),
+                        label: Text(
+                          _sortAscending ? 'Oldest first' : 'Newest first',
+                          style: TextStyle(color: Color(0xFF012169)),
+                        ),
                         onPressed: () {
                           setState(() {
                             _sortAscending = !_sortAscending;
                           });
                         },
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedStartDate = null;
+                            _selectedEndDate = null;
+                            _selectedVessel = 'All';
+                          });
+                        },
+                        child: Text(
+                          'Clear filters',
+                          style: TextStyle(color: Colors.red),
+                        ),
+
                       ),
                     ],
                   ),
@@ -622,60 +605,50 @@ class _PredictionPageState extends State<PredictionPage> {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
-            // Le reste du code existant (Scrollbar et ListView.builder)
+            // Liste des mesures filtrées
             Scrollbar(
               child: ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: measurements.where((m) {
                   final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
-                  final matchesCondition = _selectedCondition == 'All' || m.loadingCondition.name == _selectedCondition;
-                  return matchesVessel && matchesCondition;
+                  final matchesDateRange =
+                      (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
+                          (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
+                  return matchesVessel && matchesDateRange;
                 }).length,
                 itemBuilder: (context, index) {
-                  // Filtrer et trier les mesures
                   final filteredMeasurements = measurements.where((m) {
                     final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
-                    final matchesCondition = _selectedCondition == 'All' || m.loadingCondition.name == _selectedCondition;
-                    return matchesVessel && matchesCondition;
-                  }).toList()
-                    ..sort((a, b) => _sortAscending // <-- Utilisez _sortAscending ici
+                    final matchesDateRange =
+                        (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
+                            (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
+                                return matchesVessel && matchesDateRange;
+                            }).toList()
+                    ..sort((a, b) => _sortAscending
                         ? a.timestamp.compareTo(b.timestamp)
                         : b.timestamp.compareTo(a.timestamp));
 
                   final measurement = filteredMeasurements[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
-                    color:  isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
+                    color: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
                     elevation: 1,
                     child: ListTile(
-                      title: Text(measurement.vesselProfile.name, style: titleStyle.copyWith(fontWeight: FontWeight.bold,color: isDarkMode ? Colors.white : Color(0xFF012169))),
-                      subtitle: Text(measurement.loadingCondition.name,style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                "${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}",
-                                style: titleStyle.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDarkMode ? Colors.white : Color(0xFF012169),
-                                ),
-                              ),
-                              Text(
-                                _formatDate(measurement.timestamp),
-                                style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.delete, color: isDarkMode ? Colors.deepPurple : Color(0xFF012169)),
-                            onPressed: () => _confirmDeleteMeasurement(context, measurement),
-                          ),
-                        ],
+                      title: Text(
+                        measurement.vesselProfile.name,
+                        style: titleStyle.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Color(0xFF012169),
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${_formatDate(measurement.timestamp)} - ${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}',
+                        style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete, color:Colors.red),
+                        onPressed: () => _confirmDeleteMeasurement(context, measurement),
                       ),
                       onTap: () => _showMeasurementDetails(context, measurement),
                     ),
@@ -683,7 +656,6 @@ class _PredictionPageState extends State<PredictionPage> {
                 },
               ),
             ),
-
           ],
         );
       },
@@ -736,39 +708,60 @@ class _PredictionPageState extends State<PredictionPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Measurement Details"),
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailSection("Vessel Profile", [
-                  _buildDetailRow("Name", measurement.vesselProfile.name),
-                  _buildDetailRow("Length", "${measurement.vesselProfile.length.toStringAsFixed(2)} m"),
-                  _buildDetailRow("Beam", "${measurement.vesselProfile.beam.toStringAsFixed(2)} m"),
-                  _buildDetailRow("Depth", "${measurement.vesselProfile.depth.toStringAsFixed(2)} m"),
-                ]),
-
-                const SizedBox(height: 16),
-
-                _buildDetailSection("Voyage", [
-                  _buildDetailRow("Name", measurement.loadingCondition.name),
-                  _buildDetailRow("GM", "${measurement.loadingCondition.gm.toStringAsFixed(2)} m"),
-                  _buildDetailRow("VCG", "${measurement.loadingCondition.vcg.toStringAsFixed(2)} m"),
-                  _buildDetailRow("Draft", "${measurement.loadingCondition.draft.toStringAsFixed(2)} m"),
-                ]),
-
-
-                const SizedBox(height: 16),
-
-                _buildDetailSection("Roll Period measured", [
+                _buildDetailSection("Measurement Details", [
+                  _buildDetailRow("Measurement time",
+                      "${DateFormat('dd/MM/yyyy HH:mm').format(measurement.timestamp)}"),
                   _buildDetailRow(
-                      "FFT Period",
+                    "Duration",
+                    measurement.duration != null
+                        ? "${(measurement.duration! ~/ 60)} min ${(measurement.duration! % 60).toStringAsFixed(0).padLeft(2, '0')} s"
+                        : "N/A",
+                  ),
+
+                  _buildDetailRow("Max roll",
+                      "${measurement.maxRoll?.toStringAsFixed(1) ?? 'N/A'}°"),
+                  _buildDetailRow("Max pitch",
+                      "${measurement.maxPitch?.toStringAsFixed(1) ?? 'N/A'}°"),
+                  _buildDetailRow("RMS roll",
+                      "${measurement.rmsRoll?.toStringAsFixed(2) ?? 'N/A'}°"),
+                  _buildDetailRow("RMS pitch",
+                      "${measurement.rmsPitch?.toStringAsFixed(2) ?? 'N/A'}°"),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildDetailSection("Vessel details", [
+                  _buildDetailRow("Vessel name", measurement.vesselProfile.name),
+                  _buildDetailRow("Over all Length", "${measurement.vesselProfile.length.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Max beam", "${measurement.vesselProfile.beam.toStringAsFixed(2)} m"),
+                  _buildDetailRow("To main deck depth", "${measurement.vesselProfile.depth.toStringAsFixed(2)} m"),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildDetailSection("Voyage details", [
+                  _buildDetailRow("Voyage name", measurement.loadingCondition.name),
+                  _buildDetailRow("GM without FSC", "${measurement.loadingCondition.gm.toStringAsFixed(2)} m"),
+                  _buildDetailRow("VCG without FSC", "${measurement.loadingCondition.vcg.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Mean draft", "${measurement.loadingCondition.draft.toStringAsFixed(2)} m"),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildDetailSection("Period measured", [
+                  _buildDetailRow(
+                      "Roll Period",
                       measurement.rollPeriodFFT != null
                           ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
                           : "N/A"),
+                  _buildDetailRow(
+                      "Pitch Period",
+                      measurement.pitchPeriodFFT != null
+                          ? "${measurement.pitchPeriodFFT!.toStringAsFixed(1)} s"
+                          : "N/A"),
                 ]),
                 const SizedBox(height: 16),
-
                 _buildDetailSection("Roll Natural Prediction", [
                   ...measurement.predictedRollPeriods.entries.map(
                         (entry) => _buildDetailRow(
@@ -930,7 +923,7 @@ class _PredictionPageState extends State<PredictionPage> {
                   ),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.symmetric(vertical: 0,horizontal: 16),
                       child: Column(
                         children: [
                           Container(
@@ -962,24 +955,18 @@ class _PredictionPageState extends State<PredictionPage> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Current GM: ${widget.loadingCondition.gm.toStringAsFixed(2)} m",
-                            style: Axeslegend.copyWith(
-                              color: isDarkMode ? Colors.grey[300] : Colors.grey,
-                            ),
-                          ),
                           const SizedBox(height: 16),
                           _buildChart(),
                           const SizedBox(height: 16),
                           Text(
                             "The blue dot indicates the current GM value and its corresponding roll natural period. "
-                                "Orange dots represent actual measurements from saved data.",
+                                "Teal dots represent actual measurements from saved data.",
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: isDarkMode ? Colors.grey[400] : Colors.grey,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
@@ -1004,7 +991,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: gmRollPeriodPairsTile(measurements: sharedData.savedMeasurements),
                   ),
                 ],

@@ -452,7 +452,27 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
-      final predictionMethods = ['Roll Coefficient','Doyere','JSRA','Beam','ITTC','Grin',];
+      // Calcul des valeurs max et RMS
+      double maxRoll = _rollData.isNotEmpty
+          ? _rollData.map((spot) => spot.y.abs()).reduce(max)
+          : 0.0;
+      double maxPitch = _pitchData.isNotEmpty
+          ? _pitchData.map((spot) => spot.y.abs()).reduce(max)
+          : 0.0;
+
+      double rmsRoll = _rollData.isNotEmpty
+          ? sqrt(_rollData.map((spot) => spot.y * spot.y).reduce((a, b) => a + b) / _rollData.length)
+          : 0.0;
+
+      double rmsPitch = _pitchData.isNotEmpty
+          ? sqrt(_pitchData.map((spot) => spot.y * spot.y).reduce((a, b) => a + b) / _pitchData.length)
+          : 0.0;
+
+      double duration = _rollData.isNotEmpty
+          ? _rollData.last.x
+          : 0.0;
+
+      final predictionMethods = ['Roll Coefficient'];
 
       final predictedPeriods = <String, double>{};
       for (final method in predictionMethods) {
@@ -471,10 +491,15 @@ class _SensorPageState extends State<SensorPage> {
         vesselProfile: widget.vesselProfile,
         loadingCondition: widget.loadingCondition,
         rollPeriodFFT: _fftRollPeriod,
+        pitchPeriodFFT: _fftPitchPeriod,
         predictedRollPeriods: predictedPeriods,
+        maxRoll: maxRoll,
+        maxPitch: maxPitch,
+        rmsRoll: rmsRoll,
+        rmsPitch: rmsPitch,
+        duration: duration,
       );
 
-      // Utilisez Provider pour ajouter la mesure
       final sharedData = Provider.of<SharedData>(context, listen: false);
       await sharedData.addMeasurement(measurement);
 

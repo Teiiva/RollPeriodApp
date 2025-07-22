@@ -9,14 +9,26 @@ class SavedMeasurement {
   final VesselProfile vesselProfile;
   final LoadingCondition loadingCondition;
   final double? rollPeriodFFT;
-  final Map<String, double> predictedRollPeriods; // Nouveau champ pour stocker toutes les prédictions
+  final double? pitchPeriodFFT;
+  final Map<String, double> predictedRollPeriods;
+  final double? maxRoll; // Nouveau champ
+  final double? maxPitch; // Nouveau champ
+  final double? rmsRoll; // Nouveau champ
+  final double? rmsPitch; // Nouveau champ
+  final double? duration; // Nouveau champ
 
   SavedMeasurement({
     required this.timestamp,
     required this.vesselProfile,
     required this.loadingCondition,
     this.rollPeriodFFT,
-    Map<String, double>? predictedRollPeriods, // Nouveau paramètre optionnel
+    this.pitchPeriodFFT,
+    Map<String, double>? predictedRollPeriods,
+    this.maxRoll,
+    this.maxPitch,
+    this.rmsRoll,
+    this.rmsPitch,
+    this.duration,
   }) : predictedRollPeriods = predictedRollPeriods ?? {};
 
   Map<String, dynamic> toMap() {
@@ -25,7 +37,13 @@ class SavedMeasurement {
       'vesselProfile': vesselProfile.toMap(),
       'loadingCondition': loadingCondition.toMap(),
       'rollPeriodFFT': rollPeriodFFT,
-      'predictedRollPeriods': predictedRollPeriods, // Ajouté pour la sérialisation
+      'pitchPeriodFFT': pitchPeriodFFT,
+      'predictedRollPeriods': predictedRollPeriods,
+      'maxRoll': maxRoll,
+      'maxPitch': maxPitch,
+      'rmsRoll': rmsRoll,
+      'rmsPitch': rmsPitch,
+      'duration': duration,
     };
   }
 
@@ -35,7 +53,13 @@ class SavedMeasurement {
       vesselProfile: VesselProfile.fromMap(map['vesselProfile']),
       loadingCondition: LoadingCondition.fromMap(map['loadingCondition']),
       rollPeriodFFT: map['rollPeriodFFT'],
-      predictedRollPeriods: Map<String, double>.from(map['predictedRollPeriods'] ?? {}), // Désérialisation
+      pitchPeriodFFT: map['pitchPeriodFFT'],
+      predictedRollPeriods: Map<String, double>.from(map['predictedRollPeriods'] ?? {}),
+      maxRoll: map['maxRoll'],
+      maxPitch: map['maxPitch'],
+      rmsRoll: map['rmsRoll'],
+      rmsPitch: map['rmsPitch'],
+      duration: map['duration'],
     );
   }
 }

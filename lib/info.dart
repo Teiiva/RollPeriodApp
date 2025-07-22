@@ -628,8 +628,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Vessel Profiles",
-                  style: titleStyle,
+                  "VESSEL PROFILES",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   iconSize: 24,
@@ -640,7 +643,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 ),
               ],
             ),
-            SizedBox(height: 4),
             if (_savedProfiles.isEmpty)
               Padding(
                 padding: EdgeInsets.only(bottom: 4),
@@ -859,9 +861,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Voyages for ${_currentVesselProfile.name}",
-                  style: titleStyle.copyWith(
-                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  "VOYAGE FOR ${_currentVesselProfile.name.toUpperCase()}",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
@@ -871,7 +874,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 ),
               ],
             ),
-            SizedBox(height: 8),
             if (_currentVesselProfile.loadingConditions.isEmpty)
               Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -949,9 +951,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Vessel Details",
-                  style: titleStyle.copyWith(
-                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  "VESSEL DETAILS",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
@@ -961,7 +964,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 ),
               ],
             ),
-            SizedBox(height: 8),
             _buildDetailRow("Vessel name", _currentVesselProfile.name),
             _buildDetailRow("Over all length", "${_currentVesselProfile.length.toStringAsFixed(2)} m"),
             _buildDetailRow("Max beam", "${_currentVesselProfile.beam.toStringAsFixed(2)} m"),
@@ -991,9 +993,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Voyage Details",
-                  style: titleStyle.copyWith(
-                    color: isDarkMode ? Colors.grey[300] : Colors.black,
+                  "VOYAGE DETAILS",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
@@ -1003,8 +1006,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                 ),
               ],
             ),
-            SizedBox(height: 8),
-            _buildDetailRow("Name", _currentLoadingCondition.name),
+            _buildDetailRow("Voyage name", _currentLoadingCondition.name),
             _buildDetailRow("GM without FSC", "${_currentLoadingCondition.gm.toStringAsFixed(2)} m"),
             _buildDetailRow("VCG without FSC", "${_currentLoadingCondition.vcg.toStringAsFixed(2)} m"),
             _buildDetailRow("Mean Draft", "${_currentLoadingCondition.draft.toStringAsFixed(2)} m"),
@@ -1012,9 +1014,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
               "FSC = Free Surface Correction",
               style: titleStyle.copyWith(
                 color: isDarkMode ? Colors.grey[400] : Colors.grey[400],
+                fontStyle: FontStyle.italic,
                 fontSize: 9,
               ),
             )
+
           ],
         ),
       ),
