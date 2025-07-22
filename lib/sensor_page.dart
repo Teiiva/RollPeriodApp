@@ -12,7 +12,6 @@ import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
-import 'models/navigation_info.dart';
 import 'models/saved_measurement.dart';
 import 'package:provider/provider.dart';
 import 'shared_data.dart';
@@ -24,14 +23,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SensorPage extends StatefulWidget {
   final VesselProfile vesselProfile;
   final LoadingCondition loadingCondition;
-  final NavigationInfo navigationInfo;
-  final Function(VesselProfile, LoadingCondition, NavigationInfo) onValuesChanged;
+  final Function(VesselProfile, LoadingCondition) onValuesChanged;
 
   const SensorPage({
     Key? key,
     required this.vesselProfile,
     required this.loadingCondition,
-    required this.navigationInfo,
     required this.onValuesChanged,
   }) : super(key: key);
 
@@ -473,7 +470,6 @@ class _SensorPageState extends State<SensorPage> {
         timestamp: DateTime.now(),
         vesselProfile: widget.vesselProfile,
         loadingCondition: widget.loadingCondition,
-        navigationInfo: widget.navigationInfo,
         rollPeriodFFT: _fftRollPeriod,
         predictedRollPeriods: predictedPeriods,
       );
@@ -553,15 +549,12 @@ class _SensorPageState extends State<SensorPage> {
       }
       // Données fixes
       final now = DateTime.now();
-      final wavePeriod = widget.navigationInfo.wavePeriod;
-      final direction = widget.navigationInfo.direction;
       final sampleRate = _dynamicSampleRate;
       final rollCount = _rollData.length;
       final rollPeriodFFT = _fftRollPeriod?.toStringAsFixed(2);
       final pitchPeriodFFT = _fftPitchPeriod?.toStringAsFixed(2);
       final vessel = widget.vesselProfile;
       final loading = widget.loadingCondition;
-      final nav = widget.navigationInfo;
 
       final duration = (sampleRate != null && sampleRate != 0)
           ? (rollCount / sampleRate).toStringAsFixed(2)
@@ -591,10 +584,6 @@ class _SensorPageState extends State<SensorPage> {
         'Loading Condition: ${loading.name}',
         'GM (m): ${loading.gm}',
         'VCG (m): ${loading.vcg}',
-        'Speed (kts): ${nav.speed}',
-        'Course (°): ${nav.course}',
-        'Wave Period (s): $wavePeriod',
-        'Wave Direction (°): $direction',
       ];
 
       // En-tête avec les nouvelles colonnes pour le spectre

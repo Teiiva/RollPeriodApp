@@ -6,7 +6,7 @@ import 'info.dart';
 import 'prediction.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
-import 'models/navigation_info.dart';
+
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -19,7 +19,6 @@ class _MenuPageState extends State<MenuPage> {
   int _selectedIndex = 1;
   late VesselProfile _currentVesselProfile;
   late LoadingCondition _currentLoadingCondition;
-  late NavigationInfo _navigationInfo;
   late List<Widget> _pages;
   bool _isBottomBarVisible = true; // Nouvel état pour contrôler la visibilité
 
@@ -45,12 +44,6 @@ class _MenuPageState extends State<MenuPage> {
 
     _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
 
-    _navigationInfo = NavigationInfo(
-      wavePeriod: 20,
-      direction: 0,
-      speed: 0,
-      course: 0,
-    );
 
     _initializePages();
   }
@@ -60,12 +53,10 @@ class _MenuPageState extends State<MenuPage> {
       VesselWavePage(
         currentVesselProfile: _currentVesselProfile,
         currentLoadingCondition: _currentLoadingCondition,
-        navigationInfo: _navigationInfo,
-        onValuesChanged: (profile, config, navInfo) {
+        onValuesChanged: (profile, config) {
           setState(() {
             _currentVesselProfile = profile;
             _currentLoadingCondition = config;
-            _navigationInfo = navInfo;
             _updatePages();
           });
         },
@@ -73,12 +64,10 @@ class _MenuPageState extends State<MenuPage> {
       SensorPage(
         vesselProfile: _currentVesselProfile,
         loadingCondition: _currentLoadingCondition,
-        navigationInfo: _navigationInfo,
-        onValuesChanged: (profile, condition, navInfo) {
+        onValuesChanged: (profile, condition) {
           setState(() {
             _currentVesselProfile = profile;
             _currentLoadingCondition = condition;
-            _navigationInfo = navInfo;
             _updatePages();
           });
         },
@@ -97,12 +86,10 @@ class _MenuPageState extends State<MenuPage> {
         VesselWavePage(
           currentVesselProfile: _currentVesselProfile,
           currentLoadingCondition: _currentLoadingCondition,
-          navigationInfo: _navigationInfo,
-          onValuesChanged: (profile, config, navInfo) {
+          onValuesChanged: (profile, config) {
             setState(() {
               _currentVesselProfile = profile;
               _currentLoadingCondition = config;
-              _navigationInfo = navInfo;
               _updatePages();
             });
           },
@@ -110,12 +97,10 @@ class _MenuPageState extends State<MenuPage> {
         SensorPage(
           vesselProfile: _currentVesselProfile,
           loadingCondition: _currentLoadingCondition,
-          navigationInfo: _navigationInfo,
-          onValuesChanged: (profile, condition, navInfo) {
+          onValuesChanged: (profile, condition) {
             setState(() {
               _currentVesselProfile = profile;
               _currentLoadingCondition = condition;
-              _navigationInfo = navInfo;
               _updatePages();
             });
           },

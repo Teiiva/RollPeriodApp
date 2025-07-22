@@ -4,7 +4,6 @@ import 'dart:math';
 import 'widgets/custom_app_bar.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
-import 'models/navigation_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'models/saved_measurement.dart';

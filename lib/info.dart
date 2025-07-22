@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'models/vessel_profile.dart';
-import 'models/navigation_info.dart';
 import 'models/loading_condition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -12,14 +11,12 @@ import 'vessel_wave_painter.dart';
 class VesselWavePage extends StatefulWidget {
   final VesselProfile currentVesselProfile;
   final LoadingCondition currentLoadingCondition;
-  final NavigationInfo navigationInfo;
-  final Function(VesselProfile, LoadingCondition, NavigationInfo) onValuesChanged;
+  final Function(VesselProfile, LoadingCondition) onValuesChanged;
 
   const VesselWavePage({
     super.key,
     required this.currentVesselProfile,
     required this.currentLoadingCondition,
-    required this.navigationInfo,
     required this.onValuesChanged,
   });
 
@@ -31,7 +28,6 @@ class VesselWavePage extends StatefulWidget {
 
 class _VesselWavePageState extends State<VesselWavePage> {
   late VesselProfile _currentVesselProfile;
-  late NavigationInfo _navigationInfo;
   List<VesselProfile> _savedProfiles = [];
   int _currentPageIndex = 0;
   late LoadingCondition _currentLoadingCondition;
@@ -60,7 +56,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
   void initState() {
     super.initState();
     _currentVesselProfile = widget.currentVesselProfile;
-    _navigationInfo = widget.navigationInfo;
     _currentLoadingCondition = widget.currentLoadingCondition;
     _loadSavedData();
     _initializeControllers();
@@ -163,7 +158,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
   void _updateValues() {
-    widget.onValuesChanged(_currentVesselProfile, _currentLoadingCondition, _navigationInfo);
+    widget.onValuesChanged(_currentVesselProfile, _currentLoadingCondition);
     _saveAllData();
   }
 
@@ -560,7 +555,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
         children: [
           _buildVesselInfoPage(),
           _buildLoadingInfoPage(),
-          _buildNavigationInfoPage(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -589,13 +583,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
               child: const Icon(Icons.balance),
             ),
             label: 'Voyage',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
-              child: const Icon(Icons.navigation),
-            ),
-            label: 'Navigation',
           ),
         ],
       ),
@@ -820,68 +807,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
-
-
-
-  // Puis modifiez la méthode _buildNavigationInfoPage comme suit:
-  Widget _buildNavigationInfoPage() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildWaveAnimationCard(), // Ajoutez cette ligne en premier
-          _buildSliderCard(
-            iconWidget: Icon(Icons.navigation, size: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
-            label: "Course of ship",
-            unit: "°",
-            value: _navigationInfo.course,
-            min: 0,
-            max: 360,
-            onChanged: (val) {
-              setState(() => _navigationInfo = _navigationInfo.copyWith(course: val));
-            },
-            onChangeEnd: (val) {
-              _updateValues();
-            },
-          ),
-          _buildSliderCard(
-            iconWidget: Image.asset('assets/images/direction.png', width: iconSize, height: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
-            label: "Waves direction",
-            unit: "°",
-            value: _navigationInfo.direction,
-            min: 0,
-            max: 360,
-            onChanged: (val) {
-              setState(() => _navigationInfo = _navigationInfo.copyWith(direction: val));
-            },
-            onChangeEnd: (val) {
-              _updateValues();
-            },
-          ),
-          _buildInputCard(
-            iconWidget: Icon(Icons.waves, size: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
-            label: "Waves period",
-            unit: "s",
-            value: _navigationInfo.wavePeriod,
-            onChanged: (val) {
-              setState(() => _navigationInfo = _navigationInfo.copyWith(wavePeriod: val));
-              _updateValues();
-            },
-          ),
-          _buildInputCard(
-            iconWidget: Icon(Icons.speed, size: iconSize, color: isDarkMode ? Colors.grey[300] : Color(0xFF012169)),
-            label: "Vessel speed",
-            unit: "Knots",
-            value: _navigationInfo.speed,
-            onChanged: (val) {
-              setState(() => _navigationInfo = _navigationInfo.copyWith(speed: val));
-              _updateValues();
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildProfileManagementSection() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1181,41 +1106,4 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
   }
 
-
-
-  // Modifiez _buildWaveAnimationCard pour le dark mode :
-  Widget _buildWaveAnimationCard() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: EdgeInsets.only(left: 20, top: 8 ,right: 20, bottom: 1),
-      child: Card(
-        elevation: 1,
-        color: isDarkMode ? Colors.grey[850] : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
-          height: 300,
-          padding: EdgeInsets.symmetric(horizontal: 30, vertical: 0),
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: Transform.rotate(
-                    angle: 0,
-                    child: VesselWavePainter(
-                      boatlength: _currentVesselProfile.length,
-                      waveDirection: _navigationInfo.direction,
-                      wavePeriod: _navigationInfo.wavePeriod,
-                      course: _navigationInfo.course,
-                      isDarkMode: isDarkMode, // Assurez-vous que VesselWavePainter accepte ce paramètre
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
