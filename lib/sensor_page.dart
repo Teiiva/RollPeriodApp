@@ -3,7 +3,6 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'widgets/custom_app_bar.dart';
 import 'fft_processor.dart';
-import 'alert.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:math';
@@ -318,12 +317,6 @@ class _SensorPageState extends State<SensorPage> {
 
     if (_rollAngle == null || _pitchAngle == null) return;
 
-    // Vérifie les alertes
-    alertPageKey.currentState?.checkForAlert(
-      rollAngle: _rollAngle!,
-      vesselProfile: widget.vesselProfile,
-      loadingCondition: widget.loadingCondition,
-    );
 
     // Arrête la collecte si on a assez de points
     if (_rollData.length >= _powersOfTwo[_powerIndex]) {

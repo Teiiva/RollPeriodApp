@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'sensor_page.dart';
 import 'info.dart';
-import 'alert.dart';
-import 'navigation.dart';
 import 'prediction.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
@@ -18,7 +16,7 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  int _selectedIndex = 2;
+  int _selectedIndex = 1;
   late VesselProfile _currentVesselProfile;
   late LoadingCondition _currentLoadingCondition;
   late NavigationInfo _navigationInfo;
@@ -59,24 +57,6 @@ class _MenuPageState extends State<MenuPage> {
 
   void _initializePages() {
     _pages = [
-      NavigationPage(
-        vesselProfile: _currentVesselProfile,
-        navigationInfo: _navigationInfo,
-      ),
-      AlertPage(),
-      SensorPage(
-        vesselProfile: _currentVesselProfile,
-        loadingCondition: _currentLoadingCondition,
-        navigationInfo: _navigationInfo,
-        onValuesChanged: (profile, condition, navInfo) {
-          setState(() {
-            _currentVesselProfile = profile;
-            _currentLoadingCondition = condition;
-            _navigationInfo = navInfo;
-            _updatePages();
-          });
-        },
-      ),
       VesselWavePage(
         currentVesselProfile: _currentVesselProfile,
         currentLoadingCondition: _currentLoadingCondition,
@@ -90,6 +70,19 @@ class _MenuPageState extends State<MenuPage> {
           });
         },
       ),
+      SensorPage(
+        vesselProfile: _currentVesselProfile,
+        loadingCondition: _currentLoadingCondition,
+        navigationInfo: _navigationInfo,
+        onValuesChanged: (profile, condition, navInfo) {
+          setState(() {
+            _currentVesselProfile = profile;
+            _currentLoadingCondition = condition;
+            _navigationInfo = navInfo;
+            _updatePages();
+          });
+        },
+      ),
       PredictionPage(
         vesselProfile: _currentVesselProfile,
         loadingCondition: _currentLoadingCondition,
@@ -97,27 +90,10 @@ class _MenuPageState extends State<MenuPage> {
     ];
   }
 
+
   void _updatePages() {
     setState(() {
       _pages = [
-        NavigationPage(
-          vesselProfile: _currentVesselProfile,
-          navigationInfo: _navigationInfo,
-        ),
-        AlertPage(),
-        SensorPage(
-          vesselProfile: _currentVesselProfile,
-          loadingCondition: _currentLoadingCondition,
-          navigationInfo: _navigationInfo,
-          onValuesChanged: (profile, condition, navInfo) {
-            setState(() {
-              _currentVesselProfile = profile;
-              _currentLoadingCondition = condition;
-              _navigationInfo = navInfo;
-              _updatePages();
-            });
-          },
-        ),
         VesselWavePage(
           currentVesselProfile: _currentVesselProfile,
           currentLoadingCondition: _currentLoadingCondition,
@@ -131,6 +107,19 @@ class _MenuPageState extends State<MenuPage> {
             });
           },
         ),
+        SensorPage(
+          vesselProfile: _currentVesselProfile,
+          loadingCondition: _currentLoadingCondition,
+          navigationInfo: _navigationInfo,
+          onValuesChanged: (profile, condition, navInfo) {
+            setState(() {
+              _currentVesselProfile = profile;
+              _currentLoadingCondition = condition;
+              _navigationInfo = navInfo;
+              _updatePages();
+            });
+          },
+        ),
         PredictionPage(
           vesselProfile: _currentVesselProfile,
           loadingCondition: _currentLoadingCondition,
@@ -138,6 +127,7 @@ class _MenuPageState extends State<MenuPage> {
       ];
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -167,12 +157,6 @@ class _MenuPageState extends State<MenuPage> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
-            if (index == 0) {
-              _pages[0] = NavigationPage(
-                vesselProfile: _currentVesselProfile,
-                navigationInfo: _navigationInfo,
-              );
-            }
           });
         },
         type: BottomNavigationBarType.fixed,
@@ -185,16 +169,9 @@ class _MenuPageState extends State<MenuPage> {
           BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
-              child: Icon(Icons.explore),
+              child: Icon(Icons.directions_boat_filled_rounded),
             ),
-            label: 'Roll Risk',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
-              child: Icon(Icons.notifications_active),
-            ),
-            label: 'Alert',
+            label: 'Info',
           ),
           BottomNavigationBarItem(
             icon: Padding(
@@ -206,18 +183,12 @@ class _MenuPageState extends State<MenuPage> {
           BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
-              child: Icon(Icons.directions_boat_filled_rounded),
-            ),
-            label: 'Info',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
               child: Icon(Icons.timeline),
             ),
             label: 'Prediction',
           ),
         ],
+
       ),
     );
   }
