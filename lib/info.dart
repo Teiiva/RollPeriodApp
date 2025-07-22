@@ -6,7 +6,6 @@ import 'models/loading_condition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'storage_manager.dart';
-import 'vessel_wave_painter.dart';
 
 class VesselWavePage extends StatefulWidget {
   final VesselProfile currentVesselProfile;
@@ -22,16 +21,12 @@ class VesselWavePage extends StatefulWidget {
 
   @override
   State<VesselWavePage> createState() => _VesselWavePageState();
-
-
 }
 
 class _VesselWavePageState extends State<VesselWavePage> {
   late VesselProfile _currentVesselProfile;
   List<VesselProfile> _savedProfiles = [];
-  int _currentPageIndex = 0;
   late LoadingCondition _currentLoadingCondition;
-
 
   // Contrôleurs pour l'édition
   final _profileFormKey = GlobalKey<FormState>();
@@ -86,8 +81,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
     _updateStyles();
   }
 
-
-// Modifiez les styles dans _updateStyles pour prendre en compte le dark mode :
   void _updateStyles() {
     final screenWidth = MediaQuery.of(context).size.width;
     final ratio = screenWidth / 411.42857142857144;
@@ -95,18 +88,18 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
     setState(() {
       titleStyle = TextStyle(
-        fontSize: 16.0 * ratio,
+        fontSize: 14.0 * ratio, // Réduit de 16 à 14
         fontWeight: FontWeight.bold,
         color: isDarkMode ? Colors.grey[300] : Colors.black,
       );
       subtitleStyle = TextStyle(
-        fontSize: 14.0 * ratio,
+        fontSize: 12.0 * ratio, // Réduit de 14 à 12
         fontWeight: FontWeight.normal,
         color: isDarkMode ? Colors.grey[300] : Colors.black,
       );
-      cardRadius = 12 * ratio;
-      iconSize = 40.0 * ratio;
-      cardPadding = EdgeInsets.all(16 * ratio);
+      cardRadius = 8 * ratio; // Réduit de 12 à 8
+      iconSize = 32.0 * ratio; // Réduit de 40 à 32
+      cardPadding = EdgeInsets.all(8 * ratio); // Réduit de 16 à 8
     });
   }
 
@@ -166,7 +159,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final isEditing = profileToEdit != null;
 
     if (isEditing) {
-      _profileNameController.text = profileToEdit.name;
+      // Ajout de ! pour indiquer qu'on est sûr que profileToEdit n'est pas null ici
+      _profileNameController.text = profileToEdit!.name;
       _vesselLengthController.text = profileToEdit.length.toStringAsFixed(2);
       _vesselBeamController.text = profileToEdit.beam.toStringAsFixed(2);
       _vesselDepthController.text = profileToEdit.depth.toStringAsFixed(2);
@@ -287,15 +281,18 @@ class _VesselWavePageState extends State<VesselWavePage> {
       beam: double.parse(_vesselBeamController.text),
       depth: double.parse(_vesselDepthController.text),
       loadingConditions: isEditing
-          ? profileToEdit!.loadingConditions
+          ? profileToEdit?.loadingConditions ??
+          [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)]
           : [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)],
     );
 
     setState(() {
-      if (isEditing) {
-        final index = _savedProfiles.indexWhere((p) => p.name == profileToEdit!.name);
-        _savedProfiles[index] = newProfile;
-        if (_currentVesselProfile.name == profileToEdit!.name) {
+      if (isEditing && profileToEdit != null) {
+        final index = _savedProfiles.indexWhere((p) => p.name == profileToEdit.name);
+        if (index != -1) {
+          _savedProfiles[index] = newProfile;
+        }
+        if (_currentVesselProfile.name == profileToEdit.name) {
           _currentVesselProfile = newProfile;
         }
       } else {
@@ -308,11 +305,98 @@ class _VesselWavePageState extends State<VesselWavePage> {
     _updateValues();
   }
 
+  void _confirmDeleteCondition(LoadingCondition condition) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Voyage?"),
+        content: Text("Are you sure you want to delete '${condition.name}'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _currentVesselProfile.loadingConditions.removeWhere((c) => c.name == condition.name);
+
+        // Si c'était la dernière condition, créer une nouvelle condition par défaut
+        if (_currentVesselProfile.loadingConditions.isEmpty) {
+          final defaultCondition = LoadingCondition(
+              name: "Default",
+              gm: 0,
+              vcg: 0,
+              draft: 0
+          );
+          _currentVesselProfile.loadingConditions.add(defaultCondition);
+          _currentLoadingCondition = defaultCondition;
+        }
+        // Sinon, sélectionner la première condition disponible
+        else if (_currentLoadingCondition.name == condition.name) {
+          _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+        }
+      });
+      _updateValues();
+    }
+  }
+
+  void _confirmDeleteProfile(VesselProfile profile) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Profile?"),
+        content: Text("Are you sure you want to delete '${profile.name}'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _savedProfiles.removeWhere((p) => p.name == profile.name);
+
+        // If we're deleting the current profile, switch to another one if available
+        if (_currentVesselProfile.name == profile.name) {
+          _currentVesselProfile = _savedProfiles.isNotEmpty
+              ? _savedProfiles.first
+              : VesselProfile(
+            name: "New Vessel",
+            length: 0,
+            beam: 0,
+            depth: 0,
+            loadingConditions: [
+              LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)
+            ],
+          );
+
+          _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+        }
+      });
+      _updateValues();
+    }
+  }
+
   void _showEditConditionDialog({LoadingCondition? conditionToEdit}) {
     final isEditing = conditionToEdit != null;
 
     if (isEditing) {
-      _conditionNameController.text = conditionToEdit.name;
+      _conditionNameController.text = conditionToEdit!.name;
       _conditionGmController.text = conditionToEdit.gm.toStringAsFixed(2);
       _conditionVcgController.text = conditionToEdit.vcg.toStringAsFixed(2);
       _conditionDraftController.text = conditionToEdit.draft.toStringAsFixed(2);
@@ -343,7 +427,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a voyage name';
                     }
-                    if (!isEditing && _currentVesselProfile.loadingConditions.any((c) => c.name == value)) {
+                    if (!isEditing &&
+                        _currentVesselProfile.loadingConditions.any((c) => c.name == value)) {
                       return 'Voyage name already exists';
                     }
                     return null;
@@ -435,10 +520,13 @@ class _VesselWavePageState extends State<VesselWavePage> {
     );
 
     setState(() {
-      if (isEditing) {
-        final index = _currentVesselProfile.loadingConditions.indexWhere((c) => c.name == conditionToEdit!.name);
-        _currentVesselProfile.loadingConditions[index] = newCondition;
-        if (_currentLoadingCondition.name == conditionToEdit!.name) {
+      if (isEditing && conditionToEdit != null) {
+        final index = _currentVesselProfile.loadingConditions
+            .indexWhere((c) => c.name == conditionToEdit.name);
+        if (index != -1) {
+          _currentVesselProfile.loadingConditions[index] = newCondition;
+        }
+        if (_currentLoadingCondition.name == conditionToEdit.name) {
           _currentLoadingCondition = newCondition;
         }
       } else {
@@ -450,81 +538,62 @@ class _VesselWavePageState extends State<VesselWavePage> {
     _updateValues();
   }
 
-  void _confirmDeleteProfile(VesselProfile profile) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Delete Profile?"),
-        content: Text("Are you sure you want to delete '${profile.name}'?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text("Cancel"),
+  Widget _buildInputCard({
+    required Widget iconWidget,
+    required String label,
+    required String unit,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Card(
+        elevation: 1,
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              iconWidget,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        label,
+                        style: titleStyle.copyWith(
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: TextField(
+                          style: TextStyle(fontSize: 12),
+                          decoration: InputDecoration(
+                            labelText: label,  // Added this line to fix the error
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          controller: TextEditingController(text: value.toStringAsFixed(2)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        ),
       ),
     );
-
-    if (confirmed == true) {
-      setState(() {
-        _savedProfiles.removeWhere((p) => p.name == profile.name);
-        if (_currentVesselProfile.name == profile.name) {
-          _currentVesselProfile = _savedProfiles.isNotEmpty
-              ? _savedProfiles.first
-              : VesselProfile(
-            name: "LPG Carrier",
-            length: 107.0,
-            beam: 17.6,
-            depth: 9.8,
-            loadingConditions: [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)],
-          );
-          _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
-        }
-      });
-      _updateValues();
-    }
-  }
-
-  void _confirmDeleteCondition(LoadingCondition condition) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Delete Voyage?"),
-        content: Text("Are you sure you want to delete '${condition.name}'?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      setState(() {
-        _currentVesselProfile.loadingConditions.removeWhere((c) => c.name == condition.name);
-
-        // Si c'était le dernier voyage, créer un nouveau voyage par défaut
-        if (_currentVesselProfile.loadingConditions.isEmpty) {
-          final defaultCondition = LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
-          _currentVesselProfile.loadingConditions.add(defaultCondition);
-          _currentLoadingCondition = defaultCondition;
-        }
-        // Sinon, sélectionner le premier voyage disponible
-        else if (_currentLoadingCondition.name == condition.name) {
-          _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
-        }
-      });
-      _updateValues();
-    }
   }
 
   @override
@@ -540,169 +609,132 @@ class _VesselWavePageState extends State<VesselWavePage> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildProfileManagementSection() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final basscreenWidth = 411.42857142857144;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final ratio = screenWidth / basscreenWidth;
-    final double paddingValue = 2 * ratio;
 
-    return Scaffold(
-      appBar: const CustomAppBar(),
-      body: IndexedStack(
-        index: _currentPageIndex,
-        children: [
-          _buildVesselInfoPage(),
-          _buildLoadingInfoPage(),
-        ],
+    return Card(
+      elevation: 2,
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(cardRadius),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentPageIndex,
-        onTap: (index) => setState(() => _currentPageIndex = index),
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: isDarkMode ? Colors.white : const Color(0xFF012169),
-        unselectedItemColor: isDarkMode ? Colors.grey[500] : Colors.grey,
-        iconSize: 26.0 * ratio,
-        selectedFontSize: 14.0 * ratio,
-        unselectedFontSize: 12.0 * ratio,
-        selectedLabelStyle:  TextStyle(height: 0),
-        unselectedLabelStyle:  TextStyle(height: 0),
-        items: [
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
-              child: const Icon(Icons.directions_boat),
+      child: Padding(
+        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8), // Augmenté le padding horizontal
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Vessel Profiles",
+                  style: titleStyle,
+                ),
+                IconButton(
+                  iconSize: 24,
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.add,
+                      color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
+                  onPressed: () => _showEditProfileDialog(),
+                ),
+              ],
             ),
-            label: 'Vessel',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
-              child: const Icon(Icons.balance),
-            ),
-            label: 'Voyage',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVesselInfoPage() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildProfileManagementSection(),
-          SizedBox(height: 16),
-          _buildVesselDetailsCard(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingInfoPage() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildConditionManagementSection(),
-          SizedBox(height: 16),
-          _buildConditionDetailsCard(),
-        ],
-      ),
-    );
-  }
-
-  // Modifiez _buildInputCard pour le dark mode :
-  Widget _buildInputCard({
-    required Widget iconWidget,
-    required String label,
-    required String unit,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final _controller = TextEditingController(text: value.toStringAsFixed(2));
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
-      child: Card(
-        elevation: 1,
-        color: isDarkMode ? Colors.grey[850] : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              iconWidget,
-              const SizedBox(width: 16),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: Text(
-                          label,
-                          textAlign: TextAlign.center,
-                          style: titleStyle.copyWith(
-                            fontWeight: FontWeight.normal,
-                            color: isDarkMode ? Colors.grey[300] : Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? Colors.grey[700]
-                              : const Color(0xFF012169).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: TextField(
-                          controller: _controller,
-                          style: TextStyle(
-                            color: isDarkMode ? Colors.grey[300] : Colors.black,
-                          ),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: value.toStringAsFixed(2),
-                            hintStyle: TextStyle(
-                              color: isDarkMode
-                                  ? Colors.grey[500]
-                                  : Colors.grey.shade500,
-                            ),
-                            suffixText: unit,
-                            suffixStyle: TextStyle(
-                              color: isDarkMode ? Colors.grey[300] : Colors.black,
-                            ),
-                          ),
-                          keyboardType: TextInputType.number,
-                          onSubmitted: (text) {
-                            final parsedValue = double.tryParse(text);
-                            if (parsedValue != null) {
-                              onChanged(parsedValue);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+            SizedBox(height: 4),
+            if (_savedProfiles.isEmpty)
+              Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  "No profiles yet. Create your first vessel profile.",
+                  style: subtitleStyle.copyWith(
+                      fontSize: 11,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey),
                 ),
               ),
-            ],
-          ),
+            if (_savedProfiles.isNotEmpty)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: 100,
+                ),
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: _savedProfiles.map((profile) {
+                      return InputChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: Colors.transparent,
+                          child: Icon(
+                            Icons.directions_boat,
+                            size: 18, // Icône plus petite
+                            color: _currentVesselProfile.name == profile.name
+                                ? Colors.white
+                                : isDarkMode ? Colors.grey[300] : const Color(0xFF012169),
+                          ),
+                        ),
+                        label: Text(
+                          profile.name,
+                          style: TextStyle(fontSize: 11), // Texte plus petit
+                        ),
+                        backgroundColor: _currentVesselProfile.name == profile.name
+                            ? isDarkMode ? Colors.teal : Color(0xFF012169)
+                            : isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                        labelStyle: TextStyle(
+                          color: _currentVesselProfile.name == profile.name
+                              ? Colors.white
+                              : isDarkMode ? Colors.grey[300] : Colors.black,
+                        ),
+                        side: BorderSide.none,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _currentVesselProfile = profile;
+                            _currentLoadingCondition = profile.loadingConditions.isNotEmpty
+                                ? profile.loadingConditions.first
+                                : LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0);
+                          });
+                          _updateValues();
+                        },
+                        onDeleted: () => _confirmDeleteProfile(profile),
+                        deleteIcon: Icon(Icons.close,
+                            size: 18,
+                            color: _currentVesselProfile.name == profile.name
+                                ? Colors.white
+                                : isDarkMode ? Colors.grey[300] : Colors.black),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),],
         ),
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(8), // Réduit de 16 à 8
+        child: Column(
+          children: [
+            _buildProfileManagementSection(),
+            SizedBox(height: 6), // Réduit de 16 à 8
+            _buildVesselDetailsCard(),
+            SizedBox(height: 6), // Réduit de 24 à 12
+            _buildConditionManagementSection(),
+            SizedBox(height: 6), // Réduit de 16 à 8
+            _buildConditionDetailsCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
 
 
@@ -808,98 +840,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
   }
 
 
-  Widget _buildProfileManagementSection() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      elevation: 2,
-      color: isDarkMode ? Colors.grey[850] : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(cardRadius),
-      ),
-      child: Padding(
-        padding: cardPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Vessel Profiles",
-                  style: titleStyle.copyWith(
-                    color: isDarkMode ? Colors.grey[300] : Colors.black,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.add,
-                      color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
-                  onPressed: () => _showEditProfileDialog(),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            if (_savedProfiles.isEmpty)
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  "No profiles yet. Create your first vessel profile.",
-                  style: subtitleStyle.copyWith(
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey),
-                ),
-              ),
-            if (_savedProfiles.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _savedProfiles.map((profile) {
-                  return InputChip(
-                    avatar: CircleAvatar(
-                      backgroundColor: Colors.transparent,
-                      child: Icon(
-                          Icons.directions_boat,
-                          size: 20,
-                          color: _currentVesselProfile.name == profile.name
-                              ? Colors.white
-                              : isDarkMode ? Colors.grey[300] : const Color(0xFF012169)),
-                    ),
-                    label: Text(profile.name),
-                    backgroundColor: _currentVesselProfile.name == profile.name
-                        ? isDarkMode ? Colors.teal : Color(0xFF012169)
-                        : isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                    labelStyle: TextStyle(
-                      color: _currentVesselProfile.name == profile.name
-                          ? Colors.white
-                          : isDarkMode ? Colors.grey[300] : Colors.black,
-                    ),
-                    side: BorderSide.none, // 🔥 supprime la bordure
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide.none, // 🔥 aucun contour visible
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _currentVesselProfile = profile;
-                        _currentLoadingCondition = profile.loadingConditions.isNotEmpty
-                            ? profile.loadingConditions.first
-                            : LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
-                      });
-                      _updateValues();
-                    },
-                    onDeleted: () => _confirmDeleteProfile(profile),
-                    deleteIcon: Icon(Icons.close,
-                        size: 18,
-                        color: _currentVesselProfile.name == profile.name
-                            ? Colors.white
-                            : isDarkMode ? Colors.grey[300] : Colors.black),
-                  );
-                }).toList(),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildConditionManagementSection() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -911,7 +851,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: cardPadding,
+        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8), // Augmenté le padding horizontal
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1001,7 +941,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: cardPadding,
+        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1022,15 +962,16 @@ class _VesselWavePageState extends State<VesselWavePage> {
               ],
             ),
             SizedBox(height: 8),
-            _buildDetailRow("Name", _currentVesselProfile.name),
-            _buildDetailRow("Length", "${_currentVesselProfile.length.toStringAsFixed(2)} m"),
-            _buildDetailRow("Beam", "${_currentVesselProfile.beam.toStringAsFixed(2)} m"),
-            _buildDetailRow("Depth", "${_currentVesselProfile.depth.toStringAsFixed(2)} m"),
+            _buildDetailRow("Vessel name", _currentVesselProfile.name),
+            _buildDetailRow("Over all length", "${_currentVesselProfile.length.toStringAsFixed(2)} m"),
+            _buildDetailRow("Max beam", "${_currentVesselProfile.beam.toStringAsFixed(2)} m"),
+            _buildDetailRow("To main deck depth", "${_currentVesselProfile.depth.toStringAsFixed(2)} m"),
           ],
         ),
       ),
     );
   }
+
 
   Widget _buildConditionDetailsCard() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1042,7 +983,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: cardPadding,
+        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8), // Augmenté le padding horizontal
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1064,9 +1005,16 @@ class _VesselWavePageState extends State<VesselWavePage> {
             ),
             SizedBox(height: 8),
             _buildDetailRow("Name", _currentLoadingCondition.name),
-            _buildDetailRow("GM", "${_currentLoadingCondition.gm.toStringAsFixed(2)} m"),
-            _buildDetailRow("VCG", "${_currentLoadingCondition.vcg.toStringAsFixed(2)} m"),
-            _buildDetailRow("Draft", "${_currentLoadingCondition.draft.toStringAsFixed(2)} m"),
+            _buildDetailRow("GM without FSC", "${_currentLoadingCondition.gm.toStringAsFixed(2)} m"),
+            _buildDetailRow("VCG without FSC", "${_currentLoadingCondition.vcg.toStringAsFixed(2)} m"),
+            _buildDetailRow("Mean Draft", "${_currentLoadingCondition.draft.toStringAsFixed(2)} m"),
+            Text(
+              "FSC = Free Surface Correction",
+              style: titleStyle.copyWith(
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[400],
+                fontSize: 9,
+              ),
+            )
           ],
         ),
       ),
@@ -1078,25 +1026,25 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: 4), // Réduit de 8 à 4
       child: Row(
         children: [
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
               label,
               style: subtitleStyle.copyWith(
+                fontSize: 12, // Texte plus petit
                 fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.grey[300] : Colors.black,
               ),
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Text(
               value,
               style: subtitleStyle.copyWith(
-                color: isDarkMode ? Colors.grey[300] : Colors.black,
+                fontSize: 12, // Texte plus petit
               ),
               textAlign: TextAlign.end,
             ),

@@ -500,23 +500,6 @@ class _SensorPageState extends State<SensorPage> {
       case 'Roll Coefficient':
         const k = 0.4;
         return 2 * k * beam / sqrt(gm);
-      case 'Doyere':
-        const c = 0.29;
-        return 2 * c * sqrt((pow(beam, 2) + 4 * pow(vcg, 2)) / gm);
-      case 'JSRA':
-        final k = 0.3437 + 0.024 * (beam / depth);
-        return 2 * k * beam / sqrt(gm);
-      case 'Beam':
-        const k = 0.36;
-        return 2 * k * sqrt((pow(beam, 2) + pow(depth, 2)) / gm);
-      case 'ITTC':
-        final kxx = sqrt((0.4 * pow(beam + depth, 2) + 0.6 * (pow(beam, 2) + pow(depth, 2) - pow(2 * depth / 2 - vcg, 2)) / 12));
-        final axx = 0.05 * pow(beam, 2) / depth;
-        return 2 * sqrt((pow(kxx, 2) + pow(axx, 2)) / sqrt(gm));
-      case 'Grin':
-        const beta = 11.0;
-        final kxx = sqrt((pow(beam, 2) + pow(depth, 2)) / beta + pow(depth / 2 - vcg, 2));
-        return 2 * kxx / sqrt(gm);
       default:
         return 0;
     }
