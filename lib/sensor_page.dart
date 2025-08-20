@@ -127,6 +127,15 @@ class _SensorPageState extends State<SensorPage> {
 
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
+  double _visibleMinX = 0;
+  double _visibleMaxX = 60; // par défaut : 60s visibles
+  bool _isInteracting = false;
+  double _previousScale = 1.0;
+  Offset _lastFocalPoint = Offset.zero;
+  double _lastScale = 1.0;
+
+
+
   // =============================================
   // LIFECYCLE METHODS
   // =============================================
@@ -296,6 +305,9 @@ class _SensorPageState extends State<SensorPage> {
         _dynamicSampleRate = 5;
         _showRollData = true;
         _showPitchData = true;
+        // Réinitialiser la vue du graphique à 10 secondes
+        _visibleMinX = 0;
+        _visibleMaxX = 10; // Afficher seulement 10 secondes après le clear
       });
     }
   }
@@ -737,6 +749,7 @@ class _SensorPageState extends State<SensorPage> {
           _updateTimer?.cancel();
           _stopDataCollection();
           _calculatePeriodFromImportedData();
+          _resetChartZoom();
         });
       }
 
@@ -907,7 +920,8 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "This chart displays the roll angles (blue) and pitch angles (green) in real time.",
+                    "This chart shows roll angles (blue) and pitch angles (green) in real time. "
+                        "You can navigate the graph using pinch-to-zoom gestures. Double-tap to reset the view.",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -1522,11 +1536,11 @@ class _SensorPageState extends State<SensorPage> {
         // Pendant la collecte ou après pause
         final remainingSamples = totalSamples - collectedSamples;
         final remainingTime = (remainingSamples / _dynamicSampleRate!).ceil();
-        timeText = ' (${_formatTime(remainingTime)})';
+        timeText = ' ${_formatTime(remainingTime)}';
       } else {
         // Avant démarrage
         final estimatedTime = (totalSamples / _dynamicSampleRate!).ceil();
-        timeText = ' (${_formatTime(estimatedTime)})';
+        timeText = ' ${_formatTime(estimatedTime)}';
       }
     }
 
@@ -1550,11 +1564,8 @@ class _SensorPageState extends State<SensorPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Sample Size', style: titleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white)),
-              Text(
-                '${_isCollectingData || _collectedSamples > 0 ? '$collectedSamples/$totalSamples' : totalSamples.toString()} samples$timeText',
-                style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white),
-              ),
+              Text('Measurement time left : $timeText', style: titleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white)),
+
             ],
           ),
         ),
@@ -1570,27 +1581,16 @@ class _SensorPageState extends State<SensorPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Select Sample Size'),
+          title: const Text('Measurement Time'),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'We recommend keeping 4096 samples (about 15 minutes) for optimal FFT accuracy.',
+                    'We recommend a measurement time of 13min 40s for best prediction of roll and pitch periods.',
                     style: TextStyle(color: Colors.red),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Changing this value will affect FFT calculation precision.',
-                    style: TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_dynamicSampleRate != null && _dynamicSampleRate! > 0)
-                    Text(
-                      'Current sampling rate: ${_dynamicSampleRate!.toStringAsFixed(2)} Hz',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
                   const SizedBox(height: 20),
                   DropdownButton<int>(
                     value: selectedValue,
@@ -1603,12 +1603,12 @@ class _SensorPageState extends State<SensorPage> {
                     },
                     items: availableSizes.map<DropdownMenuItem<int>>((int value) {
                       final timeEstimate = _dynamicSampleRate != null && _dynamicSampleRate! > 0
-                          ? ' (~${_formatTime((value / _dynamicSampleRate!).ceil())})'
+                          ? ' ${_formatTime((value / _dynamicSampleRate!).ceil())}'
                           : '';
 
                       return DropdownMenuItem<int>(
                         value: value,
-                        child: Text('$value samples$timeEstimate',
+                        child: Text(timeEstimate,
                             style: const TextStyle(fontSize: 14)), // << taille définie ici),
 
                       );
@@ -1765,26 +1765,23 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
+
   /// Construit le graphique des données dans une Card
   Widget buildChart() {
-    final rollChartData = _showRollData ? _rollData : <FlSpot>[];
-    final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
+    final rollChartData = _showRollData ? _optimizeData(_rollData) : <FlSpot>[];
+    final pitchChartData = _showPitchData ? _optimizeData(_pitchData) : <FlSpot>[];
 
-    // Détecter le mode sombre
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    // Couleurs conditionnelles
     final rollColor = _isCollectingData || _hasReachedSampleCount
         ? Colors.deepPurple
         : Colors.grey;
     final pitchColor = _isCollectingData || _hasReachedSampleCount
         ? Colors.teal
         : const Color(0xFF6F6F6F);
-
-
-    // Couleurs pour le mode sombre
     final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
-    final gridColor = isDarkMode ? Colors.grey[700]!.withOpacity(0.3) : Colors.grey.withOpacity(0.1);
+    final gridColor = isDarkMode
+        ? Colors.grey[700]!.withOpacity(0.3)
+        : Colors.grey.withOpacity(0.1);
     final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withOpacity(0.2);
     final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
 
@@ -1797,125 +1794,183 @@ class _SensorPageState extends State<SensorPage> {
         ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
         : 30;
 
+    final maxY = maxAbsY;
+    final minY = -maxAbsY;
+
     return Card(
-      color: backgroundColor, // Utiliser la couleur de fond en fonction du mode
+      color: backgroundColor,
       margin: EdgeInsets.all(margin),
-      child: Padding(
-        key: _chartKey,
-        padding: EdgeInsets.only(
-          left: axechartpadding,
-          top: sidechartpadding,
-          right: sidechartpadding,
-          bottom: axechartpadding,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: chartsize,
-              child: LineChart(
-                LineChartData(
-                  minX: _getminVisibleDuration(),
-                  maxX: _getmaxVisibleDuration(),
-                  minY: -maxAbsY.toDouble(),
-                  maxY: maxAbsY.toDouble(),
-                  clipData: FlClipData.all(),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: pitchChartData,
-                      color: pitchColor,
-                      barWidth: 2,
-                      isCurved: true,
-                      dotData: FlDotData(show: false),
-                      belowBarData: BarAreaData(show: false),
-                    ),
-                    LineChartBarData(
-                      spots: rollChartData,
-                      color: rollColor,
-                      barWidth: 2,
-                      isCurved: true,
-                      dotData: FlDotData(show: false),
-                      belowBarData: BarAreaData(show: false),
-                    ),
-                  ],
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: ((maxAbsY * 2) / 3).toDouble(),
-                        reservedSize: axereservedsize,
-                        getTitlesWidget: (value, meta) => Text(
-                          '${value.toInt()}°',
-                          style: chartlabel.copyWith(color: textColor), // Ajouter la couleur du texte
-                        ),
+      child: GestureDetector(
+        onDoubleTap: _resetChartZoom,
+        onScaleStart: (details) {
+          _lastFocalPoint = details.focalPoint;
+          _lastScale = 1.0;
+        },
+        onScaleUpdate: (details) {
+          setState(() {
+            final currentRange = _visibleMaxX - _visibleMinX;
+            const minRangeX = 5.0; // zoom max (pas moins de 5s visibles)
+
+            // 🔹 plage max = durée totale des données
+            final totalDuration = visibleData.isNotEmpty
+                ? visibleData.last.x - visibleData.first.x
+                : 60.0;
+
+            if (details.scale != 1.0) {
+              // Zoom moins sensible
+              final zoomFactor = 1 + (1 - details.scale) * 0.2;
+
+              var newRange = (currentRange * zoomFactor)
+                  .clamp(minRangeX, totalDuration);
+
+              final centerX = (_visibleMinX + _visibleMaxX) / 2;
+              _visibleMinX = centerX - newRange / 2;
+              _visibleMaxX = centerX + newRange / 2;
+            } else {
+              // Pan plus sensible
+              final dx = details.focalPoint.dx - _lastFocalPoint.dx;
+              final delta = -dx * 5; // facteur de sensibilité
+              _visibleMinX = max(0, _visibleMinX + delta);
+              _visibleMaxX = max(_visibleMinX + 1, _visibleMaxX + delta);
+            }
+          });
+
+          _lastFocalPoint = details.focalPoint;
+        },
+
+        child: SizedBox(
+          width: double.infinity,
+          height: chartsize,
+          child: Padding(
+            key: _chartKey,
+            padding: EdgeInsets.only(
+              left: axechartpadding,
+              top: sidechartpadding,
+              right: sidechartpadding,
+              bottom: axechartpadding,
+            ),
+            child: LineChart(
+              LineChartData(
+                minX: max(0, _visibleMinX), // ❌ pas en dessous de 0
+                maxX: _visibleMaxX,
+                minY: minY.toDouble(),
+                maxY: maxY.toDouble(),
+                clipData: FlClipData.all(),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: pitchChartData,
+                    color: pitchColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: rollChartData,
+                    color: rollColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: ((maxY * 2) / 3).toDouble(),
+                      reservedSize: axereservedsize,
+                      getTitlesWidget: (value, meta) => Text(
+                        '${value.toInt()}°',
+                        style: chartlabel.copyWith(color: textColor),
                       ),
                     ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: _getTimeInterval().toDouble(),
-                        reservedSize: axereservedsize,
-                        getTitlesWidget: (value, meta) {
-                          final maxX = _getmaxVisibleDuration();
-                          final epsilon = 0.01;
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: axereservedsize,
+                      interval: (_visibleMaxX - _visibleMinX) / 5, // 🔹 fixe 5 ticks
+                      getTitlesWidget: (value, meta) {
+                        if (value < 0) return const SizedBox.shrink();
 
-                          if ((value - maxX).abs() < epsilon) {
-                            return const SizedBox.shrink();
-                          }
+                        // 🔹 on calcule la valeur "réelle" proportionnelle dans la plage visible
+                        final proportion = (value - meta.min) / (meta.max - meta.min);
+                        final realTime = _visibleMinX + proportion * (_visibleMaxX - _visibleMinX);
 
-                          int totalSeconds = value.toInt();
-                          if (totalSeconds < 60) {
-                            return Text(
-                              '${totalSeconds}s',
-                              textAlign: TextAlign.center,
-                              style: chartlabel.copyWith(color: textColor), // Ajouter la couleur du texte
-                            );
-                          } else {
-                            int minutes = totalSeconds ~/ 60;
-                            int seconds = totalSeconds % 60;
-                            return Text(
-                              '${minutes}min\n ${seconds}s',
-                              textAlign: TextAlign.center,
-                              style: chartlabel.copyWith(color: textColor), // Ajouter la couleur du texte
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    horizontalInterval: (maxAbsY / 3).toDouble(),
-                    verticalInterval: _getTimeInterval().toDouble(),
-                    getDrawingHorizontalLine: (value) => FlLine(
-                      color: gridColor, // Utiliser la couleur de grille en fonction du mode
-                      strokeWidth: 1,
-                    ),
-                    getDrawingVerticalLine: (value) => FlLine(
-                      color: gridColor, // Utiliser la couleur de grille en fonction du mode
-                      strokeWidth: 1,
+                        int totalSeconds = realTime.toInt();
+                        if (totalSeconds < 60) {
+                          return Text(
+                            '${totalSeconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        } else {
+                          int minutes = totalSeconds ~/ 60;
+                          int seconds = totalSeconds % 60;
+                          return Text(
+                            '${minutes}min\n${seconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        }
+                      },
                     ),
                   ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border.all(
-                      color: borderColor, // Utiliser la couleur de bordure en fonction du mode
-                      width: 1,
-                    ),
+
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  // Intervalle constant basé sur l'échelle courante (ex: tous les 5 indices visibles)
+                  horizontalInterval: (maxY / 3).toDouble(),
+                  verticalInterval: (_visibleMaxX - _visibleMinX) / 8, // toujours 8 grilles verticales
+
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
                   ),
-                  lineTouchData: LineTouchData(
-                    enabled: false,
+                  getDrawingVerticalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
                   ),
                 ),
+
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(
+                    color: borderColor,
+                    width: 1,
+                  ),
+                ),
+                lineTouchData: LineTouchData(enabled: false),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  void _resetChartZoom() {
+    setState(() {
+      _visibleMinX = _getminVisibleDuration();
+      _visibleMaxX = _getmaxVisibleDuration();
+    });
+  }
+
+  /// Downsampling simple
+  List<FlSpot> _optimizeData(List<FlSpot> data) {
+    if (data.length < 2000) return data;
+    final step = (data.length / 1000).ceil();
+    return [
+      for (int i = 0; i < data.length; i += step) data[i]
+    ];
+  }
+
+
+
   // =============================================
   // FONCTIONS UTILITAIRES
   // =============================================

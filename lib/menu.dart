@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'sensor_page.dart';
 import 'info.dart';
+import 'navigation.dart';
 import 'prediction.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
+import 'models/navigation_info.dart';
 
 
 class MenuPage extends StatefulWidget {
@@ -19,6 +21,7 @@ class _MenuPageState extends State<MenuPage> {
   int _selectedIndex = 1;
   late VesselProfile _currentVesselProfile;
   late LoadingCondition _currentLoadingCondition;
+  late NavigationInfo _navigationInfo;
   late List<Widget> _pages;
   bool _isBottomBarVisible = true; // Nouvel état pour contrôler la visibilité
 
@@ -43,7 +46,12 @@ class _MenuPageState extends State<MenuPage> {
     );
 
     _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
-
+    _navigationInfo = NavigationInfo(
+      wavePeriod: 10,
+      direction: 30,
+      speed: 22,
+      course: 325,
+    );
 
     _initializePages();
   }

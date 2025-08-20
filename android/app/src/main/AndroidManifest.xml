@@ -10,7 +10,7 @@
 
 
     <application
-        android:label="marin"
+        android:label="RollPeriodApp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
