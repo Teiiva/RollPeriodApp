@@ -28,7 +28,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
   List<VesselProfile> _savedProfiles = [];
   late LoadingCondition _currentLoadingCondition;
 
-  // Contrôleurs pour l'édition
   final _profileFormKey = GlobalKey<FormState>();
   final _conditionFormKey = GlobalKey<FormState>();
   final _profileNameController = TextEditingController();
@@ -88,21 +87,20 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
     setState(() {
       titleStyle = TextStyle(
-        fontSize: 14.0 * ratio, // Réduit de 16 à 14
+        fontSize: 14.0 * ratio,
         fontWeight: FontWeight.bold,
         color: isDarkMode ? Colors.grey[300] : Colors.black,
       );
       subtitleStyle = TextStyle(
-        fontSize: 12.0 * ratio, // Réduit de 14 à 12
+        fontSize: 12.0 * ratio,
         fontWeight: FontWeight.normal,
         color: isDarkMode ? Colors.grey[300] : Colors.black,
       );
-      cardRadius = 8 * ratio; // Réduit de 12 à 8
-      iconSize = 32.0 * ratio; // Réduit de 40 à 32
-      cardPadding = EdgeInsets.all(8 * ratio); // Réduit de 16 à 8
+      cardRadius = 8 * ratio;
+      iconSize = 32.0 * ratio;
+      cardPadding = EdgeInsets.all(8 * ratio);
     });
   }
-
   Future<void> _loadSavedData() async {
     _savedProfiles = await StorageManager.loadList(
       key: 'savedProfiles',
@@ -159,7 +157,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final isEditing = profileToEdit != null;
 
     if (isEditing) {
-      // Ajout de ! pour indiquer qu'on est sûr que profileToEdit n'est pas null ici
       _profileNameController.text = profileToEdit!.name;
       _vesselLengthController.text = profileToEdit.length.toStringAsFixed(2);
       _vesselBeamController.text = profileToEdit.beam.toStringAsFixed(2);
@@ -328,7 +325,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
       setState(() {
         _currentVesselProfile.loadingConditions.removeWhere((c) => c.name == condition.name);
 
-        // Si c'était la dernière condition, créer une nouvelle condition par défaut
         if (_currentVesselProfile.loadingConditions.isEmpty) {
           final defaultCondition = LoadingCondition(
               name: "Default",
@@ -339,7 +335,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
           _currentVesselProfile.loadingConditions.add(defaultCondition);
           _currentLoadingCondition = defaultCondition;
         }
-        // Sinon, sélectionner la première condition disponible
         else if (_currentLoadingCondition.name == condition.name) {
           _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
         }
@@ -371,7 +366,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
       setState(() {
         _savedProfiles.removeWhere((p) => p.name == profile.name);
 
-        // If we're deleting the current profile, switch to another one if available
         if (_currentVesselProfile.name == profile.name) {
           _currentVesselProfile = _savedProfiles.isNotEmpty
               ? _savedProfiles.first
@@ -907,10 +901,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                           ? Colors.white
                           : isDarkMode ? Colors.grey[300] : Colors.black,
                     ),
-                    side: BorderSide.none, // 🔥 supprime la bordure
+                    side: BorderSide.none,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide.none, // 🔥 aucun contour visible
+                      side: BorderSide.none,
                     ),
                     onPressed: () {
                       setState(() {
@@ -1030,7 +1024,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4), // Réduit de 8 à 4
+      padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -1038,7 +1032,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             child: Text(
               label,
               style: subtitleStyle.copyWith(
-                fontSize: 12, // Texte plus petit
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1048,7 +1042,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             child: Text(
               value,
               style: subtitleStyle.copyWith(
-                fontSize: 12, // Texte plus petit
+                fontSize: 12,
               ),
               textAlign: TextAlign.end,
             ),

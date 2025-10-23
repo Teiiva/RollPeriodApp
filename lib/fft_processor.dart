@@ -4,14 +4,10 @@ import 'package:flutter/cupertino.dart';
 
 class FFTProcessor {
   static FFT _getFFT(int n) => FFT(n);
-
-  // Suppression de la moyenne (detrend simple)
   static List<double> _polyDetrend(List<double> x, List<double> y) {
     final mean = y.reduce((a, b) => a + b) / y.length;
     return y.map((v) => v - mean).toList();
   }
-
-  // Calcul simple du spectre de puissance (sans fenêtre de Hann)
   static List<double> computePowerSpectrum(List<double> samples, {bool applyWindow = false}) {
     final fft = _getFFT(samples.length);
     final spectrum = fft.realFft(samples);
@@ -21,8 +17,6 @@ class FFTProcessor {
     });
     return powerSpectrum;
   }
-
-  // Interpolation quadratique simple autour du pic
   static double _splineInterpolation(List<double> spectrum, int peakIdx) {
     if (peakIdx <= 0 || peakIdx >= spectrum.length - 1) return 0.0;
 
@@ -36,8 +30,6 @@ class FFTProcessor {
     if (denominator == 0) return 0.0;
     return numerator / denominator;
   }
-
-  // Recherche de la fréquence dominante dans le spectre
   static double? findDominantFrequency(
       List<double> powerSpectrum,
       double sampleRate,
@@ -68,7 +60,6 @@ class FFTProcessor {
     return refinedFreq;
   }
 
-  // Fonction principale pour trouver la période de roulis
   static double? findRollingPeriod(List<double> rollAngles, double sampleRate) {
     debugPrint("len : ${rollAngles.length}, sample rate : ${sampleRate}");
     if (rollAngles.length < 512 || sampleRate <= 0) return null;

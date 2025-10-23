@@ -23,13 +23,12 @@ class _MenuPageState extends State<MenuPage> {
   late LoadingCondition _currentLoadingCondition;
   late NavigationInfo _navigationInfo;
   late List<Widget> _pages;
-  bool _isBottomBarVisible = true; // Nouvel état pour contrôler la visibilité
+  bool _isBottomBarVisible = true;
 
   @override
   void initState() {
     super.initState();
 
-    // Initialisation avec un profil par défaut et une condition de chargement par défaut
     _currentVesselProfile = VesselProfile(
       name: "LPG Carrier",
       length: 107.0,
@@ -153,11 +152,11 @@ class _MenuPageState extends State<MenuPage> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        iconSize: 26.0 * ratio, // Taille fixe pour les icônes
-        selectedFontSize: 14.0 * ratio, // Taille de police pour l'élément sélectionné
-        unselectedFontSize: 12.0 * ratio, // Taille de police pour les éléments non sélectionnés
-        selectedLabelStyle: TextStyle(height: 0), // Réduire l'espace sous le texte
-        unselectedLabelStyle: TextStyle(height: 0), // Réduire l'espace sous le texte
+        iconSize: 26.0 * ratio,
+        selectedFontSize: 14.0 * ratio,
+        unselectedFontSize: 12.0 * ratio,
+        selectedLabelStyle: TextStyle(height: 0),
+        unselectedLabelStyle: TextStyle(height: 0),
         items: [
           BottomNavigationBarItem(
             icon: Padding(

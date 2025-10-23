@@ -5,16 +5,16 @@ plugins {
 }
 
 android {
-    namespace = "com.example.marin"
+    namespace = "com.marin.rollperiod"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "com.example.marin"
+        applicationId = "com.marin.rollperiod"
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = 6
+        versionName = "1.0.4"
 
         // ✅ Nécessaire pour MANAGE_EXTERNAL_STORAGE
         if (flutter.targetSdkVersion >= 30) {

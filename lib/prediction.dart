@@ -27,18 +27,17 @@ class PredictionPage extends StatefulWidget {
 }
 
 class _PredictionPageState extends State<PredictionPage> {
-  double rollCoefficient = 0.4; // Valeur par défaut du coefficient k
+  double rollCoefficient = 0.4;
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  // Variables pour le filtre
   int? _selectedDay;
   int? _selectedMonth;
   int? _selectedYear;
   String _selectedVessel = 'All';
   bool _sortAscending = true;
-  DateTime? _selectedStartDate;  // Déplacé ici
-  DateTime? _selectedEndDate;    // Déplacé ici
+  DateTime? _selectedStartDate;
+  DateTime? _selectedEndDate;
 
   late TextStyle titleStyle;
   late TextStyle subtitleStyle;
@@ -54,7 +53,6 @@ class _PredictionPageState extends State<PredictionPage> {
   @override
   void initState() {
     super.initState();
-    // Initialiser avec une plage par défaut (par exemple, dernier mois)
     _selectedEndDate = DateTime.now();
     _selectedStartDate = DateTime.now().subtract(const Duration(days: 30));
   }
@@ -116,7 +114,7 @@ class _PredictionPageState extends State<PredictionPage> {
         }
       };
       await prefs.setString('vesselData', jsonEncode(vesselData));
-      const channel = MethodChannel('com.example.marin/vessel_widget');
+      const channel = MethodChannel('com.rollperiod.rollperiod/vessel_widget');
       await channel.invokeMethod('updateVesselWidget');
     } catch (e) {
       debugPrint('Error updating vessel widget: $e');
@@ -221,7 +219,7 @@ class _PredictionPageState extends State<PredictionPage> {
           minY: 0,
           maxY: spots.isNotEmpty ? spots.map((e) => e.y).reduce(max) * 1.2 : 20,
           lineTouchData: _buildTouchData(),
-          clipData: FlClipData.all(), // Ajoutez cette ligne pour couper les dépassements
+          clipData: FlClipData.all(),
         ),
       ),
     );
@@ -293,9 +291,9 @@ class _PredictionPageState extends State<PredictionPage> {
   AxisTitles _buildLeftTitles() {
     return AxisTitles(
       axisNameWidget: RotatedBox(
-        quarterTurns: 0, // ou 1 selon le sens que tu veux
+        quarterTurns: 0,
         child: Padding(
-          padding: const EdgeInsets.only(left:25), // <-- espace entre le titre et les ticks
+          padding: const EdgeInsets.only(left:25),
           child: Center(
             child: Text(
               'Roll Natural Period (s)',
@@ -304,10 +302,10 @@ class _PredictionPageState extends State<PredictionPage> {
           ),
         ),
       ),
-      axisNameSize: 28, // Ajuste pour bien centrer verticalement
+      axisNameSize: 28,
       sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 26, // Assure de la place pour les ticks
+        reservedSize: 26,
         interval: 5,
         getTitlesWidget: (value, meta) {
           return Padding(
@@ -377,7 +375,6 @@ class _PredictionPageState extends State<PredictionPage> {
           },
         ),
       ),
-      // Ajout des points de comparaison
       LineChartBarData(
         spots: comparisonSpots,
         isCurved: false,
@@ -413,14 +410,6 @@ class _PredictionPageState extends State<PredictionPage> {
       ),
     );
   }
-
-
-
-
-
-
-
-  // Dans prediction.dart, remplacer la méthode gmRollPeriodPairsTile par ceci :
 
   Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -465,7 +454,6 @@ class _PredictionPageState extends State<PredictionPage> {
               ),
               child: Column(
                 children: [
-                  // Filtre Vessel uniquement
                   DropdownButtonFormField<String>(
                     value: _selectedVessel,
                     decoration: InputDecoration(
@@ -489,7 +477,6 @@ class _PredictionPageState extends State<PredictionPage> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Sélecteur de période
                   Row(
                     children: [
                       Expanded(
@@ -605,7 +592,6 @@ class _PredictionPageState extends State<PredictionPage> {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
-            // Liste des mesures filtrées
             Scrollbar(
               child: ListView.builder(
                 shrinkWrap: true,
@@ -839,8 +825,6 @@ class _PredictionPageState extends State<PredictionPage> {
     }).whereType<SavedMeasurement>().toList();
   }
 
-  // Remplacer tout le contenu du build() actuel (à partir de return Scaffold) par ceci :
-
   @override
   Widget build(BuildContext context) {
     final sharedData = Provider.of<SharedData>(context);
@@ -906,8 +890,6 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
               ),
               const SizedBox(height: 8),
-
-              // Section des résultats
               Card(
                 elevation: 1,
                 color: isDarkMode ? Colors.grey[850] : Colors.white,
@@ -974,9 +956,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
               ),
               const SizedBox(height: 8),
-
-            // Section des mesures sauvegardées (deuxième ExpansionTile)
-            Card(
+              Card(
               elevation: 1,
               color: isDarkMode ? Colors.grey[850] : Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

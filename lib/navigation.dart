@@ -28,16 +28,15 @@ class _NavigationPageState extends State<NavigationPage> {
         children: [
           Expanded(
             child: RiskPolarPlot(
-              vesselLengthM: widget.vesselProfile.length, // adapte selon ton modèle
+              vesselLengthM: widget.vesselProfile.length,
               rollNaturalPeriodS: 24,
-              periodUncertaintyS: 3, // ou depuis un paramètre
+              periodUncertaintyS: 3,
               vesselSpeedKnots: widget.navigationInfo.speed,
               courseDeg: widget.navigationInfo.course,
-              waveDirectionDeg: widget.navigationInfo.direction, // valeur fixe ou dynamique
-              meanWavePeriodS: widget.navigationInfo.wavePeriod, // idem
+              waveDirectionDeg: widget.navigationInfo.direction,
+              meanWavePeriodS: widget.navigationInfo.wavePeriod,
             ),
           ),
-          // ... autres widgets éventuels
         ],
       ),
 
