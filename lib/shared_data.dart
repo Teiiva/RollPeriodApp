@@ -10,7 +10,7 @@ class SharedData extends ChangeNotifier {
   List<SavedMeasurement> get savedMeasurements => _savedMeasurements;
 
   SharedData() {
-    loadMeasurements(); // Charge les mesures au démarrage
+    loadMeasurements();
   }
 
   Future<void> loadMeasurements() async {
@@ -32,7 +32,7 @@ class SharedData extends ChangeNotifier {
     final measurementsJson = prefs.getStringList('savedMeasurements') ?? [];
     measurementsJson.insert(0, jsonEncode(measurement.toMap()));
     await prefs.setStringList('savedMeasurements', measurementsJson);
-    await loadMeasurements(); // Recharge les données et notifie les écouteurs
+    await loadMeasurements();
   }
 
   Future<void> deleteMeasurement(SavedMeasurement measurement) async {
@@ -47,6 +47,6 @@ class SharedData extends ChangeNotifier {
       }
     });
     await prefs.setStringList('savedMeasurements', measurementsJson);
-    await loadMeasurements(); // Recharge les données et notifie les écouteurs
+    await loadMeasurements();
   }
 }

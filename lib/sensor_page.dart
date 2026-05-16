@@ -6,7 +6,6 @@ import 'fft_processor.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:math';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
@@ -17,67 +16,48 @@ import 'package:provider/provider.dart';
 import 'shared_data.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart'; 
+import 'package:share_plus/share_plus.dart'; 
 
-
-/// Page principale pour l'affichage et l'analyse des données des capteurs
 class SensorPage extends StatefulWidget {
   final VesselProfile vesselProfile;
   final LoadingCondition loadingCondition;
   final Function(VesselProfile, LoadingCondition) onValuesChanged;
 
   const SensorPage({
-    Key? key,
+    super.key,
     required this.vesselProfile,
     required this.loadingCondition,
     required this.onValuesChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<SensorPage> createState() => _SensorPageState();
 }
 
 class _SensorPageState extends State<SensorPage> {
-  // =============================================
-  // CONSTANTES ET VARIABLES D'ÉTAT
-  // =============================================
-
-  // Données des capteurs
   AccelerometerEvent? _accelerometer;
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
-
-  // États de l'application
   bool _isCollectingData = false;
-  int _collectedSamples = 0; // Ajoutez cette ligne dans la section des variables d'état
+  int _collectedSamples = 0;
   bool _showRollData = true;
   bool _showPitchData = true;
-
-  // Angles calculés
   double? _rollAngle;
   double? _pitchAngle;
-
-  // Données pour les graphiques
   List<FlSpot> _rollData = [];
   List<FlSpot> _pitchData = [];
-
-
-  // Calcul des périodes (méthode FFT)
   double? _fftRollPeriod;
   double? _fftPitchPeriod;
   final List<double> _fftRollSamples = [];
   final List<double> _fftPitchSamples = [];
   double? _dynamicSampleRate = 5;
-
-  // Timers et contrôleurs
   final Stopwatch _stopwatch = Stopwatch();
-  Timer? _fftTimer;
   Timer? _updateTimer;
   final Queue<DateTime> _timestampQueue = Queue<DateTime>();
-
   int _powerIndex = 3;
-  final List<int> _powersOfTwo  = [512, 1024, 2048, 4096, 8192, 16384]; // Supprimer les autres options
+  final List<int> _powersOfTwo  = [512, 1024, 2048, 4096, 8192, 16384];
   int get _fftWindowSize => _powersOfTwo[_powerIndex];
   bool _hasReachedSampleCount = false;
-
   late TutorialCoachMark tutorialCoachMark;
   bool _showTutorial = false;
   final GlobalKey _chartKey = GlobalKey();
@@ -89,33 +69,24 @@ class _SensorPageState extends State<SensorPage> {
   final GlobalKey _sampleButtonKey = GlobalKey();
   final GlobalKey _rollFftButtonKey = GlobalKey();
   final GlobalKey _pitchFftButtonKey = GlobalKey();
-
-
-
   final ScrollController _scrollController = ScrollController();
-
-  List<TargetFocus> _targets = [];
-
-
   String? _importedFileName;
   String? _getImportedFileName() {
     return _importedFileName;
   }
-
-
   late TextStyle titleStyle;
   late TextStyle subtitleStyle;
-  late TextStyle MaxsubtitleStyle;
-  late TextStyle AngleStyle;
-  late TextStyle StartStyle;
-  late TextStyle clear_importStyle;
+  late TextStyle maxSubtitleStyle;
+  late TextStyle angleStyle;
+  late TextStyle startStyle;
+  late TextStyle clearImportStyle;
   late TextStyle chartlabel;
   late double iconsize;
   late double iconsleftgap;
-  late double Horizontalpaddingintern;
-  late double Verticalpaddingintern;
-  late double BarVerticalpaddingintern;
-  late double BarHeight;
+  late double horizontalPaddingIntern;
+  late double verticalPaddingIntern;
+  late double barVerticalPaddingIntern;
+  late double barHeight;
   late double margin;
   late double chartsize;
   late double sidechartpadding;
@@ -123,116 +94,79 @@ class _SensorPageState extends State<SensorPage> {
   late double axereservedsize;
   late double edgepadding;
   late double radius;
-  late double screenHeight;
-
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
-
   double _visibleMinX = 0;
-  double _visibleMaxX = 60; // par défaut : 60s visibles
-  bool _isInteracting = false;
-  double _previousScale = 1.0;
-  Offset _lastFocalPoint = Offset.zero;
-  double _lastScale = 1.0;
-
-
-
-  // =============================================
-  // LIFECYCLE METHODS
-  // =============================================
+  double _visibleMaxX = 60;
+  bool _useBaseChart = true;
+  bool _hasDataToShare = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkFirstLaunch());
   }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _updateStyles(); // ici, context est disponible
+    _updateStyles();
   }
-
-  // Méthode pour mettre à jour les styles si nécessaire
   void _updateStyles() {
-    print('Page Measure');
-    final basscreenWidth = 411.42857142857144;
+    const basscreenWidth = 411.42857142857144;
     final screenWidth = MediaQuery.of(context).size.width;
-    print('screenWidth: ${screenWidth}');
     final screenHeight = MediaQuery.of(context).size.height;
-    print('screenHeight: ${screenHeight}');
     final ratio = screenWidth/basscreenWidth;
-    print('ratio: ${ratio}');
+    
     setState(() {
       titleStyle = TextStyle(
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
         color: Colors.white,
       );
-      print('Title font size: ${titleStyle.fontSize}');
-      MaxsubtitleStyle = TextStyle(
+      maxSubtitleStyle = TextStyle(
         fontSize: 14.0 * ratio,
         fontWeight: FontWeight.normal,
         color: Colors.white70,
       );
-      print('MaxsubtitleStyle font size: ${MaxsubtitleStyle.fontSize}');
       subtitleStyle = TextStyle(
         fontSize: 14.0 * ratio,
         fontWeight: FontWeight.normal,
         color: Colors.white,
       );
-      print('subtitleStyle font size: ${subtitleStyle.fontSize}');
-      AngleStyle = TextStyle(
+      angleStyle = TextStyle(
         fontSize: 24.0 * ratio,
         fontWeight: FontWeight.bold,
         color: Colors.white,
       );
-      print('AngleStyle font size: ${AngleStyle.fontSize}');
-      StartStyle = TextStyle(
+      startStyle = TextStyle(
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
         color: Colors.white,
       );
-      print('StartStyle font size: ${StartStyle.fontSize}');
-      clear_importStyle = TextStyle(
+      clearImportStyle = TextStyle(
         fontSize: 16.0 * ratio,
         fontWeight: FontWeight.bold,
         color: Theme.of(context).brightness == Brightness.dark
             ? Colors.white
-            : Color(0xFF012169),
+            : const Color(0xFF012169),
       );
-      print('clear_importStyle font size: ${clear_importStyle.fontSize}');
       iconsize = 40.0 * ratio;
-      print('iconsize : ${iconsize}');
       iconsleftgap = 8.0 * ratio;
-      print('iconsleftgap: ${iconsleftgap}');
-      Horizontalpaddingintern = 12.0 * ratio;
-      print('Horizontalpaddingintern: ${Horizontalpaddingintern}');
-      Verticalpaddingintern = 6 * ratio;
-      print('Verticalpaddingintern: ${Verticalpaddingintern}');
-      BarHeight= 50 * ratio;
-      print('BarHeight: ${BarHeight}');
+      horizontalPaddingIntern = 12.0 * ratio;
+      verticalPaddingIntern = 6 * ratio;
+      barHeight= 50 * ratio;
       margin= 4 * ratio;
-      print('margin: ${margin}');
-      BarVerticalpaddingintern = 12 * ratio;
-      print('BarVerticalpaddingintern: ${BarVerticalpaddingintern}');
+      barVerticalPaddingIntern = 12 * ratio;
       chartsize = 0.4623 * screenHeight -62.58;
-      print('ChartSize: ${chartsize}');
       sidechartpadding = 30 * (ratio*ratio);
-      print('sidechartpadding: ${sidechartpadding}');
       axechartpadding = 10 * ratio;
-      print('axechartpadding: ${axechartpadding}');
       axereservedsize = 25 * ratio;
-      print('axereservedsize: ${axereservedsize}');
       chartlabel = TextStyle(
         fontSize: 10.0 * ratio,
         fontWeight: FontWeight.normal,
         color: Colors.grey,
       );
-      print('chartlabel font size: ${chartlabel.fontSize}');
       edgepadding = 10 * ratio;
-      print('edgepadding: ${edgepadding}');
       radius = 12 * ratio;
-      print('radius: ${radius}');
     });
 
   }
@@ -241,18 +175,21 @@ class _SensorPageState extends State<SensorPage> {
   void dispose() {
     _updateTimer?.cancel();
     _accelerometerSubscription?.cancel();
-    _fftTimer?.cancel();
-    super.dispose();
     _scrollController.dispose();
+    super.dispose();
   }
 
-  // =============================================
-  // GESTION DE LA COLLECTE DE DONNÉES
-  // =============================================
-
-  /// Active ou désactive la collecte de données
   void _toggleDataCollection() {
-    setState(() => _isCollectingData = !_isCollectingData);
+    final currentMinX = _visibleMinX;
+    final currentMaxX = _visibleMaxX;
+
+    setState(() {
+      _isCollectingData = !_isCollectingData;
+      _useBaseChart = _isCollectingData;
+
+      _visibleMinX = currentMinX;
+      _visibleMaxX = currentMaxX;
+    });
 
     if (_isCollectingData) {
       _startDataCollection();
@@ -260,43 +197,35 @@ class _SensorPageState extends State<SensorPage> {
       _stopDataCollection();
     }
   }
-
-  /// Lance la collecte de données
   void _startDataCollection() {
     _stopwatch.start();
     _timestampQueue.clear();
     _dynamicSampleRate = 5;
 
-    // Timer pour la mise à jour périodique de l'interface
     _updateTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
       if (_accelerometer != null && mounted) {
         _processAccelerometerData(_accelerometer!);
       }
     });
 
-    // Abonnement aux événements de l'accéléromètre
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       _accelerometer = event;
     });
 
-    // Démarrer le calcul FFT immédiatement si on a assez de données
     if (_fftRollSamples.length >= _fftWindowSize) {
       _computeFFTPeriod();
     }
   }
-
-  /// Arrête la collecte de données
   void _stopDataCollection() {
     _updateTimer?.cancel();
+    _resetChartZoom();
     _accelerometerSubscription?.cancel();
     _stopwatch.stop();
   }
-
-  /// Réinitialise toutes les données
   void _clearData() {
     if (mounted) {
       setState(() {
-        _collectedSamples = 0; // Ajoutez cette ligne
+        _collectedSamples = 0;
         _rollData.clear();
         _pitchData.clear();
         _rollAngle = null;
@@ -305,20 +234,15 @@ class _SensorPageState extends State<SensorPage> {
         _dynamicSampleRate = 5;
         _showRollData = true;
         _showPitchData = true;
-        // Réinitialiser la vue du graphique à 10 secondes
         _visibleMinX = 0;
-        _visibleMaxX = 10; // Afficher seulement 10 secondes après le clear
+        _visibleMaxX = 10;
+        _useBaseChart = true;
+        _hasDataToShare = false;
       });
     }
   }
-
-  // =============================================
-  // TRAITEMENT DES DONNÉES DES CAPTEURS
-  // =============================================
-
-  /// Traite les données de l'accéléromètre
   void _processAccelerometerData(AccelerometerEvent event) {
-    _collectedSamples++; // Ajoutez cette ligne
+    _collectedSamples++;
 
     final timestamp = _stopwatch.elapsedMilliseconds / 1000.0;
     _rollAngle = calculateRoll(event);
@@ -326,8 +250,6 @@ class _SensorPageState extends State<SensorPage> {
 
     if (_rollAngle == null || _pitchAngle == null) return;
 
-
-    // Arrête la collecte si on a assez de points
     if (_rollData.length >= _powersOfTwo[_powerIndex]) {
       if (_isCollectingData) {
         setState(() {
@@ -342,44 +264,28 @@ class _SensorPageState extends State<SensorPage> {
       }
       return;
     }
-
-    // Ajoute les données aux listes
     _rollData.add(FlSpot(timestamp, _rollAngle!));
     _pitchData.add(FlSpot(timestamp, _pitchAngle!));
-
-
-    // Préparation des données pour la FFT
     _prepareFFTData();
-
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        _hasDataToShare = _rollData.isNotEmpty;
+      });
+    }
   }
-
-
-  /// Prépare les données pour le calcul FFT
   void _prepareFFTData() {
     _fftRollSamples.add(_rollAngle!);
     _fftPitchSamples.add(_pitchAngle!);
-
     if (_fftRollSamples.length > _fftWindowSize) {
       _fftRollSamples.removeAt(0);
     }
-
     if (_fftPitchSamples.length > _fftWindowSize) {
       _fftPitchSamples.removeAt(0);
     }
-
-
-    // Calcul FFT final quand on a assez d'échantillons
     if (_fftRollSamples.length == _fftWindowSize && _fftRollPeriod == null) {
       _computeFFTPeriod();
     }
   }
-
-  // =============================================
-  // CALCULS D'ANGLES ET DE PÉRIODES
-  // =============================================
-
-  /// Calcule l'angle de roulis (roll) à partir des données de l'accéléromètre
   double? calculateRoll(AccelerometerEvent acc) {
     try {
       if (acc.x == 0 && acc.z == 0) return null;
@@ -388,8 +294,6 @@ class _SensorPageState extends State<SensorPage> {
       return null;
     }
   }
-
-  /// Calcule l'angle de tangage (pitch) à partir des données de l'accéléromètre
   double? calculatePitch(AccelerometerEvent acc) {
     try {
       if (acc.y == 0 && acc.z == 0) return null;
@@ -398,21 +302,16 @@ class _SensorPageState extends State<SensorPage> {
       return null;
     }
   }
-
-  /// Calcule les périodes avec la FFT
   void _computeFFTPeriod() async {
-    debugPrint("---------------------------------------------------------- Compute fft period  ---------------------------------------------------");
-    if (_fftRollSamples.length > 0) {
+    if (_fftRollSamples.isNotEmpty) {
       final rollperiod = await compute(_backgroundFFTCalculation, {
         'samples': _fftRollSamples,
         'sampleRate': _dynamicSampleRate,
       });
-
       final pitchperiod = await compute(_backgroundFFTCalculation, {
         'samples': _fftPitchSamples,
         'sampleRate': _dynamicSampleRate,
       });
-
       if (mounted) {
         setState(() {
           _fftRollPeriod = rollperiod;
@@ -421,15 +320,11 @@ class _SensorPageState extends State<SensorPage> {
       }
     }
   }
-
-  /// Fonction de calcul FFT exécutée dans un isolate séparé
   static double? _backgroundFFTCalculation(Map<String, dynamic> params) {
     final samples = List<double>.from(params['samples']);
     final sampleRate = (params['sampleRate'] as num).toDouble();
     return FFTProcessor.findRollingPeriod(samples, sampleRate);
   }
-
-  /// Réinitialise les données FFT
   void _clearFFTData() {
     _fftRollSamples.clear();
     _fftPitchSamples.clear();
@@ -441,21 +336,13 @@ class _SensorPageState extends State<SensorPage> {
       });
     }
   }
-
   String _formatTime(int seconds) {
     final minutes = (seconds / 60).floor();
     final remainingSeconds = seconds % 60;
     return '${minutes}min ${remainingSeconds}s';
   }
-
-  // =============================================
-  // IMPORT/EXPORT DE DONNÉES
-  // =============================================
-
-
-  // sensor_page.dart
   void _savefunction() async {
-    await _exportRollDataToDownloads();
+    await _exportRollDataAndShare();
     try {
       if (_fftRollPeriod == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -464,7 +351,6 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
-      // Calcul des valeurs max et RMS
       double maxRoll = _rollData.isNotEmpty
           ? _rollData.map((spot) => spot.y.abs()).reduce(max)
           : 0.0;
@@ -497,7 +383,6 @@ class _SensorPageState extends State<SensorPage> {
           widget.loadingCondition.draft,
         );
       }
-
       final measurement = SavedMeasurement(
         timestamp: DateTime.now(),
         vesselProfile: widget.vesselProfile,
@@ -517,7 +402,7 @@ class _SensorPageState extends State<SensorPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Measurement saved successfully')),
+          const SnackBar(content: Text('Measurement saved internally')),
         );
       }
     } catch (e) {
@@ -528,8 +413,6 @@ class _SensorPageState extends State<SensorPage> {
       }
     }
   }
-
-// Ajoutez cette fonction utilitaire dans sensor_page.dart
   double calculateRollPeriod(double gm, String method, double beam, double depth, double vcg, double draft) {
     if (gm <= 0) return 0;
 
@@ -542,32 +425,13 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-  /// Exporte les données vers le dossier de téléchargements
-  Future<void> _exportRollDataToDownloads() async {
-    if (Platform.isAndroid) {
-      var status = await Permission.manageExternalStorage.status;
-      if (!status.isGranted) {
-        status = await Permission.manageExternalStorage.request();
-        if (!status.isGranted) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Storage permission denied')),
-            );
-          }
-          return;
-        }
-      }
-    }
-
+  Future<void> _exportRollDataAndShare() async {
     try {
       final buffer = StringBuffer();
-
-      // Calcul du spectre de puissance si nécessaire
       List<double> powerSpectrum = [];
       if (_fftRollSamples.isNotEmpty) {
         powerSpectrum = FFTProcessor.computePowerSpectrum(_fftRollSamples);
       }
-      // Données fixes
       final now = DateTime.now();
       final sampleRate = _dynamicSampleRate;
       final rollCount = _rollData.length;
@@ -580,7 +444,6 @@ class _SensorPageState extends State<SensorPage> {
           ? (rollCount / sampleRate).toStringAsFixed(2)
           : 'N/A';
 
-      // Fréquences pour le spectre
       List<double> frequencies = [];
       if (powerSpectrum.isNotEmpty && sampleRate != null) {
         frequencies = List<double>.generate(
@@ -589,7 +452,6 @@ class _SensorPageState extends State<SensorPage> {
         );
       }
 
-      // Liste des métadonnées (clé: valeur)
       final metadata = [
         'Export Time: ${now.toIso8601String()}',
         'Sample Rate (Hz): $sampleRate',
@@ -605,11 +467,7 @@ class _SensorPageState extends State<SensorPage> {
         'GM (m): ${loading.gm}',
         'VCG (m): ${loading.vcg}',
       ];
-
-      // En-tête avec les nouvelles colonnes pour le spectre
       buffer.writeln('time (s),roll (deg),pitch (deg),frequency (Hz),power_spectrum,metadata');
-
-      // Calcul du max entre toutes les données
       final int maxLines = [
         _rollData.length,
         powerSpectrum.length,
@@ -618,8 +476,6 @@ class _SensorPageState extends State<SensorPage> {
 
       for (int i = 0; i < maxLines; i++) {
         String line = '';
-
-        // Données temporelles (time, roll, pitch)
         if (i < _rollData.length) {
           final rollSpot = _rollData[i];
           final pitchSpot = i < _pitchData.length ? _pitchData[i] : FlSpot(rollSpot.x, 0);
@@ -627,33 +483,27 @@ class _SensorPageState extends State<SensorPage> {
               '${rollSpot.y.toStringAsFixed(3)},'
               '${pitchSpot.y.toStringAsFixed(3)},';
         } else {
-          line += ',,,'; // Pas de données temporelles pour cette ligne
+          line += ',,,';
         }
-
-        // Données du spectre (fréquence, puissance)
         if (i < powerSpectrum.length) {
           line += '${frequencies[i].toStringAsFixed(4)},'
               '${powerSpectrum[i].toStringAsFixed(6)},';
         } else {
-          line += ',,'; // Pas de données spectrales pour cette ligne
+          line += ',,';
         }
-
-        // Ajout de la métadonnée dans la colonne 6 si elle existe
         if (i < metadata.length) {
-          line += '${metadata[i]}';
+          line += metadata[i];
         }
 
         buffer.writeln(line);
       }
 
-      final directory = Directory('/storage/emulated/0/Download');
+      final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/sensor_data_${now.millisecondsSinceEpoch}.csv');
       await file.writeAsString(buffer.toString());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Data exported: ${file.path}')),
-        );
+        await Share.shareXFiles([XFile(file.path)], text: 'Exported Sensor Data', subject: 'Sensor Data Export');
       }
     } catch (e) {
       if (mounted) {
@@ -664,24 +514,8 @@ class _SensorPageState extends State<SensorPage> {
     }
   }
 
-  /// Importe des données depuis un fichier CSV
   void _handleImport() async {
     try {
-      if (Platform.isAndroid) {
-        var status = await Permission.manageExternalStorage.status;
-        if (!status.isGranted) {
-          status = await Permission.manageExternalStorage.request();
-          if (!status.isGranted) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Storage permission denied')),
-              );
-            }
-            return;
-          }
-        }
-      }
-
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
@@ -691,22 +525,18 @@ class _SensorPageState extends State<SensorPage> {
       if (result == null || result.files.single.path == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Aucun fichier CSV sélectionné')),
+            const SnackBar(content: Text('No CSV file selected')),
           );
         }
         return;
       }
-      setState(() {
-        _importedFileName = result.files.single.name;
-      });
-
-      final file = File(result.files.single.path!);
-      final contents = await file.readAsString();
-
-      final lines = contents.split('\n');
       final List<FlSpot> importedRollData = [];
       final List<FlSpot> importedPitchData = [];
       double? firstTimestamp;
+
+      final file = File(result.files.single.path!);
+      final contents = await file.readAsString();
+      final lines = contents.split('\n');
 
       for (final line in lines.skip(1)) {
         if (line.trim().isEmpty) continue;
@@ -720,7 +550,7 @@ class _SensorPageState extends State<SensorPage> {
             importedRollData.add(FlSpot(timestamp - (firstTimestamp ?? 0), roll));
             importedPitchData.add(FlSpot(timestamp - (firstTimestamp ?? 0), pitch));
           } catch (e) {
-            debugPrint('Erreur parsing ligne : $line, erreur : $e');
+            debugPrint('Error parsing line : $line, error : $e');
           }
         }
       }
@@ -728,18 +558,20 @@ class _SensorPageState extends State<SensorPage> {
       if (importedRollData.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Aucun roll valide trouvée dans le CSV')),
+            const SnackBar(content: Text('No valid roll data found in CSV')),
           );
         }
         return;
       }
-
+      setState(() {
+        _importedFileName = result.files.single.name;
+        _hasDataToShare = importedRollData.isNotEmpty;
+      });
       if (importedRollData.length > 1) {
         double totalTime = importedRollData.last.x - importedRollData.first.x;
         _dynamicSampleRate = (importedRollData.length - 1) / totalTime;
         debugPrint('Calculated sample rate from CSV: ${_dynamicSampleRate!.toStringAsFixed(2)} Hz');
       }
-
       if (mounted) {
         setState(() {
           _rollData = importedRollData;
@@ -750,30 +582,27 @@ class _SensorPageState extends State<SensorPage> {
           _stopDataCollection();
           _calculatePeriodFromImportedData();
           _resetChartZoom();
+          _useBaseChart = false;
+          _hasDataToShare = true;
         });
       }
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import réussi : ${importedRollData.length} points depuis ${file.path.split('/').last}')),
+          SnackBar(content: Text('Import success: ${importedRollData.length} points from ${file.path.split('/').last}')),
         );
       }
     } catch (e) {
-      debugPrint('Import échoué : $e');
+      debugPrint('Import failed : $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import échoué : $e')),
+          SnackBar(content: Text('Import failed : $e')),
         );
       }
     }
   }
 
-  /// Calcule les périodes à partir des données importées
   void _calculatePeriodFromImportedData() {
-    debugPrint("---------------------------------------------------------- IMPORT transfer au calcul ---------------------------------------------------");
     _stopwatch.reset();
-
-    // Préparation des données pour la FFT
     _fftRollSamples.clear();
     _fftPitchSamples.clear();
     _fftRollPeriod = null;
@@ -786,30 +615,28 @@ class _SensorPageState extends State<SensorPage> {
       _fftPitchSamples.add(spot.y);
     }
 
-    if (_fftRollSamples.length > 0 && _fftPitchSamples.length > 0) {
+    if (_fftRollSamples.isNotEmpty && _fftPitchSamples.isNotEmpty) {
       _computeFFTPeriod();
     }
   }
-
   Future<void> _checkFirstLaunch() async {
     final prefs = await SharedPreferences.getInstance();
     bool firstLaunch = prefs.getBool('first_launch') ?? true;
 
     if (firstLaunch) {
       await prefs.setBool('first_launch', false);
-      _showTutorial = true;
+      setState(() {
+        _showTutorial = true;
+      });
       _createTutorial();
       if (mounted) {
         tutorialCoachMark.show(context: context);
       }
     }
   }
-
-
   void _createTutorial() {
     tutorialCoachMark = TutorialCoachMark(
       onClickTarget: (target) {
-        debugPrint('onClickTarget: $target');
         _handleTargetScroll(target.identify);
       },
       targets: _createTargets(),
@@ -852,14 +679,11 @@ class _SensorPageState extends State<SensorPage> {
           curve: Curves.easeInOut,
         );
         break;
-    // Ajoutez d'autres cas au besoin
     }
   }
 
   List<TargetFocus> _createTargets() {
     List<TargetFocus> targets = [];
-
-    // Étape 1: Bouton Start
     targets.add(
       TargetFocus(
         identify: "start_button",
@@ -868,10 +692,8 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.top,
             builder: (context, controller) {
-              // Récupération du target courant via identify
               final target = targets.firstWhere((t) => t.identify == "start_button");
               final currentTargetIndex = targets.indexOf(target);
-
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -887,7 +709,6 @@ class _SensorPageState extends State<SensorPage> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      // Vérification qu'on ne dépasse pas la liste
                       if (currentTargetIndex < targets.length) {
                         _handleTargetScroll(targets[currentTargetIndex].identify);
                       }
@@ -904,10 +725,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-    //
-
-    //Etape 2 : courbes
     targets.add(
       TargetFocus(
         identify: "chart",
@@ -950,11 +767,9 @@ class _SensorPageState extends State<SensorPage> {
         ],
         shape: ShapeLightFocus.RRect,
         radius: radius,
-        enableOverlayTab: true, // Permet de cliquer sur l'overlay
+        enableOverlayTab: true,
       ),
     );
-
-    // Étape 3: Bouton clear
     targets.add(
       TargetFocus(
         identify: "clear_button",
@@ -963,7 +778,6 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.top,
             builder: (context, controller) {
-              // Récupération du target courant via identify
               final target = targets.firstWhere((t) => t.identify == "clear_button");
               final currentTargetIndex = targets.indexOf(target);
 
@@ -977,7 +791,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -985,7 +799,6 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          // Vérification qu'on ne dépasse pas la liste
                           if (currentTargetIndex < targets.length) {
                             _handleTargetScroll(targets[currentTargetIndex].identify);
                           }
@@ -1010,9 +823,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-
-    // Étape 5: Bouton import
     targets.add(
       TargetFocus(
         identify: "import_button",
@@ -1033,7 +843,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1047,7 +857,6 @@ class _SensorPageState extends State<SensorPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          // Vérification qu'on ne dépasse pas la liste
                           if (currentTargetIndex < targets.length) {
                             _handleTargetScroll(targets[currentTargetIndex].identify);
                           }
@@ -1066,9 +875,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-
-    // Étape 6 : Roll angle
     targets.add(
       TargetFocus(
         identify: "roll_angle",
@@ -1087,7 +893,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1095,13 +901,13 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
+                          controller.previous();
                         },
                         child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.next(); // Passe à l'étape suivante (pitch)
+                          controller.next();
                         },
                         child: const Text("Next"),
                       ),
@@ -1116,8 +922,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-    // Étape 7: Pitch Angle
     targets.add(
       TargetFocus(
         identify: "pitch_tile",
@@ -1126,9 +930,6 @@ class _SensorPageState extends State<SensorPage> {
           TargetContent(
             align: ContentAlign.bottom,
             builder: (context, controller) {
-              final target = targets.firstWhere((t) => t.identify == "pitch_tile");
-              final currentTargetIndex = targets.indexOf(target);
-
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1168,10 +969,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-
-
-    // Étape 9 : sample
     targets.add(
       TargetFocus(
         identify: "sample_tile",
@@ -1190,7 +987,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1198,13 +995,13 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
+                          controller.previous();
                         },
                         child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.next(); // Termine le tutoriel
+                          controller.next();
                         },
                         child: const Text("Next"),
                       ),
@@ -1219,9 +1016,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-
-// Étape 11 : Roll Pitch fft
     targets.add(
       TargetFocus(
         identify: "roll_fft",
@@ -1240,7 +1034,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1248,13 +1042,13 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
+                          controller.previous();
                         },
                         child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.next(); // Termine le tutoriel
+                          controller.next();
                         },
                         child: const Text("Next"),
                       ),
@@ -1269,8 +1063,6 @@ class _SensorPageState extends State<SensorPage> {
         radius: radius,
       ),
     );
-
-    // Étape 12 :  Pitch fft
     targets.add(
       TargetFocus(
         identify: "pitch_fft",
@@ -1289,7 +1081,7 @@ class _SensorPageState extends State<SensorPage> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.justify, // Ajout de cette ligne
+                    textAlign: TextAlign.justify,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -1297,13 +1089,13 @@ class _SensorPageState extends State<SensorPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          controller.previous(); // Retour à l'étape précédente
+                          controller.previous();
                         },
                         child: const Text("Previous"),
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          controller.skip(); // Termine le tutoriel
+                          controller.skip();
                         },
                         child: const Text("End"),
                       ),
@@ -1322,11 +1114,6 @@ class _SensorPageState extends State<SensorPage> {
     return targets;
   }
 
-  // =============================================
-  // WIDGETS DE L'INTERFACE UTILISATEUR
-  // =============================================
-
-  /// Affiche les tuiles Roll et Pitch côte à côte
   Widget rollAndPitchTiles() {
     return Row(
       children: [
@@ -1335,8 +1122,6 @@ class _SensorPageState extends State<SensorPage> {
       ],
     );
   }
-
-  /// Tuile d'affichage pour l'angle de roulis (roll)
   Widget rollTile(double? angle, {Key? key}) {
     double maxRoll = _rollData.isNotEmpty
         ? _rollData.map((spot) => spot.y.abs()).reduce(max)
@@ -1349,11 +1134,10 @@ class _SensorPageState extends State<SensorPage> {
         key: key,
         onTap: () => setState(() => _showRollData = !_showRollData),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern*0.5,vertical: Verticalpaddingintern*1.5),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPaddingIntern*0.5,vertical: verticalPaddingIntern*1.5),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Texte à gauche
               Expanded(
                 flex: 3,
                 child: Column(
@@ -1369,17 +1153,13 @@ class _SensorPageState extends State<SensorPage> {
                 ),
               ),
               const SizedBox(width: 2),
-
-              // Barre verticale au centre
               Container(
                 width: 1,
-                height: BarHeight,
+                height: barHeight,
                 color: Colors.white30,
               ),
 
               const SizedBox(width: 12),
-
-              // Valeurs à droite
               Expanded(
                 flex: 5,
                 child: Column(
@@ -1389,11 +1169,11 @@ class _SensorPageState extends State<SensorPage> {
                       _showRollData
                           ? (angle != null ? '${angle.toStringAsFixed(1)}°' : "0.0°")
                           : 'OFF',
-                      style: AngleStyle,
+                      style: angleStyle,
                     ),
                     Text(
                       'Max: ${maxRoll.toStringAsFixed(1)}°',
-                      style: MaxsubtitleStyle,
+                      style: maxSubtitleStyle,
                     ),
                   ],
                 ),
@@ -1417,11 +1197,10 @@ class _SensorPageState extends State<SensorPage> {
         key: key,
         onTap: () => setState(() => _showPitchData = !_showPitchData),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern*0.5,vertical: Verticalpaddingintern*1.5),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPaddingIntern*0.5,vertical: verticalPaddingIntern*1.5),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Texte à gauche
               Expanded(
                 flex: 3,
                 child: Column(
@@ -1437,16 +1216,13 @@ class _SensorPageState extends State<SensorPage> {
                 ),
               ),
               const SizedBox(width: 2),
-              // Barre verticale au centre
               Container(
                 width: 1,
-                height: BarHeight,
+                height: barHeight,
                 color: Colors.white30,
               ),
 
               const SizedBox(width: 12),
-
-              // Valeurs à droite
               Expanded(
                 flex: 5,
                 child: Column(
@@ -1456,31 +1232,23 @@ class _SensorPageState extends State<SensorPage> {
                       _showPitchData
                           ? (angle != null ? '${angle.toStringAsFixed(1)}°' : "0.0°")
                           : 'OFF',
-                      style: AngleStyle,
+                      style: angleStyle,
                     ),
                     Text(
                       'Max: ${maxPitch.toStringAsFixed(1)}°',
-                      style:MaxsubtitleStyle,
+                      style:maxSubtitleStyle,
                     ),
                   ],
                 ),
               ),
-
             ],
           ),
         ),
       ),
     );
   }
-
-
-
-
-  /// Tuile d'affichage du taux d'échantillonnage
-  Widget SampleTile() {
+  Widget sampleTile() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    // Cas d'un import de fichier
     if (_hasReachedSampleCount && _rollData.isNotEmpty && !_isCollectingData) {
       final fileName = _getImportedFileName();
       final sampleCount = _rollData.length;
@@ -1501,10 +1269,10 @@ class _SensorPageState extends State<SensorPage> {
             _showSampleSizeDialog(context);
           },
           child: ListTile(
-            minLeadingWidth: 0, // ⬅️ Par exemple pour supprimer l’espace inutile
+            minLeadingWidth: 0,
             horizontalTitleGap: iconsleftgap,
             key: _sampleButtonKey,
-            contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
+            contentPadding: EdgeInsets.symmetric(horizontal: horizontalPaddingIntern,vertical: verticalPaddingIntern),
             leading: Icon(Icons.file_upload, color: isDarkMode ? Colors.grey[300] : Colors.white, size: iconsize),
             title: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1525,20 +1293,16 @@ class _SensorPageState extends State<SensorPage> {
         ),
       );
     }
-
-    // Cas normal (mesure en direct)
     int totalSamples = _powersOfTwo[_powerIndex];
     int collectedSamples = _collectedSamples;
     String timeText = '';
 
     if (_dynamicSampleRate != null && _dynamicSampleRate! > 0) {
       if (_isCollectingData || (_collectedSamples > 0 && !_isCollectingData)) {
-        // Pendant la collecte ou après pause
         final remainingSamples = totalSamples - collectedSamples;
         final remainingTime = (remainingSamples / _dynamicSampleRate!).ceil();
         timeText = ' ${_formatTime(remainingTime)}';
       } else {
-        // Avant démarrage
         final estimatedTime = (totalSamples / _dynamicSampleRate!).ceil();
         timeText = ' ${_formatTime(estimatedTime)}';
       }
@@ -1556,7 +1320,7 @@ class _SensorPageState extends State<SensorPage> {
         child: ListTile(
           minLeadingWidth: 0,
           horizontalTitleGap: iconsleftgap,
-          contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
+          contentPadding: EdgeInsets.symmetric(horizontal: horizontalPaddingIntern,vertical: verticalPaddingIntern),
           key: _sampleButtonKey,
           leading: Icon(Icons.settings, color: isDarkMode ? Colors.grey[300] : Colors.white, size: iconsize),
           title: Column(
@@ -1565,7 +1329,6 @@ class _SensorPageState extends State<SensorPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Measurement time left : $timeText', style: titleStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Colors.white)),
-
             ],
           ),
         ),
@@ -1597,7 +1360,7 @@ class _SensorPageState extends State<SensorPage> {
                     onChanged: (int? newValue) {
                       if (newValue != null) {
                         setState(() {
-                          selectedValue = newValue; // Met à jour visuellement
+                          selectedValue = newValue;
                         });
                       }
                     },
@@ -1609,7 +1372,7 @@ class _SensorPageState extends State<SensorPage> {
                       return DropdownMenuItem<int>(
                         value: value,
                         child: Text(timeEstimate,
-                            style: const TextStyle(fontSize: 14)), // << taille définie ici),
+                            style: const TextStyle(fontSize: 14)),
 
                       );
                     }).toList(),
@@ -1654,7 +1417,6 @@ class _SensorPageState extends State<SensorPage> {
 
   Widget fftRollPeriodTile({Key? key}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    // Couleurs conditionnelles
     Color rollColor;
     if (_rollData.isEmpty) {
       rollColor = Theme.of(context).brightness == Brightness.dark
@@ -1667,40 +1429,37 @@ class _SensorPageState extends State<SensorPage> {
           : Colors.deepPurple)
           : Colors.grey[850]!;
     }
-
-
-
     return Card(
       margin: EdgeInsets.all(margin),
       color: rollColor,
       child: ListTile(
         key: key,
-        minLeadingWidth: 0, // ⬅️ Par exemple pour supprimer l’espace inutile
+        minLeadingWidth: 0,
         horizontalTitleGap: iconsleftgap,
-        contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
+        contentPadding: EdgeInsets.symmetric(horizontal: horizontalPaddingIntern,vertical: verticalPaddingIntern),
         leading: Image.asset(
           'assets/icons/roll.png',
           width: iconsize,
           height: iconsize,
-            color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white),
+            color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey) : Colors.white),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Roll Period', style: titleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white)),
+            Text('Roll Period', style: titleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey) : Colors.white)),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
                   Text('...',
-                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white)),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey) : Colors.white)),
                 if ((_isCollectingData || _collectedSamples > 0) && _fftRollPeriod == null)
                   Text('Calculating...',
-                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey : Colors.white)),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.deepPurple : Colors.grey) : Colors.white)),
                 if (_fftRollPeriod != null)
                   Text('${_fftRollPeriod!.toStringAsFixed(1)} s',
-                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.deepPurple : const Color(0xFF505050) : Colors.white)),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.deepPurple : const Color(0xFF505050)) : Colors.white)),
               ],
             ),
           ],
@@ -1710,7 +1469,6 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Widget fftPitchPeriodTile({Key? key}) {
-    // Couleurs conditionnelles
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     Color pitchColor;
     if (_rollData.isEmpty) {
@@ -1731,32 +1489,32 @@ class _SensorPageState extends State<SensorPage> {
       color: pitchColor,
       child: ListTile(
         key: key,
-        minLeadingWidth: 0, // ⬅️ Par exemple pour supprimer l’espace inutile
+        minLeadingWidth: 0,
         horizontalTitleGap: iconsleftgap,
-        contentPadding: EdgeInsets.symmetric(horizontal: Horizontalpaddingintern,vertical: Verticalpaddingintern),
+        contentPadding: EdgeInsets.symmetric(horizontal: horizontalPaddingIntern,vertical: verticalPaddingIntern),
         leading: Image.asset(
           'assets/icons/pitch.png',
           width: iconsize,
           height: iconsize,
-            color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white),
+            color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F)) : Colors.white),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Pitch Period', style: titleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
+            Text('Pitch Period', style: titleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F)) : Colors.white)),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!_isCollectingData && _collectedSamples == 0 && _fftRollPeriod == null)
                   Text('...',
-                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F)) : Colors.white)),
                 if ((_isCollectingData || _collectedSamples > 0) && _fftPitchPeriod == null)
                   Text('Calculating...',
-                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F)) : Colors.white)),
                 if (_fftPitchPeriod != null)
                   Text('${_fftPitchPeriod!.toStringAsFixed(1)} s',
-                      style: subtitleStyle.copyWith(color: isDarkMode ? _isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F) : Colors.white)),
+                      style: subtitleStyle.copyWith(color: isDarkMode ? (_isCollectingData || _collectedSamples==0 ? Colors.teal : const Color(0xFF6F6F6F)) : Colors.white)),
               ],
             ),
           ],
@@ -1765,8 +1523,147 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
+  Widget buildChartbase() {
+    final rollChartData = _showRollData ? _rollData : <FlSpot>[];
+    final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final rollColor = _isCollectingData || _hasReachedSampleCount
+        ? Colors.deepPurple
+        : Colors.grey;
+    final pitchColor = _isCollectingData || _hasReachedSampleCount
+        ? Colors.teal
+        : const Color(0xFF6F6F6F);
+    final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+    final gridColor = isDarkMode ? Colors.grey[700]!.withOpacity(0.3) : Colors.grey.withOpacity(0.1);
+    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withOpacity(0.2);
+    final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
 
-  /// Construit le graphique des données dans une Card
+    final visibleData = [
+      if (_showRollData) ...rollChartData,
+      if (_showPitchData) ...pitchChartData,
+    ];
+
+    final maxAbsY = visibleData.isNotEmpty
+        ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
+        : 30;
+    return Card(
+      color: backgroundColor,
+      margin: EdgeInsets.all(margin),
+      child: GestureDetector(
+        onDoubleTap: _resetChartZoom,
+        child: SizedBox(
+          width: double.infinity,
+          height: chartsize,
+          child: Padding(
+            key: _chartKey,
+            padding: EdgeInsets.only(
+              left: axechartpadding,
+              top: sidechartpadding,
+              right: sidechartpadding,
+              bottom: axechartpadding,
+            ),
+            child: LineChart(
+              LineChartData(
+                minX: _getminVisibleDuration(),
+                maxX: _getmaxVisibleDuration(),
+                minY: -maxAbsY.toDouble(),
+                maxY: maxAbsY.toDouble(),
+                clipData: const FlClipData.all(),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: pitchChartData,
+                    color: pitchColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: rollChartData,
+                    color: rollColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: ((maxAbsY * 2) / 3).toDouble(),
+                      reservedSize: axereservedsize,
+                      getTitlesWidget: (value, meta) => Text(
+                        '${value.toInt()}°',
+                        style: chartlabel.copyWith(color: textColor),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: _getTimeInterval().toDouble(),
+                      reservedSize: axereservedsize,
+                      getTitlesWidget: (value, meta) {
+                        final maxX = _getmaxVisibleDuration();
+                        const epsilon = 0.01;
+
+                        if ((value - maxX).abs() < epsilon) {
+                          return const SizedBox.shrink();
+                        }
+
+                        int totalSeconds = value.toInt();
+                        if (totalSeconds < 60) {
+                          return Text(
+                            '${totalSeconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        } else {
+                          int minutes = totalSeconds ~/ 60;
+                          int seconds = totalSeconds % 60;
+                          return Text(
+                            '${minutes}min\n ${seconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  horizontalInterval: (maxAbsY / 3).toDouble(),
+                  verticalInterval: _getTimeInterval().toDouble(),
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
+                  ),
+                  getDrawingVerticalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(
+                    color: borderColor,
+                    width: 1,
+                  ),
+                ),
+                lineTouchData: const LineTouchData(
+                  enabled: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   Widget buildChart() {
     final rollChartData = _showRollData ? _optimizeData(_rollData) : <FlSpot>[];
     final pitchChartData = _showPitchData ? _optimizeData(_pitchData) : <FlSpot>[];
@@ -1786,9 +1683,9 @@ class _SensorPageState extends State<SensorPage> {
     final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
 
     final visibleData = [
-      if (_showRollData) rollChartData,
-      if (_showPitchData) pitchChartData,
-    ].expand((x) => x).toList();
+      if (_showRollData) ...rollChartData,
+      if (_showPitchData) ...pitchChartData,
+    ];
 
     final maxAbsY = visibleData.isNotEmpty
         ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
@@ -1803,41 +1700,25 @@ class _SensorPageState extends State<SensorPage> {
       child: GestureDetector(
         onDoubleTap: _resetChartZoom,
         onScaleStart: (details) {
-          _lastFocalPoint = details.focalPoint;
-          _lastScale = 1.0;
+          _visibleMinX = max(0, _visibleMinX);
         },
         onScaleUpdate: (details) {
           setState(() {
             final currentRange = _visibleMaxX - _visibleMinX;
-            const minRangeX = 5.0; // zoom max (pas moins de 5s visibles)
-
-            // 🔹 plage max = durée totale des données
+            const minRangeX = 5.0;
             final totalDuration = visibleData.isNotEmpty
                 ? visibleData.last.x - visibleData.first.x
                 : 60.0;
-
             if (details.scale != 1.0) {
-              // Zoom moins sensible
               final zoomFactor = 1 + (1 - details.scale) * 0.2;
-
               var newRange = (currentRange * zoomFactor)
                   .clamp(minRangeX, totalDuration);
-
               final centerX = (_visibleMinX + _visibleMaxX) / 2;
               _visibleMinX = centerX - newRange / 2;
               _visibleMaxX = centerX + newRange / 2;
-            } else {
-              // Pan plus sensible
-              final dx = details.focalPoint.dx - _lastFocalPoint.dx;
-              final delta = -dx * 5; // facteur de sensibilité
-              _visibleMinX = max(0, _visibleMinX + delta);
-              _visibleMaxX = max(_visibleMinX + 1, _visibleMaxX + delta);
             }
           });
-
-          _lastFocalPoint = details.focalPoint;
         },
-
         child: SizedBox(
           width: double.infinity,
           height: chartsize,
@@ -1851,18 +1732,18 @@ class _SensorPageState extends State<SensorPage> {
             ),
             child: LineChart(
               LineChartData(
-                minX: max(0, _visibleMinX), // ❌ pas en dessous de 0
+                minX: max(0, _visibleMinX),
                 maxX: _visibleMaxX,
                 minY: minY.toDouble(),
                 maxY: maxY.toDouble(),
-                clipData: FlClipData.all(),
+                clipData: const FlClipData.all(),
                 lineBarsData: [
                   LineChartBarData(
                     spots: pitchChartData,
                     color: pitchColor,
                     barWidth: 2,
                     isCurved: true,
-                    dotData: FlDotData(show: false),
+                    dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(show: false),
                   ),
                   LineChartBarData(
@@ -1870,7 +1751,7 @@ class _SensorPageState extends State<SensorPage> {
                     color: rollColor,
                     barWidth: 2,
                     isCurved: true,
-                    dotData: FlDotData(show: false),
+                    dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(show: false),
                   ),
                 ],
@@ -1890,14 +1771,11 @@ class _SensorPageState extends State<SensorPage> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: axereservedsize,
-                      interval: (_visibleMaxX - _visibleMinX) / 5, // 🔹 fixe 5 ticks
+                      interval: (_visibleMaxX - _visibleMinX) / 5, 
                       getTitlesWidget: (value, meta) {
                         if (value < 0) return const SizedBox.shrink();
-
-                        // 🔹 on calcule la valeur "réelle" proportionnelle dans la plage visible
                         final proportion = (value - meta.min) / (meta.max - meta.min);
                         final realTime = _visibleMinX + proportion * (_visibleMaxX - _visibleMinX);
-
                         int totalSeconds = realTime.toInt();
                         if (totalSeconds < 60) {
                           return Text(
@@ -1917,16 +1795,13 @@ class _SensorPageState extends State<SensorPage> {
                       },
                     ),
                   ),
-
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 gridData: FlGridData(
                   show: true,
-                  // Intervalle constant basé sur l'échelle courante (ex: tous les 5 indices visibles)
                   horizontalInterval: (maxY / 3).toDouble(),
-                  verticalInterval: (_visibleMaxX - _visibleMinX) / 8, // toujours 8 grilles verticales
-
+                  verticalInterval: (_visibleMaxX - _visibleMinX) / 8,
                   getDrawingHorizontalLine: (value) => FlLine(
                     color: gridColor,
                     strokeWidth: 1,
@@ -1936,7 +1811,6 @@ class _SensorPageState extends State<SensorPage> {
                     strokeWidth: 1,
                   ),
                 ),
-
                 borderData: FlBorderData(
                   show: true,
                   border: Border.all(
@@ -1944,7 +1818,7 @@ class _SensorPageState extends State<SensorPage> {
                     width: 1,
                   ),
                 ),
-                lineTouchData: LineTouchData(enabled: false),
+                lineTouchData: const LineTouchData(enabled: false),
               ),
             ),
           ),
@@ -1952,15 +1826,12 @@ class _SensorPageState extends State<SensorPage> {
       ),
     );
   }
-
   void _resetChartZoom() {
     setState(() {
       _visibleMinX = _getminVisibleDuration();
       _visibleMaxX = _getmaxVisibleDuration();
     });
   }
-
-  /// Downsampling simple
   List<FlSpot> _optimizeData(List<FlSpot> data) {
     if (data.length < 2000) return data;
     final step = (data.length / 1000).ceil();
@@ -1968,47 +1839,35 @@ class _SensorPageState extends State<SensorPage> {
       for (int i = 0; i < data.length; i += step) data[i]
     ];
   }
-
-
-
-  // =============================================
-  // FONCTIONS UTILITAIRES
-  // =============================================
-
-  /// Retourne une couleur en fonction de l'angle (pour le dégradé)
   Color? getSmoothColorForAngle(double? angle, bool isVisible) {
-    if (!isVisible) return Colors.grey[850]; // Gris quand désactivé
-    if (angle == null) return Theme.of(context).brightness == Brightness.dark
+    if (!isVisible) return Colors.grey[850];
+    if (angle == null) {
+      return Theme.of(context).brightness == Brightness.dark
         ? Colors.grey[700]
-        : Color(0xFF012169);
+        : const Color(0xFF012169);
+    }
     double absAngle = angle.abs().clamp(0, 90);
-    if (absAngle <= 40) return Color.lerp(Colors.green, Colors.orange, absAngle / 40)!;
-    else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30)!;
+    if (absAngle <= 40) {
+      return Color.lerp(Colors.green, Colors.orange, absAngle / 40);
+    } else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30);
     else return Colors.red;
   }
-
-  /// Calcule l'intervalle de temps pour l'axe X du graphique
   double _getTimeInterval() {
     double totalSeconds = _rollData.isNotEmpty ? _rollData.last.x : 0;
     if (totalSeconds < 10) return 2.0;
     int lowerTen = (totalSeconds ~/ 10) * 10;
     return lowerTen / 5.0;
   }
-
-  /// Retourne le temps minimum visible sur le graphique
   double _getminVisibleDuration() {
     if (_showRollData && _rollData.isNotEmpty) return _rollData.first.x;
     if (_showPitchData && _pitchData.isNotEmpty) return _pitchData.first.x;
     return 0;
   }
-
-  /// Retourne le temps maximum visible sur le graphique
   double _getmaxVisibleDuration() {
     if (_showRollData && _rollData.isNotEmpty) return _rollData.last.x;
     if (_showPitchData && _pitchData.isNotEmpty) return _pitchData.last.x;
     return 10.0;
   }
-
   void _showClearConfirmationDialog() {
     showDialog(
       context: context,
@@ -2036,15 +1895,13 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-
-  // =============================================
-  // BUILD PRINCIPAL
-  // =============================================
+  void _shareData() async {
+    await _exportRollDataAndShare();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: CustomAppBar(
         actions: [
@@ -2076,68 +1933,70 @@ class _SensorPageState extends State<SensorPage> {
               padding: EdgeInsets.all(edgepadding),
               children: [
                 rollAndPitchTiles(),
-                SampleTile(),
+                sampleTile(),
                 rollPeriodAndPitchPeriodTiles(),
-                buildChart(),
+                _useBaseChart ? buildChartbase() : buildChart(),
                 Container(
                   margin: EdgeInsets.all(margin),
                   child: Row(
                     children: [
-                      // Clear button
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _showClearConfirmationDialog,
                           key: _clearButtonKey,
-                          child: Text('Clear', style: clear_importStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Color(0xFF012169))),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _isDarkMode ? Colors.grey[850] : Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
+                            padding: EdgeInsets.symmetric(vertical: barVerticalPaddingIntern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),
                             ),
                           ),
+                          child: Text('Clear', style: clearImportStyle.copyWith(color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169))),
                         ),
                       ),
                       SizedBox(width: margin*2),
-                      // Start/Pause button
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _hasReachedSampleCount
                               ? _savefunction
                               : _toggleDataCollection,
                           key: _startButtonKey,
-                          child: Text(
-                            _hasReachedSampleCount
-                                ? 'Save'
-                                : (_isCollectingData ? 'Pause' : 'Start'),
-                            style: StartStyle,
-                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _hasReachedSampleCount
                                 ? Colors.green
                                 : Theme.of(context).brightness == Brightness.dark
                                 ? Colors.grey[700]
                                 : const Color(0xFF012169),
-                            padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
+                            padding: EdgeInsets.symmetric(vertical: barVerticalPaddingIntern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),
                             ),
                           ),
+                          child: Text(
+                            _hasReachedSampleCount
+                                ? 'Save'
+                                : (_isCollectingData ? 'Pause' : 'Start'),
+                            style: startStyle,
+                          ),
                         ),
                       ),
                       SizedBox(width: margin*2),
-                      // Import button
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _handleImport,
+                          onPressed: _hasDataToShare ? _shareData : _handleImport,
                           key: _importButtonKey,
-                          child: Text('Import', style: clear_importStyle.copyWith(color: isDarkMode ? Colors.grey[300] : Color(0xFF012169))),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _isDarkMode ? Colors.grey[850] : Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: BarVerticalpaddingintern),
+                            padding: EdgeInsets.symmetric(vertical: barVerticalPaddingIntern),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(radius),
                             ),
+                          ),
+                          child: Text(
+                              _hasDataToShare ? 'Share' : 'Import',
+                              style: clearImportStyle.copyWith(
+                                  color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169)
+                              )
                           ),
                         ),
                       ),

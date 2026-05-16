@@ -1,14 +1,10 @@
 // menu.dart
 import 'package:flutter/material.dart';
-import 'widgets/custom_app_bar.dart';
 import 'sensor_page.dart';
 import 'info.dart';
-import 'navigation.dart';
 import 'prediction.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
-import 'models/navigation_info.dart';
-
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -21,15 +17,12 @@ class _MenuPageState extends State<MenuPage> {
   int _selectedIndex = 1;
   late VesselProfile _currentVesselProfile;
   late LoadingCondition _currentLoadingCondition;
-  late NavigationInfo _navigationInfo;
   late List<Widget> _pages;
-  bool _isBottomBarVisible = true; // Nouvel état pour contrôler la visibilité
 
   @override
   void initState() {
     super.initState();
 
-    // Initialisation avec un profil par défaut et une condition de chargement par défaut
     _currentVesselProfile = VesselProfile(
       name: "LPG Carrier",
       length: 107.0,
@@ -46,12 +39,6 @@ class _MenuPageState extends State<MenuPage> {
     );
 
     _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
-    _navigationInfo = NavigationInfo(
-      wavePeriod: 10,
-      direction: 30,
-      speed: 22,
-      course: 325,
-    );
 
     _initializePages();
   }
@@ -124,14 +111,10 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
-    final basscreenWidth = 411.42857142857144;
+    const basscreenWidth = 411.42857142857144;
     final screenWidth = MediaQuery.of(context).size.width;
-    print('screenWidth: ${screenWidth}');
-    final screenHeight = MediaQuery.of(context).size.height;
-    print('screenHeight: ${screenHeight}');
     final ratio = screenWidth/basscreenWidth;
-    print('ratio: ${ratio}');
-    final double padding_value = 2 * ratio;
+    final double paddingValue = 2 * ratio;
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
@@ -153,30 +136,30 @@ class _MenuPageState extends State<MenuPage> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        iconSize: 26.0 * ratio, // Taille fixe pour les icônes
-        selectedFontSize: 14.0 * ratio, // Taille de police pour l'élément sélectionné
-        unselectedFontSize: 12.0 * ratio, // Taille de police pour les éléments non sélectionnés
-        selectedLabelStyle: TextStyle(height: 0), // Réduire l'espace sous le texte
-        unselectedLabelStyle: TextStyle(height: 0), // Réduire l'espace sous le texte
+        iconSize: 26.0 * ratio,
+        selectedFontSize: 14.0 * ratio,
+        unselectedFontSize: 12.0 * ratio,
+        selectedLabelStyle: const TextStyle(height: 0),
+        unselectedLabelStyle: const TextStyle(height: 0),
         items: [
           BottomNavigationBarItem(
             icon: Padding(
-              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
-              child: Icon(Icons.directions_boat_filled_rounded),
+              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
+              child: const Icon(Icons.directions_boat_filled_rounded),
             ),
             label: 'Info',
           ),
           BottomNavigationBarItem(
             icon: Padding(
-              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
-              child: Icon(Icons.sensors),
+              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
+              child: const Icon(Icons.sensors),
             ),
             label: 'Measure',
           ),
           BottomNavigationBarItem(
             icon: Padding(
-              padding: EdgeInsets.only(top: padding_value, bottom: padding_value),
-              child: Icon(Icons.timeline),
+              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
+              child: const Icon(Icons.timeline),
             ),
             label: 'Prediction',
           ),

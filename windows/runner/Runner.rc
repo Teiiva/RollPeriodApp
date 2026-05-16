@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "marin" "\0"
+            VALUE "CompanyName", "com.rollperiod" "\0"
+            VALUE "FileDescription", "rollperiod" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "marin" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "marin.exe" "\0"
-            VALUE "ProductName", "marin" "\0"
+            VALUE "InternalName", "rollperiod" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 com.rollperiod. All rights reserved." "\0"
+            VALUE "OriginalFilename", "rollperiod.exe" "\0"
+            VALUE "ProductName", "rollperiod" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

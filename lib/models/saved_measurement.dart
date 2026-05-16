@@ -11,11 +11,11 @@ class SavedMeasurement {
   final double? rollPeriodFFT;
   final double? pitchPeriodFFT;
   final Map<String, double> predictedRollPeriods;
-  final double? maxRoll; // Nouveau champ
-  final double? maxPitch; // Nouveau champ
-  final double? rmsRoll; // Nouveau champ
-  final double? rmsPitch; // Nouveau champ
-  final double? duration; // Nouveau champ
+  final double? maxRoll;
+  final double? maxPitch;
+  final double? rmsRoll;
+  final double? rmsPitch;
+  final double? duration;
 
   SavedMeasurement({
     required this.timestamp,

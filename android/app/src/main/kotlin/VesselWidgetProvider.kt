@@ -1,4 +1,4 @@
-package com.example.marin
+package com.marin.rollperiod
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -70,6 +70,6 @@ class VesselWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        const val REFRESH_ACTION = "com.example.marin.REFRESH_VESSEL_WIDGET"
+        const val REFRESH_ACTION = "com.marin.rollperiod.REFRESH_VESSEL_WIDGET"
     }
 }

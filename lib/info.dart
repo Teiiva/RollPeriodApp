@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'widgets/custom_app_bar.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'storage_manager.dart';
 
 class VesselWavePage extends StatefulWidget {
@@ -28,7 +26,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
   List<VesselProfile> _savedProfiles = [];
   late LoadingCondition _currentLoadingCondition;
 
-  // Contrôleurs pour l'édition
   final _profileFormKey = GlobalKey<FormState>();
   final _conditionFormKey = GlobalKey<FormState>();
   final _profileNameController = TextEditingController();
@@ -86,21 +83,19 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final ratio = screenWidth / 411.42857142857144;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    setState(() {
-      titleStyle = TextStyle(
-        fontSize: 14.0 * ratio, // Réduit de 16 à 14
-        fontWeight: FontWeight.bold,
-        color: isDarkMode ? Colors.grey[300] : Colors.black,
-      );
-      subtitleStyle = TextStyle(
-        fontSize: 12.0 * ratio, // Réduit de 14 à 12
-        fontWeight: FontWeight.normal,
-        color: isDarkMode ? Colors.grey[300] : Colors.black,
-      );
-      cardRadius = 8 * ratio; // Réduit de 12 à 8
-      iconSize = 32.0 * ratio; // Réduit de 40 à 32
-      cardPadding = EdgeInsets.all(8 * ratio); // Réduit de 16 à 8
-    });
+    titleStyle = TextStyle(
+      fontSize: 14.0 * ratio,
+      fontWeight: FontWeight.bold,
+      color: isDarkMode ? Colors.grey[300] : Colors.black,
+    );
+    subtitleStyle = TextStyle(
+      fontSize: 12.0 * ratio,
+      fontWeight: FontWeight.normal,
+      color: isDarkMode ? Colors.grey[300] : Colors.black,
+    );
+    cardRadius = 8 * ratio;
+    iconSize = 32.0 * ratio;
+    cardPadding = EdgeInsets.all(8 * ratio);
   }
 
   Future<void> _loadSavedData() async {
@@ -117,7 +112,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     if (currentProfile != null) {
       setState(() {
         _currentVesselProfile = _savedProfiles.firstWhere(
-              (p) => p.name == currentProfile.name,
+          (p) => p.name == currentProfile.name,
           orElse: () => currentProfile,
         );
 
@@ -159,8 +154,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final isEditing = profileToEdit != null;
 
     if (isEditing) {
-      // Ajout de ! pour indiquer qu'on est sûr que profileToEdit n'est pas null ici
-      _profileNameController.text = profileToEdit!.name;
+      _profileNameController.text = profileToEdit.name;
       _vesselLengthController.text = profileToEdit.length.toStringAsFixed(2);
       _vesselBeamController.text = profileToEdit.beam.toStringAsFixed(2);
       _vesselDepthController.text = profileToEdit.depth.toStringAsFixed(2);
@@ -183,7 +177,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
               children: [
                 TextFormField(
                   controller: _profileNameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Profile Name",
                     border: OutlineInputBorder(),
                   ),
@@ -197,10 +191,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     return null;
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _vesselLengthController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Length (m)",
                     border: OutlineInputBorder(),
                   ),
@@ -215,10 +209,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     return null;
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _vesselBeamController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Beam (m)",
                     border: OutlineInputBorder(),
                   ),
@@ -233,10 +227,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     return null;
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _vesselDepthController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Depth (m)",
                     border: OutlineInputBorder(),
                   ),
@@ -258,7 +252,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
+            child: const Text("Cancel"),
           ),
           TextButton(
             onPressed: () {
@@ -328,7 +322,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
       setState(() {
         _currentVesselProfile.loadingConditions.removeWhere((c) => c.name == condition.name);
 
-        // Si c'était la dernière condition, créer une nouvelle condition par défaut
         if (_currentVesselProfile.loadingConditions.isEmpty) {
           final defaultCondition = LoadingCondition(
               name: "Default",
@@ -339,7 +332,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
           _currentVesselProfile.loadingConditions.add(defaultCondition);
           _currentLoadingCondition = defaultCondition;
         }
-        // Sinon, sélectionner la première condition disponible
         else if (_currentLoadingCondition.name == condition.name) {
           _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
         }
@@ -371,7 +363,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
       setState(() {
         _savedProfiles.removeWhere((p) => p.name == profile.name);
 
-        // If we're deleting the current profile, switch to another one if available
         if (_currentVesselProfile.name == profile.name) {
           _currentVesselProfile = _savedProfiles.isNotEmpty
               ? _savedProfiles.first
@@ -396,7 +387,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
     final isEditing = conditionToEdit != null;
 
     if (isEditing) {
-      _conditionNameController.text = conditionToEdit!.name;
+      _conditionNameController.text = conditionToEdit.name;
       _conditionGmController.text = conditionToEdit.gm.toStringAsFixed(2);
       _conditionVcgController.text = conditionToEdit.vcg.toStringAsFixed(2);
       _conditionDraftController.text = conditionToEdit.draft.toStringAsFixed(2);
@@ -419,7 +410,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
               children: [
                 TextFormField(
                   controller: _conditionNameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Voyage Name",
                     border: OutlineInputBorder(),
                   ),
@@ -434,10 +425,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     return null;
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _conditionGmController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "GM (m)",
                     border: OutlineInputBorder(),
                   ),
@@ -452,10 +443,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     return null;
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _conditionVcgController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "VCG (m)",
                     border: OutlineInputBorder(),
                   ),
@@ -470,10 +461,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     return null;
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _conditionDraftController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Draft (m)",
                     border: OutlineInputBorder(),
                   ),
@@ -495,7 +486,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
+            child: const Text("Cancel"),
           ),
           TextButton(
             onPressed: () {
@@ -538,64 +529,6 @@ class _VesselWavePageState extends State<VesselWavePage> {
     _updateValues();
   }
 
-  Widget _buildInputCard({
-    required Widget iconWidget,
-    required String label,
-    required String unit,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: Card(
-        elevation: 1,
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: [
-              iconWidget,
-              const SizedBox(width: 8),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: Text(
-                        label,
-                        style: titleStyle.copyWith(
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: TextField(
-                          style: TextStyle(fontSize: 12),
-                          decoration: InputDecoration(
-                            labelText: label,  // Added this line to fix the error
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                          controller: TextEditingController(text: value.toStringAsFixed(2)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _profileNameController.dispose();
@@ -619,7 +552,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8), // Augmenté le padding horizontal
+        padding: const EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -645,7 +578,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             ),
             if (_savedProfiles.isEmpty)
               Padding(
-                padding: EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   "No profiles yet. Create your first vessel profile.",
                   style: subtitleStyle.copyWith(
@@ -655,7 +588,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
               ),
             if (_savedProfiles.isNotEmpty)
               ConstrainedBox(
-                constraints: BoxConstraints(
+                constraints: const BoxConstraints(
                   maxHeight: 100,
                 ),
                 child: SingleChildScrollView(
@@ -668,7 +601,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                           backgroundColor: Colors.transparent,
                           child: Icon(
                             Icons.directions_boat,
-                            size: 18, // Icône plus petite
+                            size: 18,
                             color: _currentVesselProfile.name == profile.name
                                 ? Colors.white
                                 : isDarkMode ? Colors.grey[300] : const Color(0xFF012169),
@@ -676,11 +609,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
                         ),
                         label: Text(
                           profile.name,
-                          style: TextStyle(fontSize: 11), // Texte plus petit
+                          style: const TextStyle(fontSize: 11),
                         ),
                         backgroundColor: _currentVesselProfile.name == profile.name
-                            ? isDarkMode ? Colors.teal : Color(0xFF012169)
-                            : isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                            ? (isDarkMode ? Colors.teal : const Color(0xFF012169))
+                            : (isDarkMode ? Colors.grey[700] : Colors.grey[300]),
                         labelStyle: TextStyle(
                           color: _currentVesselProfile.name == profile.name
                               ? Colors.white
@@ -720,128 +653,21 @@ class _VesselWavePageState extends State<VesselWavePage> {
     return Scaffold(
       appBar: const CustomAppBar(),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(8), // Réduit de 16 à 8
+        padding: const EdgeInsets.all(8),
         child: Column(
           children: [
             _buildProfileManagementSection(),
-            SizedBox(height: 6), // Réduit de 16 à 8
+            const SizedBox(height: 6),
             _buildVesselDetailsCard(),
-            SizedBox(height: 6), // Réduit de 24 à 12
+            const SizedBox(height: 6),
             _buildConditionManagementSection(),
-            SizedBox(height: 6), // Réduit de 16 à 8
+            const SizedBox(height: 6),
             _buildConditionDetailsCard(),
           ],
         ),
       ),
     );
   }
-
-
-
-
-
-  Widget _buildSliderCard({
-    required Widget iconWidget,
-    required String label,
-    required String unit,
-    required double value,
-    required double min,
-    required double max,
-    required ValueChanged<double> onChanged,
-    ValueChanged<double>? onChangeEnd,
-  }) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    const double step = 1.0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
-      child: Card(
-        elevation: 1,
-        color: isDarkMode ? Colors.grey[850] : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              IconTheme(
-                data: IconThemeData(
-                  color: isDarkMode ? Colors.grey[300] : const Color(0xFF012169),
-                ),
-                child: iconWidget,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "$label: ${value.toStringAsFixed(0)} $unit",
-                      style: subtitleStyle.copyWith(
-                        color: isDarkMode ? Colors.grey[300] : Colors.black,
-                      ),
-                    ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Slider(
-                            value: value,
-                            min: min,
-                            max: max,
-                            divisions: ((max - min) ~/ step),
-                            label: value.toStringAsFixed(0),
-                            activeColor: isDarkMode ? Colors.white : const Color(0xFF012169),
-                            inactiveColor: isDarkMode ? Colors.grey[600] : Colors.grey[300],
-                            onChanged: onChanged,
-                            onChangeEnd: onChangeEnd,
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                double newValue = (value + step).clamp(min, max);
-                                onChanged(newValue);
-                                if (onChangeEnd != null) onChangeEnd(newValue);
-                              },
-                              child: Icon(
-                                Icons.add,
-                                size: 16,
-                                color: isDarkMode ? Colors.grey[300] : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 2), // très petit espace
-                            GestureDetector(
-                              onTap: () {
-                                double newValue = (value - step).clamp(min, max);
-                                onChanged(newValue);
-                                if (onChangeEnd != null) onChangeEnd(newValue);
-                              },
-                              child: Icon(
-                                Icons.remove,
-                                size: 16,
-                                color: isDarkMode ? Colors.grey[300] : Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-
-
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-
 
   Widget _buildConditionManagementSection() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -853,7 +679,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8), // Augmenté le padding horizontal
+        padding: const EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -876,7 +702,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             ),
             if (_currentVesselProfile.loadingConditions.isEmpty)
               Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   "No voyages yet. Create your first voyage for this vessel.",
                   style: subtitleStyle.copyWith(
@@ -900,17 +726,17 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     ),
                     label: Text(condition.name),
                     backgroundColor: _currentLoadingCondition.name == condition.name
-                        ? isDarkMode ? Colors.teal : Color(0xFF012169)
-                        : isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                        ? (isDarkMode ? Colors.teal : const Color(0xFF012169))
+                        : (isDarkMode ? Colors.grey[700] : Colors.grey[300]),
                     labelStyle: TextStyle(
                       color: _currentLoadingCondition.name == condition.name
                           ? Colors.white
                           : isDarkMode ? Colors.grey[300] : Colors.black,
                     ),
-                    side: BorderSide.none, // 🔥 supprime la bordure
+                    side: BorderSide.none,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide.none, // 🔥 aucun contour visible
+                      side: BorderSide.none,
                     ),
                     onPressed: () {
                       setState(() {
@@ -943,7 +769,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8),
+        padding: const EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -985,7 +811,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
         borderRadius: BorderRadius.circular(cardRadius),
       ),
       child: Padding(
-        padding: EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8), // Augmenté le padding horizontal
+        padding: const EdgeInsets.only(left: 16, right: 16,top: 4, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1013,7 +839,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             Text(
               "FSC = Free Surface Correction",
               style: titleStyle.copyWith(
-                color: isDarkMode ? Colors.grey[400] : Colors.grey[400],
+                color: Colors.grey[400],
                 fontStyle: FontStyle.italic,
                 fontSize: 9,
               ),
@@ -1027,10 +853,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
 
   Widget _buildDetailRow(String label, String value) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4), // Réduit de 8 à 4
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -1038,7 +862,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             child: Text(
               label,
               style: subtitleStyle.copyWith(
-                fontSize: 12, // Texte plus petit
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1048,7 +872,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             child: Text(
               value,
               style: subtitleStyle.copyWith(
-                fontSize: 12, // Texte plus petit
+                fontSize: 12,
               ),
               textAlign: TextAlign.end,
             ),

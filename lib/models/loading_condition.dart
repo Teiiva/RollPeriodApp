@@ -3,13 +3,13 @@ class LoadingCondition {
   final String name;
   final double gm;
   final double vcg;
-  final double draft; // Nouveau champ
+  final double draft;
 
   LoadingCondition({
     required this.name,
     required this.gm,
     required this.vcg,
-    this.draft = 0.0, // Valeur par défaut
+    this.draft = 0.0,
   });
 
   LoadingCondition copyWith({
@@ -31,7 +31,7 @@ class LoadingCondition {
       'name': name,
       'gm': gm,
       'vcg': vcg,
-      'draft': draft, // Ajouté
+      'draft': draft,
     };
   }
 
@@ -40,7 +40,7 @@ class LoadingCondition {
       name: map['name'],
       gm: map['gm'],
       vcg: map['vcg'],
-      draft: map['draft'] ?? 0.0, // Ajouté avec valeur par défaut
+      draft: map['draft'] ?? 0.0,
     );
   }
 
@@ -52,8 +52,8 @@ class LoadingCondition {
               name == other.name &&
               gm == other.gm &&
               vcg == other.vcg &&
-              draft == other.draft; // Ajouté
+              draft == other.draft;
 
   @override
-  int get hashCode => name.hashCode ^ gm.hashCode ^ vcg.hashCode ^ draft.hashCode; // Ajouté
+  int get hashCode => name.hashCode ^ gm.hashCode ^ vcg.hashCode ^ draft.hashCode;
 }

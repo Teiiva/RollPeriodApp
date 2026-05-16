@@ -27,23 +27,17 @@ class PredictionPage extends StatefulWidget {
 }
 
 class _PredictionPageState extends State<PredictionPage> {
-  double rollCoefficient = 0.4; // Valeur par défaut du coefficient k
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  double rollCoefficient = 0.4;
 
-  // Variables pour le filtre
-  int? _selectedDay;
-  int? _selectedMonth;
-  int? _selectedYear;
   String _selectedVessel = 'All';
   bool _sortAscending = true;
-  DateTime? _selectedStartDate;  // Déplacé ici
-  DateTime? _selectedEndDate;    // Déplacé ici
+  DateTime? _selectedStartDate;
+  DateTime? _selectedEndDate;
 
   late TextStyle titleStyle;
   late TextStyle subtitleStyle;
-  late TextStyle Axeslegend;
-  late double iconsize;
+  late TextStyle axesLegend;
+  late double iconSize;
 
   @override
   void didChangeDependencies() {
@@ -54,22 +48,16 @@ class _PredictionPageState extends State<PredictionPage> {
   @override
   void initState() {
     super.initState();
-    // Initialiser avec une plage par défaut (par exemple, dernier mois)
     _selectedEndDate = DateTime.now();
     _selectedStartDate = DateTime.now().subtract(const Duration(days: 30));
   }
 
   void _updateStyles() {
-    print('Page Measure');
-    final basscreenWidth = 411.42857142857144;
+    const basscreenWidth = 411.42857142857144;
     final screenWidth = MediaQuery.of(context).size.width;
-    print('screenWidth: ${screenWidth}');
-    final screenHeight = MediaQuery.of(context).size.height;
-    print('screenHeight: ${screenHeight}');
     final ratio = screenWidth/basscreenWidth;
-    print('ratio: ${ratio}');
-    iconsize = 40.0 * ratio;
-    print('iconsize : ${iconsize}');
+    iconSize = 40.0 * ratio;
+    
     setState(() {
       titleStyle = TextStyle(
         fontSize: 14.0 * ratio,
@@ -81,8 +69,7 @@ class _PredictionPageState extends State<PredictionPage> {
         fontWeight: FontWeight.normal,
         color: Colors.black,
       );
-      print('subtitleStyle font size: ${subtitleStyle.fontSize}');
-      Axeslegend = TextStyle(
+      axesLegend = TextStyle(
         fontSize: 12.0 * ratio,
         fontWeight: FontWeight.normal,
         color: Colors.grey,
@@ -116,7 +103,7 @@ class _PredictionPageState extends State<PredictionPage> {
         }
       };
       await prefs.setString('vesselData', jsonEncode(vesselData));
-      const channel = MethodChannel('com.example.marin/vessel_widget');
+      const channel = MethodChannel('com.rollperiod.rollperiod/vessel_widget');
       await channel.invokeMethod('updateVesselWidget');
     } catch (e) {
       debugPrint('Error updating vessel widget: $e');
@@ -149,9 +136,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
     for (final measurement in measurements) {
       if (measurement.rollPeriodFFT != null) {
-        final measured = measurement.rollPeriodFFT!;
-        final estimated = calculateRollPeriod(measurement.loadingCondition.gm);
-        data.add(FlSpot(measurement.loadingCondition.gm, measured));
+        data.add(FlSpot(measurement.loadingCondition.gm, measurement.rollPeriodFFT!));
       }
     }
 
@@ -187,7 +172,7 @@ class _PredictionPageState extends State<PredictionPage> {
             Icon(
               Icons.warning_amber_rounded,
               color: Colors.amber,
-              size: iconsize,
+              size: iconSize,
             ),
             const SizedBox(height: 16),
             Text(
@@ -221,7 +206,7 @@ class _PredictionPageState extends State<PredictionPage> {
           minY: 0,
           maxY: spots.isNotEmpty ? spots.map((e) => e.y).reduce(max) * 1.2 : 20,
           lineTouchData: _buildTouchData(),
-          clipData: FlClipData.all(), // Ajoutez cette ligne pour couper les dépassements
+          clipData: const FlClipData.all(),
         ),
       ),
     );
@@ -267,7 +252,7 @@ class _PredictionPageState extends State<PredictionPage> {
         padding: const EdgeInsets.only(top: 0),
         child: Text(
           'GM (m)',
-          style: Axeslegend,
+          style: axesLegend,
         ),
       ),
       sideTitles: SideTitles(
@@ -280,7 +265,7 @@ class _PredictionPageState extends State<PredictionPage> {
               padding: const EdgeInsets.only(top: 8.0),
               child: Text(
                 value.toStringAsFixed(0),
-                style: Axeslegend,
+                style: axesLegend,
               ),
             );
           }
@@ -293,28 +278,28 @@ class _PredictionPageState extends State<PredictionPage> {
   AxisTitles _buildLeftTitles() {
     return AxisTitles(
       axisNameWidget: RotatedBox(
-        quarterTurns: 0, // ou 1 selon le sens que tu veux
+        quarterTurns: 0,
         child: Padding(
-          padding: const EdgeInsets.only(left:25), // <-- espace entre le titre et les ticks
+          padding: const EdgeInsets.only(left:25),
           child: Center(
             child: Text(
               'Roll Natural Period (s)',
-              style: Axeslegend,
+              style: axesLegend,
             ),
           ),
         ),
       ),
-      axisNameSize: 28, // Ajuste pour bien centrer verticalement
+      axisNameSize: 28,
       sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 26, // Assure de la place pour les ticks
+        reservedSize: 26,
         interval: 5,
         getTitlesWidget: (value, meta) {
           return Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: Text(
               value.toStringAsFixed(0),
-              style: Axeslegend,
+              style: axesLegend,
             ),
           );
         },
@@ -354,7 +339,7 @@ class _PredictionPageState extends State<PredictionPage> {
             end: Alignment.bottomCenter,
             colors: [
               isDarkMode ? Colors.deepPurple.withOpacity(0.2) : const Color(0xFF012169).withOpacity(0.2),
-              isDarkMode ? Colors.deepPurple.withOpacity(0.01) : Color(0xFF012169).withOpacity(0.01),
+              isDarkMode ? Colors.deepPurple.withOpacity(0.01) : const Color(0xFF012169).withOpacity(0.01),
             ],
           ),
         ),
@@ -377,7 +362,6 @@ class _PredictionPageState extends State<PredictionPage> {
           },
         ),
       ),
-      // Ajout des points de comparaison
       LineChartBarData(
         spots: comparisonSpots,
         isCurved: false,
@@ -414,293 +398,221 @@ class _PredictionPageState extends State<PredictionPage> {
     );
   }
 
-
-
-
-
-
-
-  // Dans prediction.dart, remplacer la méthode gmRollPeriodPairsTile par ceci :
-
   Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return FutureBuilder<List<SavedMeasurement>>(
-      future: _loadSavedMeasurements(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    if (measurements.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Text(
+              "No saved measurements yet",
+              style: axesLegend,
+            ),
+          ),
+        ],
+      );
+    }
 
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final vesselNames = ['All', ...measurements.map((m) => m.vesselProfile.name).toSet()];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? Colors.grey[850] : Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.grey.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
             children: [
-              Padding(
-                padding: EdgeInsets.all(4.0),
-                child: Text(
-                  "No saved measurements yet",
-                  style: Axeslegend,
-                ),
-              ),
-            ],
-          );
-        }
-
-        final measurements = snapshot.data!;
-        final vesselNames = ['All', ...measurements.map((m) => m.vesselProfile.name).toSet().toList()];
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[850] : Colors.white,
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.grey.withOpacity(0.2),
-                    width: 1,
+              DropdownButtonFormField<String>(
+                initialValue: _selectedVessel,
+                decoration: InputDecoration(
+                  labelText: 'Vessel',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
+                items: vesselNames.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedVessel = value!;
+                  });
+                },
               ),
-              child: Column(
+              const SizedBox(height: 8),
+
+              Row(
                 children: [
-                  // Filtre Vessel uniquement
-                  DropdownButtonFormField<String>(
-                    value: _selectedVessel,
-                    decoration: InputDecoration(
-                      labelText: 'Vessel',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                    items: vesselNames.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedVessel = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Sélecteur de période
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final selectedDate = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedStartDate ?? DateTime.now(),
-                              firstDate: DateTime(2000),
-                              lastDate: _selectedEndDate ?? DateTime.now(),
-                            );
-                            if (selectedDate != null) {
-                              setState(() {
-                                _selectedStartDate = selectedDate;
-                              });
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _selectedStartDate != null
-                                      ? 'From: ${DateFormat('dd/MM/yyyy').format(_selectedStartDate!)}'
-                                      : 'Select start date',
-                                  style: subtitleStyle,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final selectedDate = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedEndDate ?? DateTime.now(),
-                              firstDate: _selectedStartDate ?? DateTime(2000),
-                              lastDate: DateTime.now(),
-                            );
-                            if (selectedDate != null) {
-                              setState(() {
-                                _selectedEndDate = selectedDate;
-                              });
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _selectedEndDate != null
-                                      ? 'To: ${DateFormat('dd/MM/yyyy').format(_selectedEndDate!)}'
-                                      : 'Select end date',
-                                  style: subtitleStyle,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        icon: Icon(
-                          _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                          size: 16, color: Color(0xFF012169)
-                        ),
-                        label: Text(
-                          _sortAscending ? 'Oldest first' : 'Newest first',
-                          style: TextStyle(color: Color(0xFF012169)),
-                        ),
-                        onPressed: () {
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final selectedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedStartDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: _selectedEndDate ?? DateTime.now(),
+                        );
+                        if (selectedDate != null) {
                           setState(() {
-                            _sortAscending = !_sortAscending;
+                            _selectedStartDate = selectedDate;
                           });
-                        },
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedStartDate = null;
-                            _selectedEndDate = null;
-                            _selectedVessel = 'All';
-                          });
-                        },
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         child: Text(
-                          'Clear filters',
-                          style: TextStyle(color: Colors.red),
+                          _selectedStartDate != null
+                              ? 'From: ${DateFormat('dd/MM/yyyy').format(_selectedStartDate!)}'
+                              : 'Select start date',
+                          style: subtitleStyle,
                         ),
-
                       ),
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final selectedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedEndDate ?? DateTime.now(),
+                          firstDate: _selectedStartDate ?? DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (selectedDate != null) {
+                          setState(() {
+                            _selectedEndDate = selectedDate;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _selectedEndDate != null
+                              ? 'To: ${DateFormat('dd/MM/yyyy').format(_selectedEndDate!)}'
+                              : 'Select end date',
+                          style: subtitleStyle,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-
-            // Liste des mesures filtrées
-            Scrollbar(
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: measurements.where((m) {
-                  final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
-                  final matchesDateRange =
-                      (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
-                          (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
-                  return matchesVessel && matchesDateRange;
-                }).length,
-                itemBuilder: (context, index) {
-                  final filteredMeasurements = measurements.where((m) {
-                    final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
-                    final matchesDateRange =
-                        (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
-                            (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
-                                return matchesVessel && matchesDateRange;
-                            }).toList()
-                    ..sort((a, b) => _sortAscending
-                        ? a.timestamp.compareTo(b.timestamp)
-                        : b.timestamp.compareTo(a.timestamp));
-
-                  final measurement = filteredMeasurements[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
-                    color: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
-                    elevation: 1,
-                    child: ListTile(
-                      title: Text(
-                        measurement.vesselProfile.name,
-                        style: titleStyle.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isDarkMode ? Colors.white : Color(0xFF012169),
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${_formatDate(measurement.timestamp)} - ${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}',
-                        style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
-                      ),
-                      trailing: IconButton(
-                        icon: Icon(Icons.delete, color:Colors.red),
-                        onPressed: () => _confirmDeleteMeasurement(context, measurement),
-                      ),
-                      onTap: () => _showMeasurementDetails(context, measurement),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    icon: Icon(
+                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 16, color: const Color(0xFF012169)
                     ),
-                  );
-                },
+                    label: Text(
+                      _sortAscending ? 'Oldest first' : 'Newest first',
+                      style: const TextStyle(color: Color(0xFF012169)),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _sortAscending = !_sortAscending;
+                      });
+                    },
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedStartDate = null;
+                        _selectedEndDate = null;
+                        _selectedVessel = 'All';
+                      });
+                    },
+                    child: const Text(
+                      'Clear filters',
+                      style: TextStyle(color: Colors.red),
+                    ),
+
+                  ),
+                ],
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        const SizedBox(height: 8),
+
+        Scrollbar(
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: measurements.where((m) {
+              final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
+              final matchesDateRange =
+                  (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
+                      (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
+              return matchesVessel && matchesDateRange;
+            }).length,
+            itemBuilder: (context, index) {
+              final filteredMeasurements = measurements.where((m) {
+                final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
+                final matchesDateRange =
+                    (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
+                        (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
+                            return matchesVessel && matchesDateRange;
+                        }).toList()
+                ..sort((a, b) => _sortAscending
+                    ? a.timestamp.compareTo(b.timestamp)
+                    : b.timestamp.compareTo(a.timestamp));
+
+              final measurement = filteredMeasurements[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
+                color: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
+                elevation: 1,
+                child: ListTile(
+                  title: Text(
+                    measurement.vesselProfile.name,
+                    style: titleStyle.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : const Color(0xFF012169),
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${DateFormat('dd/MM/yyyy').format(measurement.timestamp)} - ${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}',
+                    style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
+                  ),
+                  trailing: const IconButton(
+                    icon: Icon(Icons.delete, color:Colors.red),
+                    onPressed: null,
+                  ),
+                  onTap: () => _showMeasurementDetails(context, measurement),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  bool _matchesDate(String query, DateTime date) {
-    final formattedDate = _formatDate(date);
-    return formattedDate.contains(query);
-  }
-
-  Future<void>_confirmDeleteMeasurement(BuildContext context, SavedMeasurement measurement) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Deletion'),
-        content: const Text('Are you sure you want to delete this measurement?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldDelete ?? false) {
-      await Provider.of<SharedData>(context, listen: false).deleteMeasurement(measurement);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Measurement deleted'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
   }
 
   void _showMeasurementDetails(BuildContext context, SavedMeasurement measurement) {
@@ -714,7 +626,7 @@ class _PredictionPageState extends State<PredictionPage> {
               children: [
                 _buildDetailSection("Measurement Details", [
                   _buildDetailRow("Measurement time",
-                      "${DateFormat('dd/MM/yyyy HH:mm').format(measurement.timestamp)}"),
+                      DateFormat('dd/MM/yyyy HH:mm').format(measurement.timestamp)),
                   _buildDetailRow(
                     "Duration",
                     measurement.duration != null
@@ -765,7 +677,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 _buildDetailSection("Roll Natural Prediction", [
                   ...measurement.predictedRollPeriods.entries.map(
                         (entry) => _buildDetailRow(
-                        "${entry.key}",
+                        entry.key,
                         "${entry.value.toStringAsFixed(1)} s"),
                   ),
                 ]),
@@ -825,22 +737,6 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
 
-  Future<List<SavedMeasurement>> _loadSavedMeasurements() async {
-    final prefs = await SharedPreferences.getInstance();
-    final measurementsJson = prefs.getStringList('savedMeasurements') ?? [];
-
-    return measurementsJson.map((json) {
-      try {
-        return SavedMeasurement.fromMap(jsonDecode(json));
-      } catch (e) {
-        debugPrint('Error parsing measurement: $e');
-        return null;
-      }
-    }).whereType<SavedMeasurement>().toList();
-  }
-
-  // Remplacer tout le contenu du build() actuel (à partir de return Scaffold) par ceci :
-
   @override
   Widget build(BuildContext context) {
     final sharedData = Provider.of<SharedData>(context);
@@ -880,7 +776,7 @@ class _PredictionPageState extends State<PredictionPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: const Color(0xe5e8f0),
+                          fillColor: const Color(0x00e5e8f0),
                         ),
                         initialValue: rollCoefficient.toStringAsFixed(2),
                         keyboardType: TextInputType.number,
@@ -906,14 +802,12 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
               ),
               const SizedBox(height: 8),
-
-              // Section des résultats
               Card(
                 elevation: 1,
                 color: isDarkMode ? Colors.grey[850] : Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: ExpansionTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
                   title: Text(
                     "ROLL NATURAL PERIOD RESULTS",
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -974,14 +868,12 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
               ),
               const SizedBox(height: 8),
-
-            // Section des mesures sauvegardées (deuxième ExpansionTile)
-            Card(
+              Card(
               elevation: 1,
               color: isDarkMode ? Colors.grey[850] : Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: ExpansionTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
                 title: Text(
                   "SAVED MEASUREMENTS",
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(

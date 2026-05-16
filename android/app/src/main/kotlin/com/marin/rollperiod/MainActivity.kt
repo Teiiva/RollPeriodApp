@@ -1,4 +1,4 @@
-package com.example.marin
+package com.marin.rollperiod
 
 import io.flutter.embedding.android.FlutterActivity
 import android.appwidget.AppWidgetManager
@@ -23,7 +23,7 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.marin/widget").setMethodCallHandler { call, result ->
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.marin.rollperiod/widget").setMethodCallHandler { call, result ->
             when (call.method) {
                 "updateWidget" -> {
                     val intent = Intent(this, AlertWidgetProvider::class.java)
@@ -38,7 +38,7 @@ class MainActivity: FlutterActivity() {
             }
         }
         // New channel for vessel widget
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.marin/vessel_widget").setMethodCallHandler { call, result ->
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.marin.rollperiod/vessel_widget").setMethodCallHandler { call, result ->
             when (call.method) {
                 "updateVesselWidget" -> {
                     val intent = Intent(this, VesselWidgetProvider::class.java)
@@ -160,6 +160,6 @@ class AlertWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        const val REFRESH_ACTION = "com.example.marin.REFRESH_ACTION"
+        const val REFRESH_ACTION = "com.marin.rollperiod.REFRESH_ACTION"
     }
 }

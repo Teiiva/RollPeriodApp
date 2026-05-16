@@ -4,14 +4,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class AndroidAlertWidgetProvider {
-  static const String widgetChannelName = 'com.example.marin/widget';
-  static const MethodChannel _channel = MethodChannel('com.example.marin/widget');
-  // Méthode pour initialiser la communication avec le widget
-  static void initializeWidgetCommunication() {
-    // Implémentation spécifique à la plateforme sera nécessaire
-  }
-
-  // Méthode pour obtenir les données d'alerte à afficher dans le widget
+  static const String widgetChannelName = 'com.rollperiod.rollperiod/widget';
+  static const MethodChannel _channel = MethodChannel('com.rollperiod.rollperiod/widget');
+  static void initializeWidgetCommunication() {}
   static Future<List<Map<String, dynamic>>> getAlertDataForWidget() async {
     final prefs = await SharedPreferences.getInstance();
     final historyJson = prefs.getString('alertHistoryData');
