@@ -5,6 +5,7 @@ import 'info.dart';
 import 'prediction.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
+import 'storage_manager.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -15,116 +16,136 @@ class MenuPage extends StatefulWidget {
 
 class _MenuPageState extends State<MenuPage> {
   int _selectedIndex = 1;
-  late VesselProfile _currentVesselProfile;
-  late LoadingCondition _currentLoadingCondition;
-  late List<Widget> _pages;
+  VesselProfile? _currentVesselProfile;
+  LoadingCondition? _currentLoadingCondition;
+  List<Widget>? _pages;
 
   @override
   void initState() {
     super.initState();
+    _loadStoredProfile();
+  }
 
-    _currentVesselProfile = VesselProfile(
-      name: "LPG Carrier",
-      length: 107.0,
-      beam: 17.6,
-      depth: 9.8,
-      loadingConditions: [
-        LoadingCondition(
-          name: "Ballast",
-          gm: 1.2,
-          vcg: 6.6,
-          draft: 5.4,
-        )
-      ],
+  Future<void> _loadStoredProfile() async {
+    final storedProfile = await StorageManager.loadCurrent(
+      key: 'currentProfile',
+      fromMap: VesselProfile.fromMap,
     );
 
-    _currentLoadingCondition = _currentVesselProfile.loadingConditions.first;
+    final storedConditionName = await StorageManager.loadCurrent(
+      key: 'currentConditionName',
+      fromMap: (map) => map['name'] as String,
+    );
 
+    if (storedProfile != null) {
+      setState(() {
+        _currentVesselProfile = storedProfile;
+        
+        // Try to restore the exact condition used last time
+        if (storedConditionName != null) {
+          _currentLoadingCondition = storedProfile.loadingConditions.firstWhere(
+            (c) => c.name == storedConditionName,
+            orElse: () => storedProfile.loadingConditions.first,
+          );
+        } else {
+          _currentLoadingCondition = storedProfile.loadingConditions.isNotEmpty
+              ? storedProfile.loadingConditions.first
+              : LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
+        }
+      });
+    } else {
+      // Default profile if none stored
+      setState(() {
+        _currentVesselProfile = VesselProfile(
+          name: "LPG Carrier",
+          length: 107.0,
+          beam: 17.6,
+          depth: 9.8,
+          loadingConditions: [
+            LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)
+          ],
+        );
+        _currentLoadingCondition = _currentVesselProfile!.loadingConditions.isNotEmpty
+            ? _currentVesselProfile!.loadingConditions.first
+            : LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
+      });
+    }
     _initializePages();
   }
 
-  void _initializePages() {
-    _pages = [
-      VesselWavePage(
-        currentVesselProfile: _currentVesselProfile,
-        currentLoadingCondition: _currentLoadingCondition,
-        onValuesChanged: (profile, config) {
-          setState(() {
-            _currentVesselProfile = profile;
-            _currentLoadingCondition = config;
-            _updatePages();
-          });
-        },
-      ),
-      SensorPage(
-        vesselProfile: _currentVesselProfile,
-        loadingCondition: _currentLoadingCondition,
-        onValuesChanged: (profile, condition) {
-          setState(() {
-            _currentVesselProfile = profile;
-            _currentLoadingCondition = condition;
-            _updatePages();
-          });
-        },
-      ),
-      PredictionPage(
-        vesselProfile: _currentVesselProfile,
-        loadingCondition: _currentLoadingCondition,
-      ),
-    ];
+  Future<void> _saveSelection(VesselProfile profile, LoadingCondition condition) async {
+    await StorageManager.saveCurrent(
+      key: 'currentProfile',
+      item: profile,
+      toMap: (p) => p.toMap(),
+    );
+    await StorageManager.saveCurrent(
+      key: 'currentConditionName',
+      item: {'name': condition.name},
+      toMap: (m) => m,
+    );
   }
 
-
-  void _updatePages() {
+  void _initializePages() {
+    if (_currentVesselProfile == null || _currentLoadingCondition == null) return;
+    
     setState(() {
       _pages = [
         VesselWavePage(
-          currentVesselProfile: _currentVesselProfile,
-          currentLoadingCondition: _currentLoadingCondition,
+          currentVesselProfile: _currentVesselProfile!,
+          currentLoadingCondition: _currentLoadingCondition!,
           onValuesChanged: (profile, config) {
             setState(() {
               _currentVesselProfile = profile;
               _currentLoadingCondition = config;
+              _saveSelection(profile, config);
               _updatePages();
             });
           },
         ),
         SensorPage(
-          vesselProfile: _currentVesselProfile,
-          loadingCondition: _currentLoadingCondition,
+          vesselProfile: _currentVesselProfile!,
+          loadingCondition: _currentLoadingCondition!,
           onValuesChanged: (profile, condition) {
             setState(() {
               _currentVesselProfile = profile;
               _currentLoadingCondition = condition;
+              _saveSelection(profile, condition);
               _updatePages();
             });
           },
         ),
         PredictionPage(
-          vesselProfile: _currentVesselProfile,
-          loadingCondition: _currentLoadingCondition,
+          vesselProfile: _currentVesselProfile!,
+          loadingCondition: _currentLoadingCondition!,
         ),
       ];
     });
   }
 
+  void _updatePages() {
+    _initializePages();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_pages == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     const basscreenWidth = 411.42857142857144;
     final screenWidth = MediaQuery.of(context).size.width;
-    final ratio = screenWidth/basscreenWidth;
+    final ratio = screenWidth / basscreenWidth;
     final double paddingValue = 2 * ratio;
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: _pages,
+        children: _pages!,
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Theme.of(context).brightness == Brightness.dark
             ? Colors.grey[850]
             : Colors.white,
-        key: const ValueKey('visibleBar'),
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).brightness == Brightness.dark
             ? Colors.white
@@ -139,32 +160,11 @@ class _MenuPageState extends State<MenuPage> {
         iconSize: 26.0 * ratio,
         selectedFontSize: 14.0 * ratio,
         unselectedFontSize: 12.0 * ratio,
-        selectedLabelStyle: const TextStyle(height: 0),
-        unselectedLabelStyle: const TextStyle(height: 0),
-        items: [
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
-              child: const Icon(Icons.directions_boat_filled_rounded),
-            ),
-            label: 'Info',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
-              child: const Icon(Icons.sensors),
-            ),
-            label: 'Measure',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(top: paddingValue, bottom: paddingValue),
-              child: const Icon(Icons.timeline),
-            ),
-            label: 'Prediction',
-          ),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.directions_boat_filled_rounded), label: 'Info'),
+          BottomNavigationBarItem(icon: Icon(Icons.sensors), label: 'Measure'),
+          BottomNavigationBarItem(icon: Icon(Icons.timeline), label: 'Prediction'),
         ],
-
       ),
     );
   }

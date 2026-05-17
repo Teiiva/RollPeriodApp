@@ -31,8 +31,8 @@ android {
         applicationId = "com.marin.rollperiod"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 15
-        versionName = "1.0.15"
+        versionCode = flutter.versionCode.toInteger()
+        versionName = flutter.versionName
     }
 
     compileOptions {

@@ -1351,7 +1351,7 @@ class _SensorPageState extends State<SensorPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'We recommend a measurement time of 13min 40s for best prediction of roll and pitch periods.',
+                    'Recommended measurement time is 13min 40s or longer',
                     style: TextStyle(color: Colors.red),
                   ),
                   const SizedBox(height: 20),

@@ -28,6 +28,7 @@ class PredictionPage extends StatefulWidget {
 
 class _PredictionPageState extends State<PredictionPage> {
   double rollCoefficient = 0.4;
+  bool _isLoaded = false; // Added to handle initial load
 
   String _selectedVessel = 'All';
   bool _sortAscending = true;
@@ -48,8 +49,22 @@ class _PredictionPageState extends State<PredictionPage> {
   @override
   void initState() {
     super.initState();
+    _loadRollCoefficient();
     _selectedEndDate = DateTime.now();
     _selectedStartDate = DateTime.now().subtract(const Duration(days: 30));
+  }
+
+  Future<void> _loadRollCoefficient() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      rollCoefficient = prefs.getDouble('rollCoefficient') ?? 0.4;
+      _isLoaded = true; // Mark as loaded
+    });
+  }
+
+  Future<void> _saveRollCoefficient(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('rollCoefficient', value);
   }
 
   void _updateStyles() {
@@ -226,11 +241,11 @@ class _PredictionPageState extends State<PredictionPage> {
       show: true,
       drawVerticalLine: true,
       getDrawingHorizontalLine: (value) => FlLine(
-        color: Colors.grey.withOpacity(0.2),
+        color: Colors.grey.withValues(alpha: 0.2),
         strokeWidth: 1,
       ),
       getDrawingVerticalLine: (value) => FlLine(
-        color: Colors.grey.withOpacity(0.2),
+        color: Colors.grey.withValues(alpha: 0.2),
         strokeWidth: 1,
       ),
     );
@@ -307,13 +322,11 @@ class _PredictionPageState extends State<PredictionPage> {
     );
   }
 
-
-
   FlBorderData _buildBorderData() {
     return FlBorderData(
       show: true,
       border: Border.all(
-        color: Colors.grey.withOpacity(0.2),
+        color: Colors.grey.withValues(alpha: 0.2),
         width: 1,
       ),
     );
@@ -328,7 +341,7 @@ class _PredictionPageState extends State<PredictionPage> {
         color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
         barWidth: 4,
         shadow: BoxShadow(
-          color: isDarkMode ? Colors.deepPurple.withOpacity(0.3) : const Color(0xFF012169).withOpacity(0.3),
+          color: isDarkMode ? Colors.deepPurple.withValues(alpha: 0.3) : const Color(0xFF012169).withValues(alpha: 0.3),
           blurRadius: 8,
           spreadRadius: 2,
         ),
@@ -338,8 +351,8 @@ class _PredictionPageState extends State<PredictionPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              isDarkMode ? Colors.deepPurple.withOpacity(0.2) : const Color(0xFF012169).withOpacity(0.2),
-              isDarkMode ? Colors.deepPurple.withOpacity(0.01) : const Color(0xFF012169).withOpacity(0.01),
+              isDarkMode ? Colors.deepPurple.withValues(alpha: 0.2) : const Color(0xFF012169).withValues(alpha: 0.2),
+              isDarkMode ? Colors.deepPurple.withValues(alpha: 0.01) : const Color(0xFF012169).withValues(alpha: 0.01),
             ],
           ),
         ),
@@ -426,7 +439,7 @@ class _PredictionPageState extends State<PredictionPage> {
             color: isDarkMode ? Colors.grey[850] : Colors.white,
             border: Border(
               bottom: BorderSide(
-                color: Colors.grey.withOpacity(0.2),
+                color: Colors.grey.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -476,7 +489,7 @@ class _PredictionPageState extends State<PredictionPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
+                          border: Border.all(color: Colors.black.withValues(alpha: 0.6),width: 1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -507,7 +520,7 @@ class _PredictionPageState extends State<PredictionPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black.withOpacity(0.6),width: 1),
+                          border: Border.all(color: Colors.black.withValues(alpha: 0.6),width: 1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -743,6 +756,11 @@ class _PredictionPageState extends State<PredictionPage> {
     final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+    // Return empty or loading indicator until loaded to avoid jumpy UI or wrong initial value
+    if (!_isLoaded) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: const CustomAppBar(),
       body: SingleChildScrollView(
@@ -770,6 +788,7 @@ class _PredictionPageState extends State<PredictionPage> {
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
+                        key: ValueKey(rollCoefficient), // Rebuild when value changes
                         decoration: InputDecoration(
                           labelText: 'Roll Coefficient (k)',
                           border: OutlineInputBorder(
@@ -779,12 +798,13 @@ class _PredictionPageState extends State<PredictionPage> {
                           fillColor: const Color(0x00e5e8f0),
                         ),
                         initialValue: rollCoefficient.toStringAsFixed(2),
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         onChanged: (value) {
                           final newValue = double.tryParse(value);
                           if (newValue != null && newValue > 0) {
                             setState(() {
                               rollCoefficient = newValue;
+                              _saveRollCoefficient(newValue);
                             });
                           }
                         },
@@ -825,7 +845,7 @@ class _PredictionPageState extends State<PredictionPage> {
                             decoration: BoxDecoration(
                               color: isDarkMode
                                   ? Colors.grey[700]
-                                  : const Color(0xFF012169).withOpacity(0.1),
+                                  : const Color(0xFF012169).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -853,8 +873,8 @@ class _PredictionPageState extends State<PredictionPage> {
                           _buildChart(),
                           const SizedBox(height: 16),
                           Text(
-                            "The blue dot indicates the current GM value and its corresponding roll natural period. "
-                                "Teal dots represent actual measurements from saved data.",
+                            "The blue dot indicates the current GM value and its corresponding roll natural period."
+                                "The cyan dots represent actual measurements from saved data.",
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: isDarkMode ? Colors.grey[400] : Colors.grey,
                               fontStyle: FontStyle.italic,

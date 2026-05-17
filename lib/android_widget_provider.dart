@@ -24,7 +24,7 @@ class AndroidAlertWidgetProvider {
 
         return loadedHistory;
       } catch (e) {
-        debugPrint('Erreur lors du chargement des données pour le widget: $e');
+        debugPrint('Error loading data for the widget: $e');
       }
     }
 

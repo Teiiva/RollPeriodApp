@@ -108,6 +108,11 @@ class _VesselWavePageState extends State<VesselWavePage> {
       key: 'currentProfile',
       fromMap: VesselProfile.fromMap,
     );
+    
+    final currentCondition = await StorageManager.loadCurrent(
+      key: 'currentCondition',
+      fromMap: LoadingCondition.fromMap,
+    );
 
     if (currentProfile != null) {
       setState(() {
@@ -116,9 +121,10 @@ class _VesselWavePageState extends State<VesselWavePage> {
           orElse: () => currentProfile,
         );
 
-        _currentLoadingCondition = _currentVesselProfile.loadingConditions.isNotEmpty
-            ? _currentVesselProfile.loadingConditions.first
-            : LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4);
+        _currentLoadingCondition = currentCondition ?? 
+            (_currentVesselProfile.loadingConditions.isNotEmpty
+                ? _currentVesselProfile.loadingConditions.first
+                : LoadingCondition(name: "New Voyage", gm: 0, vcg: 0, draft: 0));
       });
       _initializeControllers();
     }
@@ -142,6 +148,12 @@ class _VesselWavePageState extends State<VesselWavePage> {
       key: 'currentProfile',
       item: _currentVesselProfile,
       toMap: (profile) => profile.toMap(),
+    );
+    
+    await StorageManager.saveCurrent(
+      key: 'currentCondition',
+      item: _currentLoadingCondition,
+      toMap: (condition) => condition.toMap(),
     );
   }
 
@@ -198,7 +210,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                     labelText: "Length (m)",
                     border: OutlineInputBorder(),
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter length';
@@ -276,8 +288,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
       depth: double.parse(_vesselDepthController.text),
       loadingConditions: isEditing
           ? profileToEdit?.loadingConditions ??
-          [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)]
-          : [LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)],
+          [LoadingCondition(name: "New Voyage", gm: 0, vcg: 0, draft: 0)]
+          : [LoadingCondition(name: "New Voyage", gm: 0, vcg: 0, draft: 0)],
     );
 
     setState(() {
@@ -324,7 +336,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
         if (_currentVesselProfile.loadingConditions.isEmpty) {
           final defaultCondition = LoadingCondition(
-              name: "Default",
+              name: "New Voyage",
               gm: 0,
               vcg: 0,
               draft: 0
@@ -372,7 +384,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
             beam: 0,
             depth: 0,
             loadingConditions: [
-              LoadingCondition(name: "Ballast", gm: 1.2, vcg: 6.6, draft: 5.4)
+              LoadingCondition(name: "New Voyage", gm: 0, vcg: 0, draft: 0)
             ],
           );
 
@@ -628,7 +640,7 @@ class _VesselWavePageState extends State<VesselWavePage> {
                             _currentVesselProfile = profile;
                             _currentLoadingCondition = profile.loadingConditions.isNotEmpty
                                 ? profile.loadingConditions.first
-                                : LoadingCondition(name: "Default", gm: 0, vcg: 0, draft: 0);
+                                : LoadingCondition(name: "New Voyage", gm: 0, vcg: 0, draft: 0);
                           });
                           _updateValues();
                         },
@@ -791,9 +803,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
               ],
             ),
             _buildDetailRow("Vessel name", _currentVesselProfile.name),
-            _buildDetailRow("Over all length", "${_currentVesselProfile.length.toStringAsFixed(2)} m"),
-            _buildDetailRow("Max beam", "${_currentVesselProfile.beam.toStringAsFixed(2)} m"),
-            _buildDetailRow("To main deck depth", "${_currentVesselProfile.depth.toStringAsFixed(2)} m"),
+            _buildDetailRow("Length over all", "${_currentVesselProfile.length.toStringAsFixed(2)} m"),
+            _buildDetailRow("Beam, max", "${_currentVesselProfile.beam.toStringAsFixed(2)} m"),
+            _buildDetailRow("Depth, to main deck", "${_currentVesselProfile.depth.toStringAsFixed(2)} m"),
           ],
         ),
       ),
@@ -833,9 +845,9 @@ class _VesselWavePageState extends State<VesselWavePage> {
               ],
             ),
             _buildDetailRow("Voyage name", _currentLoadingCondition.name),
-            _buildDetailRow("GM without FSC", "${_currentLoadingCondition.gm.toStringAsFixed(2)} m"),
-            _buildDetailRow("VCG without FSC", "${_currentLoadingCondition.vcg.toStringAsFixed(2)} m"),
             _buildDetailRow("Mean Draft", "${_currentLoadingCondition.draft.toStringAsFixed(2)} m"),
+            _buildDetailRow("GM, without FSC", "${_currentLoadingCondition.gm.toStringAsFixed(2)} m"),
+            _buildDetailRow("VCG, without FSC", "${_currentLoadingCondition.vcg.toStringAsFixed(2)} m"),
             Text(
               "FSC = Free Surface Correction",
               style: titleStyle.copyWith(
