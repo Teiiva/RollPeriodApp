@@ -10,7 +10,6 @@ import 'models/saved_measurement.dart';
 import 'package:provider/provider.dart';
 import 'shared_data.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 class PredictionPage extends StatefulWidget {
   final VesselProfile vesselProfile;
@@ -30,11 +29,6 @@ class _PredictionPageState extends State<PredictionPage> {
   double rollCoefficient = 0.4;
   bool _isLoaded = false; // Added to handle initial load
 
-  String _selectedVessel = 'All';
-  bool _sortAscending = true;
-  DateTime? _selectedStartDate;
-  DateTime? _selectedEndDate;
-
   late TextStyle titleStyle;
   late TextStyle subtitleStyle;
   late TextStyle axesLegend;
@@ -50,8 +44,6 @@ class _PredictionPageState extends State<PredictionPage> {
   void initState() {
     super.initState();
     _loadRollCoefficient();
-    _selectedEndDate = DateTime.now();
-    _selectedStartDate = DateTime.now().subtract(const Duration(days: 30));
   }
 
   Future<void> _loadRollCoefficient() async {
@@ -69,10 +61,13 @@ class _PredictionPageState extends State<PredictionPage> {
 
   void _updateStyles() {
     const basscreenWidth = 411.42857142857144;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final ratio = screenWidth/basscreenWidth;
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
+    final ratio = screenWidth / basscreenWidth;
     iconSize = 40.0 * ratio;
-    
+
     setState(() {
       titleStyle = TextStyle(
         fontSize: 14.0 * ratio,
@@ -92,43 +87,11 @@ class _PredictionPageState extends State<PredictionPage> {
     });
   }
 
-  @override
-  void didUpdateWidget(PredictionPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.vesselProfile != oldWidget.vesselProfile ||
-        widget.loadingCondition != oldWidget.loadingCondition) {
-      _updateVesselWidget();
-    }
-  }
-
-  Future<void> _updateVesselWidget() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final vesselData = {
-        'vesselProfile': {
-          'name': widget.vesselProfile.name,
-          'length': widget.vesselProfile.length,
-          'beam': widget.vesselProfile.beam,
-          'depth': widget.vesselProfile.depth,
-        },
-        'voyage': {
-          'name': widget.loadingCondition.name,
-          'gm': widget.loadingCondition.gm,
-          'vcg': widget.loadingCondition.vcg,
-        }
-      };
-      await prefs.setString('vesselData', jsonEncode(vesselData));
-      const channel = MethodChannel('com.rollperiod.rollperiod/vessel_widget');
-      await channel.invokeMethod('updateVesselWidget');
-    } catch (e) {
-      debugPrint('Error updating vessel widget: $e');
-    }
-  }
-
   double calculateRollPeriod(double gm) {
-    if (gm < 0.5) return 0;
-    final beam = widget.vesselProfile.beam;
-    return 2 * rollCoefficient * beam / sqrt(gm);
+    if (gm < 0.5) return 0.0;
+    final beam = context.watch<VesselSelectionProvider>().currentVesselProfile!.beam;
+    final result = 2 * rollCoefficient * beam / sqrt(gm);
+    return result;
   }
 
   List<FlSpot> generateChartData() {
@@ -146,12 +109,14 @@ class _PredictionPageState extends State<PredictionPage> {
     return data;
   }
 
-  List<FlSpot> _generateComparisonChartData(List<SavedMeasurement> measurements) {
+  List<FlSpot> _generateComparisonChartData(
+      List<SavedMeasurement> measurements) {
     List<FlSpot> data = [];
 
     for (final measurement in measurements) {
       if (measurement.rollPeriodFFT != null) {
-        data.add(FlSpot(measurement.loadingCondition.gm, measurement.rollPeriodFFT!));
+        data.add(FlSpot(
+            measurement.loadingCondition.gm, measurement.rollPeriodFFT!));
       }
     }
 
@@ -160,11 +125,12 @@ class _PredictionPageState extends State<PredictionPage> {
 
 
   Widget _buildChart() {
+    final currentLoadingCondition = context.watch<VesselSelectionProvider>().currentLoadingCondition!;
     final spots = generateChartData();
-    final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
-    final currentSpot = FlSpot(widget.loadingCondition.gm, currentPeriod);
+    final currentPeriod = calculateRollPeriod(currentLoadingCondition.gm);
+    final currentSpot = FlSpot(currentLoadingCondition.gm, currentPeriod);
 
-    if (widget.loadingCondition.gm < 0.5) {
+    if (currentLoadingCondition.gm < 0.5) {
       return _buildWarningMessage();
     }
 
@@ -172,9 +138,14 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   Widget _buildWarningMessage() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
     return Container(
-      height: MediaQuery.of(context).size.height * 0.4,
+      height: MediaQuery
+          .of(context)
+          .size
+          .height * 0.4,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -192,7 +163,11 @@ class _PredictionPageState extends State<PredictionPage> {
             const SizedBox(height: 16),
             Text(
               "GM value below 0.5 is too low to calculate a prediction",
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              style: Theme
+                  .of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
@@ -204,7 +179,8 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   Widget _buildChartContainer(List<FlSpot> spots, FlSpot currentSpot) {
-    final comparisonSpots = _generateComparisonChartData(Provider.of<SharedData>(context).savedMeasurements);
+    final comparisonSpots = _generateComparisonChartData(
+        Provider.of<SharedData>(context).savedMeasurements);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.3,
@@ -217,9 +193,9 @@ class _PredictionPageState extends State<PredictionPage> {
           borderData: _buildBorderData(),
           lineBarsData: _buildLineBarsData(spots, currentSpot, comparisonSpots),
           minX: 0.5,
-          maxX: 10,
+          maxX: spots.isNotEmpty ? spots.map((e) => e.x).reduce(max) * 1 : 10,
           minY: 0,
-          maxY: spots.isNotEmpty ? spots.map((e) => e.y).reduce(max) * 1.2 : 20,
+          maxY: spots.isNotEmpty ? spots.map((e) => e.y).reduce(max) * 2.2 : 20,
           lineTouchData: _buildTouchData(),
           clipData: const FlClipData.all(),
         ),
@@ -228,7 +204,9 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   BoxDecoration _buildChartDecoration() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
     return BoxDecoration(
       borderRadius: BorderRadius.circular(12),
       color: isDarkMode ? Colors.grey[700] : Colors.white,
@@ -240,14 +218,16 @@ class _PredictionPageState extends State<PredictionPage> {
     return FlGridData(
       show: true,
       drawVerticalLine: true,
-      getDrawingHorizontalLine: (value) => FlLine(
-        color: Colors.grey.withValues(alpha: 0.2),
-        strokeWidth: 1,
-      ),
-      getDrawingVerticalLine: (value) => FlLine(
-        color: Colors.grey.withValues(alpha: 0.2),
-        strokeWidth: 1,
-      ),
+      getDrawingHorizontalLine: (value) =>
+          FlLine(
+            color: Colors.grey.withValues(alpha: 0.2),
+            strokeWidth: 1,
+          ),
+      getDrawingVerticalLine: (value) =>
+          FlLine(
+            color: Colors.grey.withValues(alpha: 0.2),
+            strokeWidth: 1,
+          ),
     );
   }
 
@@ -295,7 +275,7 @@ class _PredictionPageState extends State<PredictionPage> {
       axisNameWidget: RotatedBox(
         quarterTurns: 0,
         child: Padding(
-          padding: const EdgeInsets.only(left:25),
+          padding: const EdgeInsets.only(left: 25),
           child: Center(
             child: Text(
               'Roll Natural Period (s)',
@@ -332,7 +312,8 @@ class _PredictionPageState extends State<PredictionPage> {
     );
   }
 
-  List<LineChartBarData> _buildLineBarsData(List<FlSpot> spots, FlSpot currentSpot, List<FlSpot> comparisonSpots) {
+  List<LineChartBarData> _buildLineBarsData(
+      List<FlSpot> spots, FlSpot currentSpot, List<FlSpot> comparisonSpots) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return [
       LineChartBarData(
@@ -341,7 +322,9 @@ class _PredictionPageState extends State<PredictionPage> {
         color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
         barWidth: 4,
         shadow: BoxShadow(
-          color: isDarkMode ? Colors.deepPurple.withValues(alpha: 0.3) : const Color(0xFF012169).withValues(alpha: 0.3),
+          color: isDarkMode
+              ? Colors.deepPurple.withValues(alpha: 0.3)
+              : const Color(0xFF012169).withValues(alpha: 0.3),
           blurRadius: 8,
           spreadRadius: 2,
         ),
@@ -396,13 +379,16 @@ class _PredictionPageState extends State<PredictionPage> {
   }
 
   LineTouchData _buildTouchData() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
     return LineTouchData(
       touchTooltipData: LineTouchTooltipData(
         getTooltipItems: (touchedSpots) {
           return touchedSpots.map((touchedSpot) {
             return LineTooltipItem(
-              'GM: ${touchedSpot.x.toStringAsFixed(1)}\nPeriod: ${touchedSpot.y.toStringAsFixed(1)}s',
+              'GM: ${touchedSpot.x.toStringAsFixed(1)}\n'
+                  'Period: ${touchedSpot.y.toStringAsFixed(1)}s',
               TextStyle(color: isDarkMode ? Colors.black : Colors.white),
             );
           }).toList();
@@ -411,349 +397,9 @@ class _PredictionPageState extends State<PredictionPage> {
     );
   }
 
-  Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    if (measurements.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Text(
-              "No saved measurements yet",
-              style: axesLegend,
-            ),
-          ),
-        ],
-      );
-    }
-
-    final vesselNames = ['All', ...measurements.map((m) => m.vesselProfile.name).toSet()];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey[850] : Colors.white,
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Column(
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedVessel,
-                decoration: InputDecoration(
-                  labelText: 'Vessel',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                items: vesselNames.map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedVessel = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 8),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final selectedDate = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedStartDate ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: _selectedEndDate ?? DateTime.now(),
-                        );
-                        if (selectedDate != null) {
-                          setState(() {
-                            _selectedStartDate = selectedDate;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black.withValues(alpha: 0.6),width: 1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _selectedStartDate != null
-                              ? 'From: ${DateFormat('dd/MM/yyyy').format(_selectedStartDate!)}'
-                              : 'Select start date',
-                          style: subtitleStyle,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final selectedDate = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedEndDate ?? DateTime.now(),
-                          firstDate: _selectedStartDate ?? DateTime(2000),
-                          lastDate: DateTime.now(),
-                        );
-                        if (selectedDate != null) {
-                          setState(() {
-                            _selectedEndDate = selectedDate;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black.withValues(alpha: 0.6),width: 1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _selectedEndDate != null
-                              ? 'To: ${DateFormat('dd/MM/yyyy').format(_selectedEndDate!)}'
-                              : 'Select end date',
-                          style: subtitleStyle,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    icon: Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                      size: 16, color: const Color(0xFF012169)
-                    ),
-                    label: Text(
-                      _sortAscending ? 'Oldest first' : 'Newest first',
-                      style: const TextStyle(color: Color(0xFF012169)),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _sortAscending = !_sortAscending;
-                      });
-                    },
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _selectedStartDate = null;
-                        _selectedEndDate = null;
-                        _selectedVessel = 'All';
-                      });
-                    },
-                    child: const Text(
-                      'Clear filters',
-                      style: TextStyle(color: Colors.red),
-                    ),
-
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        const SizedBox(height: 8),
-
-        Scrollbar(
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: measurements.where((m) {
-              final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
-              final matchesDateRange =
-                  (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
-                      (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
-              return matchesVessel && matchesDateRange;
-            }).length,
-            itemBuilder: (context, index) {
-              final filteredMeasurements = measurements.where((m) {
-                final matchesVessel = _selectedVessel == 'All' || m.vesselProfile.name == _selectedVessel;
-                final matchesDateRange =
-                    (_selectedStartDate == null || m.timestamp.isAfter(_selectedStartDate!.subtract(const Duration(days: 1)))) &&
-                        (_selectedEndDate == null || m.timestamp.isBefore(_selectedEndDate!.add(const Duration(days: 1))));
-                            return matchesVessel && matchesDateRange;
-                        }).toList()
-                ..sort((a, b) => _sortAscending
-                    ? a.timestamp.compareTo(b.timestamp)
-                    : b.timestamp.compareTo(a.timestamp));
-
-              final measurement = filteredMeasurements[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
-                color: isDarkMode ? Colors.grey[700] : const Color(0xFFe5e8f0),
-                elevation: 1,
-                child: ListTile(
-                  title: Text(
-                    measurement.vesselProfile.name,
-                    style: titleStyle.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : const Color(0xFF012169),
-                    ),
-                  ),
-                  subtitle: Text(
-                    '${DateFormat('dd/MM/yyyy').format(measurement.timestamp)} - ${measurement.timestamp.hour.toString().padLeft(2, '0')}:${measurement.timestamp.minute.toString().padLeft(2, '0')}',
-                    style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
-                  ),
-                  trailing: const IconButton(
-                    icon: Icon(Icons.delete, color:Colors.red),
-                    onPressed: null,
-                  ),
-                  onTap: () => _showMeasurementDetails(context, measurement),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showMeasurementDetails(BuildContext context, SavedMeasurement measurement) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDetailSection("Measurement Details", [
-                  _buildDetailRow("Measurement time",
-                      DateFormat('dd/MM/yyyy HH:mm').format(measurement.timestamp)),
-                  _buildDetailRow(
-                    "Duration",
-                    measurement.duration != null
-                        ? "${(measurement.duration! ~/ 60)} min ${(measurement.duration! % 60).toStringAsFixed(0).padLeft(2, '0')} s"
-                        : "N/A",
-                  ),
-
-                  _buildDetailRow("Max roll",
-                      "${measurement.maxRoll?.toStringAsFixed(1) ?? 'N/A'}°"),
-                  _buildDetailRow("Max pitch",
-                      "${measurement.maxPitch?.toStringAsFixed(1) ?? 'N/A'}°"),
-                  _buildDetailRow("RMS roll",
-                      "${measurement.rmsRoll?.toStringAsFixed(2) ?? 'N/A'}°"),
-                  _buildDetailRow("RMS pitch",
-                      "${measurement.rmsPitch?.toStringAsFixed(2) ?? 'N/A'}°"),
-                ]),
-
-                const SizedBox(height: 16),
-                _buildDetailSection("Vessel details", [
-                  _buildDetailRow("Vessel name", measurement.vesselProfile.name),
-                  _buildDetailRow("Over all Length", "${measurement.vesselProfile.length.toStringAsFixed(2)} m"),
-                  _buildDetailRow("Max beam", "${measurement.vesselProfile.beam.toStringAsFixed(2)} m"),
-                  _buildDetailRow("To main deck depth", "${measurement.vesselProfile.depth.toStringAsFixed(2)} m"),
-                ]),
-
-                const SizedBox(height: 16),
-                _buildDetailSection("Voyage details", [
-                  _buildDetailRow("Voyage name", measurement.loadingCondition.name),
-                  _buildDetailRow("GM without FSC", "${measurement.loadingCondition.gm.toStringAsFixed(2)} m"),
-                  _buildDetailRow("VCG without FSC", "${measurement.loadingCondition.vcg.toStringAsFixed(2)} m"),
-                  _buildDetailRow("Mean draft", "${measurement.loadingCondition.draft.toStringAsFixed(2)} m"),
-                ]),
-
-                const SizedBox(height: 16),
-                _buildDetailSection("Period measured", [
-                  _buildDetailRow(
-                      "Roll Period",
-                      measurement.rollPeriodFFT != null
-                          ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
-                          : "N/A"),
-                  _buildDetailRow(
-                      "Pitch Period",
-                      measurement.pitchPeriodFFT != null
-                          ? "${measurement.pitchPeriodFFT!.toStringAsFixed(1)} s"
-                          : "N/A"),
-                ]),
-                const SizedBox(height: 16),
-                _buildDetailSection("Roll Natural Prediction", [
-                  ...measurement.predictedRollPeriods.entries.map(
-                        (entry) => _buildDetailRow(
-                        entry.key,
-                        "${entry.value.toStringAsFixed(1)} s"),
-                  ),
-                ]),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Close"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailSection(String title, List<Widget> children) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-      Text(
-      title,
-      style: titleStyle.copyWith(color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169))
-      ),
-      const SizedBox(height: 8),
-      ...children,
-      ],
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: subtitleStyle.copyWith(color:  isDarkMode ? Colors.grey[300] : Colors.black54),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
   @override
   Widget build(BuildContext context) {
-    final sharedData = Provider.of<SharedData>(context);
-    final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
+    final currentPeriod = calculateRollPeriod(context.watch<VesselSelectionProvider>().currentLoadingCondition!.gm);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Return empty or loading indicator until loaded to avoid jumpy UI or wrong initial value
@@ -762,7 +408,7 @@ class _PredictionPageState extends State<PredictionPage> {
     }
 
     return Scaffold(
-      appBar: const CustomAppBar(),
+      appBar: CustomAppBar(),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -826,89 +472,66 @@ class _PredictionPageState extends State<PredictionPage> {
                 elevation: 1,
                 color: isDarkMode ? Colors.grey[850] : Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: ExpansionTile(
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
-                  title: Text(
-                    "ROLL NATURAL PERIOD RESULTS",
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: isDarkMode ? Colors.grey[300] : Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 0,horizontal: 16),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? Colors.grey[700]
-                                  : const Color(0xFF012169).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Estimated roll natural period:",
-                                  style: titleStyle.copyWith(
-                                    color: isDarkMode ? Colors.grey[300] : Colors.black,
-                                    fontSize: (titleStyle.fontSize ?? 14.0) * 1.1,
-                                    fontWeight: FontWeight.normal,
-                                  ),
-                                ),
-                                Text(
-                                  "${currentPeriod.toStringAsFixed(1)} s",
-                                  style: titleStyle.copyWith(
-                                    color: isDarkMode ? Colors.white : const Color(0xFF012169),
-                                    fontSize: (titleStyle.fontSize ?? 14.0) * 1.8,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildChart(),
-                          const SizedBox(height: 16),
-                          Text(
-                            "The blue dot indicates the current GM value and its corresponding roll natural period."
-                                "The cyan dots represent actual measurements from saved data.",
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isDarkMode ? Colors.grey[400] : Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "ROLL NATURAL PERIOD RESULTS",
+                        style: titleStyle.copyWith(
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.grey[700]
+                              : const Color(0xFF012169).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Estimated roll natural period:",
+                              style: titleStyle.copyWith(
+                                color: isDarkMode ? Colors.grey[300] : Colors.black,
+                                fontSize: (titleStyle.fontSize ?? 14.0) * 1.1,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                            Text(
+                              "${currentPeriod.toStringAsFixed(1)} s",
+                              style: titleStyle.copyWith(
+                                color: isDarkMode ? Colors.white : const Color(0xFF012169),
+                                fontSize: (titleStyle.fontSize ?? 14.0) * 1.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildChart(),
+                      const SizedBox(height: 16),
+                      Text(
+                        "The blue dot indicates the current GM value and its corresponding roll natural period."
+                            "The cyan dots represent actual measurements from saved data.",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
-              ),
+                ),
+
               const SizedBox(height: 8),
-              Card(
-              elevation: 1,
-              color: isDarkMode ? Colors.grey[850] : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: ExpansionTile(
-                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide.none),
-                title: Text(
-                  "SAVED MEASUREMENTS",
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: isDarkMode ? Colors.grey[300] : Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: gmRollPeriodPairsTile(measurements: sharedData.savedMeasurements),
-                  ),
-                ],
-              ),
-            ),
+
             ],
           ),
         ),

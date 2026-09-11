@@ -55,5 +55,12 @@ class LoadingCondition {
               draft == other.draft;
 
   @override
-  int get hashCode => name.hashCode ^ gm.hashCode ^ vcg.hashCode ^ draft.hashCode;
+  int get hashCode=>name.hashCode ^ gm.hashCode ^ vcg.hashCode ^ draft.hashCode;
+
+  static final LoadingCondition defaultLoading = LoadingCondition(
+    name: '__add_new__',
+    gm: 0,
+    vcg: 0,
+    draft: 0,
+  );
 }

@@ -3,6 +3,7 @@ import 'menu.dart';
 import 'shared_data.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'widgets/custom_app_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,8 +11,11 @@ void main() async {
     DeviceOrientation.portraitUp,
   ]);
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => SharedData(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SharedData()),
+        ChangeNotifierProvider(create: (_) => VesselSelectionProvider()..init()),
+      ],
       child: const MyApp(),
     ),
   );

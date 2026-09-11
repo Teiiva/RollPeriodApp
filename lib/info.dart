@@ -1,5 +1,6 @@
 // info.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'widgets/custom_app_bar.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
@@ -47,8 +48,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
   @override
   void initState() {
     super.initState();
-    _currentVesselProfile = widget.currentVesselProfile;
-    _currentLoadingCondition = widget.currentLoadingCondition;
+    _currentVesselProfile    = context.read<VesselSelectionProvider>().currentVesselProfile!;
+    _currentLoadingCondition = context.read<VesselSelectionProvider>().currentLoadingCondition!;
     _loadSavedData();
     _initializeControllers();
   }
@@ -662,6 +663,8 @@ class _VesselWavePageState extends State<VesselWavePage> {
 
   @override
   Widget build(BuildContext context) {
+    _currentVesselProfile = context.watch<VesselSelectionProvider>().currentVesselProfile!;
+    _currentLoadingCondition = context.watch<VesselSelectionProvider>().currentLoadingCondition!;
     return Scaffold(
       appBar: const CustomAppBar(),
       body: SingleChildScrollView(

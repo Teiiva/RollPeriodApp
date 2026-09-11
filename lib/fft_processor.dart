@@ -1,4 +1,5 @@
 import 'package:fftea/fftea.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 
 class FFTProcessor {
@@ -10,6 +11,7 @@ class FFTProcessor {
   }
   
   static List<double> computePowerSpectrum(List<double> samples) {
+    if (samples.isEmpty) {return [];}
     final fft = _getFFT(samples.length);
     final spectrum = fft.realFft(samples);
     final powerSpectrum = List<double>.generate(spectrum.length ~/ 2, (i) {
@@ -62,11 +64,9 @@ class FFTProcessor {
 
     return refinedFreq;
   }
-
   static double? findRollingPeriod(List<double> rollAngles, double sampleRate) {
     debugPrint("len : ${rollAngles.length}, sample rate : $sampleRate");
-    if (rollAngles.length < 512 || sampleRate <= 0) return null;
-
+    if (rollAngles.length < 256 || sampleRate <= 0) return null;
     final detrended = _polyDetrend(rollAngles);
 
     final spectrum = computePowerSpectrum(detrended);
@@ -79,6 +79,38 @@ class FFTProcessor {
     if (dominantFreq != null && dominantFreq > 0) {
       return 1.0 / dominantFreq;
     }
-    return null;
+    return null; //Result in second
+  }
+
+  /// Gets the coordinates to plot a point on a graph.
+  static FlSpot? findDominantFrequencySpot(
+      List<double> rollAngles,
+      double sampleRate, {
+        double minFreq = 0.02,
+        double maxFreq = 0.5,
+      }) {
+
+    if (rollAngles.length < 256 || sampleRate <= 0) return null;
+
+    final detrended = _polyDetrend(rollAngles);
+
+    final spectrum = computePowerSpectrum(detrended);
+    if (spectrum.isEmpty) return null;
+
+    final dominantFreq = findDominantFrequency(
+      spectrum,
+      sampleRate,
+      detrended.length.toDouble(),
+      minFreq: minFreq,
+      maxFreq: maxFreq,
+    );
+
+    if (dominantFreq == null || dominantFreq <= 0) return null;
+
+    final freqResolution = sampleRate / detrended.length;
+    final peakIdx = (dominantFreq / freqResolution).round().clamp(0, spectrum.length - 1);
+    final power = spectrum[peakIdx];
+
+    return FlSpot(dominantFreq, power);
   }
 }
