@@ -1,0 +1,1279 @@
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
+import 'widgets/custom_app_bar.dart';
+import 'models/vessel_profile.dart';
+import 'models/loading_condition.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'models/saved_measurement.dart';
+import 'package:provider/provider.dart';
+import 'shared_data.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+class PredictionPage extends StatefulWidget {
+  final VesselProfile vesselProfile;
+  final LoadingCondition loadingCondition;
+
+  const PredictionPage({
+    super.key,
+    required this.vesselProfile,
+    required this.loadingCondition,
+  });
+
+  @override
+  State<PredictionPage> createState() => _PredictionPageState();
+}
+
+class _PredictionPageState extends State<PredictionPage> {
+  double rollCoefficient = 0.4;
+  bool _isLoaded = false; // Added to handle initial load
+
+  String _selectedVessel = 'All';
+  bool _sortAscending = true;
+  DateTime? _selectedStartDate;
+  DateTime? _selectedEndDate;
+
+  late TextStyle titleStyle;
+  late TextStyle subtitleStyle;
+  late TextStyle axesLegend;
+  late double iconSize;
+
+  final Set<SavedMeasurement> _selectedMeasurements = {};
+  bool _isSelectionMode = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateStyles();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRollCoefficient();
+    _selectedEndDate = DateTime.now();
+    _selectedStartDate = DateTime.now().subtract(const Duration(days: 30));
+  }
+
+  Future<void> _loadRollCoefficient() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      rollCoefficient = prefs.getDouble('rollCoefficient') ?? 0.4;
+      _isLoaded = true; // Mark as loaded
+    });
+  }
+
+  Future<void> _saveRollCoefficient(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('rollCoefficient', value);
+  }
+
+  void _updateStyles() {
+    const basscreenWidth = 411.42857142857144;
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
+    final ratio = screenWidth / basscreenWidth;
+    iconSize = 40.0 * ratio;
+
+    setState(() {
+      titleStyle = TextStyle(
+        fontSize: 14.0 * ratio,
+        fontWeight: FontWeight.bold,
+        color: Colors.grey,
+      );
+      subtitleStyle = TextStyle(
+        fontSize: 12.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.black,
+      );
+      axesLegend = TextStyle(
+        fontSize: 12.0 * ratio,
+        fontWeight: FontWeight.normal,
+        color: Colors.grey,
+      );
+    });
+  }
+
+  @override
+  void didUpdateWidget(PredictionPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.vesselProfile != oldWidget.vesselProfile ||
+        widget.loadingCondition != oldWidget.loadingCondition) {
+      _updateVesselWidget();
+    }
+  }
+
+  Future<void> _updateVesselWidget() async {
+    try {
+      final currentVesselProfile = context.watch<VesselSelectionProvider>().currentVesselProfile!;
+      final currentLoadingCondition = context.watch<VesselSelectionProvider>().currentLoadingCondition!;
+      _selectedVessel = currentVesselProfile.name;
+      final prefs = await SharedPreferences.getInstance();
+      final vesselData = {
+        'vesselProfile': {
+          'name': currentVesselProfile.name,
+          'length': currentVesselProfile.length,
+          'beam': currentVesselProfile.beam,
+          'depth': currentVesselProfile.depth,
+        },
+        'voyage': {
+          'name': currentLoadingCondition.name,
+          'gm': currentLoadingCondition.gm,
+          'vcg': currentLoadingCondition.vcg,
+        }
+      };
+      await prefs.setString('vesselData', jsonEncode(vesselData));
+      const channel = MethodChannel('com.rollperiod.rollperiod/vessel_widget');
+      await channel.invokeMethod('updateVesselWidget');
+    } catch (e) {
+      debugPrint('Error updating vessel widget: $e');
+    }
+  }
+
+  double calculateRollPeriod(double gm) {
+    if (gm < 0.5) return 0.0;
+    final beam = context.watch<VesselSelectionProvider>().currentVesselProfile!.beam;
+    final result = 2 * rollCoefficient * beam / sqrt(gm);
+    return result;
+  }
+
+  List<FlSpot> generateChartData() {
+    List<FlSpot> data = [];
+    const int steps = 50;
+    const double minGM = 0.5;
+    const double maxGM = 10.0;
+
+    for (int i = 0; i <= steps; i++) {
+      double gm = minGM + (i * (maxGM - minGM) / steps);
+      double period = calculateRollPeriod(gm);
+      data.add(FlSpot(gm, period));
+    }
+
+    return data;
+  }
+
+  List<FlSpot> _generateComparisonChartData(
+      List<SavedMeasurement> measurements) {
+    List<FlSpot> data = [];
+
+    for (final measurement in measurements) {
+      if (measurement.rollPeriodFFT != null) {
+        data.add(FlSpot(
+            measurement.loadingCondition.gm, measurement.rollPeriodFFT!));
+      }
+    }
+
+    return data;
+  }
+
+
+  Widget _buildChart() {
+    final currentLoadingCondition = context.watch<VesselSelectionProvider>().currentLoadingCondition!;
+    final spots = generateChartData();
+    final currentPeriod = calculateRollPeriod(currentLoadingCondition.gm);
+    final currentSpot = FlSpot(currentLoadingCondition.gm, currentPeriod);
+
+    if (currentLoadingCondition.gm < 0.5) {
+      return _buildWarningMessage();
+    }
+
+    return _buildChartContainer(spots, currentSpot);
+  }
+
+  Widget _buildWarningMessage() {
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
+    return Container(
+      height: MediaQuery
+          .of(context)
+          .size
+          .height * 0.4,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: isDarkMode ? Colors.grey[700] : Colors.white,
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.amber,
+              size: iconSize,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "GM value below 0.5 is too low to calculate a prediction",
+              style: Theme
+                  .of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(
+                color: Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartContainer(List<FlSpot> spots, FlSpot currentSpot) {
+    final comparisonSpots = _generateComparisonChartData(
+        Provider.of<SharedData>(context).savedMeasurements);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.3,
+      padding: const EdgeInsets.only(left: 6, top: 16, right: 16, bottom: 8),
+      decoration: _buildChartDecoration(),
+      child: LineChart(
+        LineChartData(
+          gridData: _buildGridData(),
+          titlesData: _buildTitlesData(),
+          borderData: _buildBorderData(),
+          lineBarsData: _buildLineBarsData(spots, currentSpot, comparisonSpots),
+          minX: 0.5,
+          maxX: spots.isNotEmpty ? spots.map((e) => e.x).reduce(max) * 1 : 10,
+          minY: 0,
+          maxY: spots.isNotEmpty ? spots.map((e) => e.y).reduce(max) * 1.2 : 20,
+          lineTouchData: _buildTouchData(),
+          clipData: const FlClipData.all(),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _buildChartDecoration() {
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      color: isDarkMode ? Colors.grey[700] : Colors.white,
+
+    );
+  }
+
+  FlGridData _buildGridData() {
+    return FlGridData(
+      show: true,
+      drawVerticalLine: true,
+      getDrawingHorizontalLine: (value) =>
+          FlLine(
+            color: Colors.grey.withValues(alpha: 0.2),
+            strokeWidth: 1,
+          ),
+      getDrawingVerticalLine: (value) =>
+          FlLine(
+            color: Colors.grey.withValues(alpha: 0.2),
+            strokeWidth: 1,
+          ),
+    );
+  }
+
+  FlTitlesData _buildTitlesData() {
+    return FlTitlesData(
+      show: true,
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: _buildBottomTitles(),
+      leftTitles: _buildLeftTitles(),
+    );
+  }
+
+  AxisTitles _buildBottomTitles() {
+    return AxisTitles(
+      axisNameWidget: Padding(
+        padding: const EdgeInsets.only(top: 0),
+        child: Text(
+          'GM (m)',
+          style: axesLegend,
+        ),
+      ),
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 30,
+        interval: 1,
+        getTitlesWidget: (value, meta) {
+          if (value == value.roundToDouble()) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                value.toStringAsFixed(0),
+                style: axesLegend,
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+
+  AxisTitles _buildLeftTitles() {
+    return AxisTitles(
+      axisNameWidget: RotatedBox(
+        quarterTurns: 0,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 25),
+          child: Center(
+            child: Text(
+              'Roll Natural Period (s)',
+              style: axesLegend,
+            ),
+          ),
+        ),
+      ),
+      axisNameSize: 28,
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 26,
+        interval: 5,
+        getTitlesWidget: (value, meta) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Text(
+              value.toStringAsFixed(0),
+              style: axesLegend,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  FlBorderData _buildBorderData() {
+    return FlBorderData(
+      show: true,
+      border: Border.all(
+        color: Colors.grey.withValues(alpha: 0.2),
+        width: 1,
+      ),
+    );
+  }
+
+  List<LineChartBarData> _buildLineBarsData(
+      List<FlSpot> spots, FlSpot currentSpot, List<FlSpot> comparisonSpots) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return [
+      LineChartBarData(
+        spots: spots,
+        isCurved: true,
+        color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
+        barWidth: 4,
+        shadow: BoxShadow(
+          color: isDarkMode
+              ? Colors.deepPurple.withValues(alpha: 0.3)
+              : const Color(0xFF012169).withValues(alpha: 0.3),
+          blurRadius: 8,
+          spreadRadius: 2,
+        ),
+        belowBarData: BarAreaData(
+          show: true,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDarkMode ? Colors.deepPurple.withValues(alpha: 0.2) : const Color(0xFF012169).withValues(alpha: 0.2),
+              isDarkMode ? Colors.deepPurple.withValues(alpha: 0.01) : const Color(0xFF012169).withValues(alpha: 0.01),
+            ],
+          ),
+        ),
+        dotData: const FlDotData(show: false),
+      ),
+      LineChartBarData(
+        spots: [currentSpot],
+        isCurved: false,
+        color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
+        barWidth: 0,
+        dotData: FlDotData(
+          show: true,
+          getDotPainter: (spot, percent, barData, index) {
+            return FlDotCirclePainter(
+              radius: 8,
+              color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169),
+              strokeWidth: 2,
+              strokeColor: Colors.white,
+            );
+          },
+        ),
+      ),
+      LineChartBarData(
+        spots: comparisonSpots,
+        isCurved: false,
+        color: Colors.teal,
+        barWidth: 0,
+        dotData: FlDotData(
+          show: true,
+          getDotPainter: (spot, percent, barData, index) {
+            return FlDotCirclePainter(
+              radius: 5,
+              color: Colors.teal,
+              strokeWidth: 1,
+              strokeColor: Colors.white,
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  LineTouchData _buildTouchData() {
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
+    return LineTouchData(
+      touchTooltipData: LineTouchTooltipData(
+        getTooltipItems: (touchedSpots) {
+          return touchedSpots.map((touchedSpot) {
+            return LineTooltipItem(
+              'GM: ${touchedSpot.x.toStringAsFixed(1)}\n'
+                  'Period: ${touchedSpot.y.toStringAsFixed(1)}s',
+              TextStyle(color: isDarkMode ? Colors.black : Colors.white),
+            );
+          }).toList();
+        },
+      ),
+    );
+  }
+
+  Future<void> _shareData(SavedMeasurement measurement) async {
+    try {
+      final buffer = StringBuffer();
+      final now = DateTime.now();
+
+      final vessel = measurement.vesselProfile;
+      final loading = measurement.loadingCondition;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${measurement.predictedRollPeriods}')),
+      );
+
+      final metadata = [
+        'Export Time: ${now.toIso8601String()}',
+        'Date: ${measurement.timestamp.toIso8601String()}',
+        'Duration (s): ${measurement.duration?.toStringAsFixed(2) ?? 'N/A'}',
+        'Roll Period (FFT)(s): ${measurement.rollPeriodFFT?.toStringAsFixed(
+            2) ?? 'N/A'}',
+        'Pitch Period (FFT)(s): ${measurement.pitchPeriodFFT?.toStringAsFixed(
+            2) ?? 'N/A'}',
+        'Max Roll (deg): ${measurement.maxRoll?.toStringAsFixed(2) ?? 'N/A'}',
+        'Max Pitch (deg): ${measurement.maxPitch?.toStringAsFixed(2) ?? 'N/A'}',
+        'RMS Roll (deg): ${measurement.rmsRoll?.toStringAsFixed(2) ?? 'N/A'}',
+        'RMS Pitch (deg): ${measurement.rmsPitch?.toStringAsFixed(2) ?? 'N/A'}',
+        'Vessel Profile: ${vessel.name}',
+        'Length (m): ${vessel.length}',
+        'Beam (m): ${vessel.beam}',
+        'Depth (m): ${vessel.depth}',
+        'Voyage Condition: ${loading.name}',
+        'GM (m): ${loading.gm}',
+        'VCG (m): ${loading.vcg}',
+        'Draft (m): ${loading.draft}',
+      ];
+
+      buffer.writeln('parameter,value');
+      for (final line in metadata) {
+        final separatorIndex = line.indexOf(':');
+        if (separatorIndex != -1) {
+          final key = line.substring(0, separatorIndex).trim();
+          final value = line.substring(separatorIndex + 1).trim();
+          buffer.writeln('$key,$value');
+        } else {
+          buffer.writeln(line);
+        }
+      }
+
+      buffer.writeln();
+      buffer.writeln('prediction_method,predicted_period_s');
+      for (final entry in measurement.predictedRollPeriods.entries) {
+        buffer.writeln('${entry.key},${entry.value.toStringAsFixed(2)}');
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/measurement_${measurement.timestamp
+          .millisecondsSinceEpoch}.csv');
+      await file.writeAsString(buffer.toString());
+
+      if (mounted) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Exported Measurement Data',
+          subject: 'Measurement Export - ${vessel.name} / ${loading.name}',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
+  void _showDeleteConfirmationDialog(SavedMeasurement measurement) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: const Text(
+              'Are you sure you want to delete this measurement? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteMeasurement(measurement);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _deleteMeasurement(SavedMeasurement measurement) async {
+    try {
+      final sharedData = Provider.of<SharedData>(context, listen: false);
+      await sharedData.deleteMeasurement(measurement);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Measurement deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete measurement: $e')),
+        );
+      }
+    }
+  }
+
+  Widget gmRollPeriodPairsTile({required List<SavedMeasurement> measurements}) {
+    final isDarkMode = Theme
+        .of(context)
+        .brightness == Brightness.dark;
+
+    if (measurements.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Text(
+              "No saved measurements yet",
+              style: axesLegend,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final vesselNames = [
+      'All',
+      ...measurements.map((m) => m.vesselProfile.name).toSet()
+    ];
+    final loadingCondition = [
+      'All',
+      ...measurements.map((m) => m.loadingCondition.name).toSet()
+    ];
+
+    if (!vesselNames.contains(_selectedVessel)) {
+      _selectedVessel = 'All';
+    }
+
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[850] : Colors.white,
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  key: ValueKey('vessel_$_selectedVessel'),
+                  initialValue: _selectedVessel,
+                  decoration: InputDecoration(
+                    labelText: 'Vessel',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                  ),
+                  items: vesselNames.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedVessel = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                /*DropdownButtonFormField<String>(
+                key: ValueKey('loading_$_selectedLoading'),
+                initialValue: _selectedLoading,
+                decoration: InputDecoration(
+                  labelText: 'Voyage',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+                items: loadingCondition.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedLoading = value!;
+                  });
+                },
+              ),
+              const SizedBox(height: 8),*/
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final selectedDate = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedStartDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: _selectedEndDate ?? DateTime.now(),
+                          );
+                          if (selectedDate != null) {
+                            setState(() {
+                              _selectedStartDate = selectedDate;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black.withValues(
+                                alpha: 0.6), width: 1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _selectedStartDate != null
+                                ? 'From: ${DateFormat('dd/MM/yyyy').format(
+                                _selectedStartDate!)}'
+                                : 'Select start date',
+                            style: subtitleStyle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final selectedDate = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedEndDate ?? DateTime.now(),
+                            firstDate: _selectedStartDate ?? DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (selectedDate != null) {
+                            setState(() {
+                              _selectedEndDate = selectedDate;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black.withValues(
+                                alpha: 0.6), width: 1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _selectedEndDate != null
+                                ? 'To: ${DateFormat('dd/MM/yyyy').format(
+                                _selectedEndDate!)}'
+                                : 'Select end date',
+                            style: subtitleStyle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      icon: Icon(
+                          _sortAscending ? Icons.arrow_upward : Icons
+                              .arrow_downward,
+                          size: 16, color: const Color(0xFF012169)
+                      ),
+                      label: Text(
+                        _sortAscending ? 'Oldest first' : 'Newest first',
+                        style: const TextStyle(color: Color(0xFF012169)),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _sortAscending = !_sortAscending;
+                        });
+                      },
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedStartDate = null;
+                          _selectedEndDate = null;
+                          _selectedVessel = 'All';
+                        });
+                      },
+                      child: const Text(
+                        'Clear filters',
+                        style: TextStyle(color: Colors.red),
+                      ),
+
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          if (_isSelectionMode)
+            Card(
+              margin: const EdgeInsets.symmetric(
+                  vertical: 4.0, horizontal: 0),
+              color: isDarkMode ? Colors.grey[800] : const Color(0xFFe5e8f0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Text(
+                      '${_selectedMeasurements.length} selected',
+                      style: titleStyle.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDarkMode ? Colors.white : const Color(
+                            0xFF012169),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                            Icons.ios_share, color: Color(0xFF012169)),
+                        onPressed: _selectedMeasurements.isEmpty
+                            ? null
+                            : () => _shareSelectedMeasurements(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: _selectedMeasurements.isEmpty
+                            ? null
+                            : () => _showBulkDeleteConfirmationDialog(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: _exitSelectionMode,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+          const SizedBox(height: 8),
+
+          Scrollbar(
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: measurements.where((m) {
+                final matchesVessel = _selectedVessel == 'All' ||
+                    m.vesselProfile.name == _selectedVessel;
+                final matchesDateRange =
+                    (_selectedStartDate == null || m.timestamp.isAfter(
+                        _selectedStartDate!.subtract(
+                            const Duration(days: 1)))) &&
+                        (_selectedEndDate == null || m.timestamp.isBefore(
+                            _selectedEndDate!.add(const Duration(days: 1))));
+                return matchesVessel && matchesDateRange;
+              }).length,
+              itemBuilder: (context, index) {
+                final filteredMeasurements = measurements.where((m) {
+                  final matchesVessel = _selectedVessel == 'All' ||
+                      m.vesselProfile.name == _selectedVessel;
+                  final matchesDateRange =
+                      (_selectedStartDate == null || m.timestamp.isAfter(
+                          _selectedStartDate!.subtract(const Duration(
+                              days: 1)))) &&
+                          (_selectedEndDate == null || m.timestamp.isBefore(
+                              _selectedEndDate!.add(const Duration(days: 1))));
+                  return matchesVessel && matchesDateRange;
+                }).toList()
+                  ..sort((a, b) =>
+                  _sortAscending
+                      ? a.timestamp.compareTo(b.timestamp)
+                      : b.timestamp.compareTo(a.timestamp));
+
+                final measurement = filteredMeasurements[index];
+                final isSelected = _selectedMeasurements.contains(measurement);
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                      vertical: 4.0, horizontal: 0),
+                  color: isSelected
+                      ? (isDarkMode ? Colors.deepPurple[900] : const Color(
+                      0xFFc5cce0))
+                      : (isDarkMode ? Colors.grey[700] : const Color(
+                      0xFFe5e8f0)),
+                  elevation: 1,
+                  child: ListTile(
+                    leading: _isSelectionMode
+                        ? Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => _toggleSelection(measurement),
+                    )
+                        : null,
+                    title: Text(
+                      "${measurement.vesselProfile.name} - ${measurement
+                          .loadingCondition.name}",
+                      style: titleStyle.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDarkMode ? Colors.white : const Color(
+                            0xFF012169),
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${DateFormat('dd/MM/yyyy').format(
+                          measurement.timestamp)} - ${measurement.timestamp.hour
+                          .toString().padLeft(2, '0')}:${measurement.timestamp
+                          .minute.toString().padLeft(2, '0')}',
+                      style: subtitleStyle.copyWith(
+                          color: isDarkMode ? Colors.grey[500] : Colors.black),
+                    ),
+                    trailing: _isSelectionMode
+                        ? null
+                        : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.ios_share, color: Color(
+                              0xFF012169)),
+                          onPressed: () => _shareData(measurement),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () =>
+                              _showDeleteConfirmationDialog(measurement),
+                        ),
+                      ],
+                    ),
+                    onTap: () {
+                      if (_isSelectionMode) {
+                        _toggleSelection(measurement);
+                      } else {
+                        _showMeasurementDetails(context, measurement);
+                      }
+                    },
+                    onLongPress: () {
+                      if (!_isSelectionMode) {
+                        setState(() {
+                          _isSelectionMode = true;
+                          _selectedMeasurements.add(measurement);
+                        });
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ]
+    );
+  }
+
+  void _toggleSelection(SavedMeasurement measurement) {
+    setState(() {
+      if (_selectedMeasurements.contains(measurement)) {
+        _selectedMeasurements.remove(measurement);
+        if (_selectedMeasurements.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedMeasurements.add(measurement);
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedMeasurements.clear();
+    });
+  }
+
+  void _showBulkDeleteConfirmationDialog() {
+    final count = _selectedMeasurements.length;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: Text('Are you sure you want to delete $count measurements? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteSelectedMeasurements();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteSelectedMeasurements() async {
+    try {
+      final sharedData = Provider.of<SharedData>(context, listen: false);
+      final toDelete = List<SavedMeasurement>.from(_selectedMeasurements);
+
+      for (final measurement in toDelete) {
+        await sharedData.deleteMeasurement(measurement);
+      }
+
+      if (mounted) {
+        setState(() {
+          _selectedMeasurements.clear();
+          _isSelectionMode = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${toDelete.length} measurements deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete measurements: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareSelectedMeasurements() async {
+    try {
+      final selected = List<SavedMeasurement>.from(_selectedMeasurements);
+      for (final measurement in selected) {
+        await _shareData(measurement);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share measurements: $e')),
+        );
+      }
+    }
+  }
+
+  void _showMeasurementDetails(BuildContext context, SavedMeasurement measurement) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16),
+                _buildDetailSection("Vessel details", [
+                  _buildDetailRow("Vessel name", measurement.vesselProfile.name),
+                  _buildDetailRow("Over all Length", "${measurement.vesselProfile.length.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Max beam", "${measurement.vesselProfile.beam.toStringAsFixed(2)} m"),
+                  _buildDetailRow("To main deck depth", "${measurement.vesselProfile.depth.toStringAsFixed(2)} m"),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildDetailSection("Voyage details", [
+                  _buildDetailRow("Voyage name", measurement.loadingCondition.name),
+                  _buildDetailRow("GM without FSC", "${measurement.loadingCondition.gm.toStringAsFixed(2)} m"),
+                  _buildDetailRow("VCG without FSC", "${measurement.loadingCondition.vcg.toStringAsFixed(2)} m"),
+                  _buildDetailRow("Mean draft", "${measurement.loadingCondition.draft.toStringAsFixed(2)} m"),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildDetailSection("Measurement Details", [
+                  _buildDetailRow("Date",
+                      DateFormat('dd/MM/yyyy HH:mm').format(measurement.timestamp)),
+                  _buildDetailRow(
+                    "Duration",
+                    measurement.duration != null
+                        ? "${(measurement.duration! ~/ 60)} min ${(measurement.duration! % 60).toStringAsFixed(0).padLeft(2, '0')} s"
+                        : "N/A",
+                  ),
+
+                  _buildDetailRow("Max roll",
+                      "${measurement.maxRoll?.toStringAsFixed(1) ?? 'N/A'}°"),
+                  _buildDetailRow("Max pitch",
+                      "${measurement.maxPitch?.toStringAsFixed(1) ?? 'N/A'}°"),
+                  _buildDetailRow("RMS roll",
+                      "${measurement.rmsRoll?.toStringAsFixed(2) ?? 'N/A'}°"),
+                  _buildDetailRow("RMS pitch",
+                      "${measurement.rmsPitch?.toStringAsFixed(2) ?? 'N/A'}°"),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildDetailSection("Period measured", [
+                  _buildDetailRow(
+                      "Roll Period",
+                      measurement.rollPeriodFFT != null
+                          ? "${measurement.rollPeriodFFT!.toStringAsFixed(1)} s"
+                          : "N/A"),
+                  _buildDetailRow(
+                      "Pitch Period",
+                      measurement.pitchPeriodFFT != null
+                          ? "${measurement.pitchPeriodFFT!.toStringAsFixed(1)} s"
+                          : "N/A"),
+                ]),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailSection(String title, List<Widget> children) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+      Text(
+      title,
+      style: titleStyle.copyWith(color: isDarkMode ? Colors.deepPurple : const Color(0xFF012169))
+      ),
+      const SizedBox(height: 8),
+      ...children,
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: subtitleStyle.copyWith(color: isDarkMode ? Colors.grey[500] : Colors.black),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: subtitleStyle.copyWith(color:  isDarkMode ? Colors.grey[300] : Colors.black54),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    final sharedData = Provider.of<SharedData>(context);
+    final currentPeriod = calculateRollPeriod(context.watch<VesselSelectionProvider>().currentLoadingCondition!.gm);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // Return empty or loading indicator until loaded to avoid jumpy UI or wrong initial value
+    if (!_isLoaded) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: CustomAppBar(),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                color: isDarkMode ? Colors.grey[850] : Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "ROLL COEFFICIENT SETTINGS",
+                        style: titleStyle.copyWith(
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        key: ValueKey(rollCoefficient), // Rebuild when value changes
+                        decoration: InputDecoration(
+                          labelText: 'Roll Coefficient (k)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0x00e5e8f0),
+                        ),
+                        initialValue: rollCoefficient.toStringAsFixed(2),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (value) {
+                          final newValue = double.tryParse(value);
+                          if (newValue != null && newValue > 0) {
+                            setState(() {
+                              rollCoefficient = newValue;
+                              _saveRollCoefficient(newValue);
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Formula: T = 2 × k × Beam / √GM",
+                        style: subtitleStyle.copyWith(
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 1,
+                color: isDarkMode ? Colors.grey[850] : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "ROLL NATURAL PERIOD RESULTS",
+                        style: titleStyle.copyWith(
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.grey[700]
+                              : const Color(0xFF012169).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Estimated roll natural period:",
+                              style: titleStyle.copyWith(
+                                color: isDarkMode ? Colors.grey[300] : Colors.black,
+                                fontSize: (titleStyle.fontSize ?? 14.0) * 1.1,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                            Text(
+                              "${currentPeriod.toStringAsFixed(1)} s",
+                              style: titleStyle.copyWith(
+                                color: isDarkMode ? Colors.white : const Color(0xFF012169),
+                                fontSize: (titleStyle.fontSize ?? 14.0) * 1.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildChart(),
+                      const SizedBox(height: 16),
+                      Text(
+                        "The blue dot indicates the current GM value and its corresponding roll natural period."
+                            "The cyan dots represent actual measurements from saved data.",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+                ),
+
+              const SizedBox(height: 8),
+
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
