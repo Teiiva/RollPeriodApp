@@ -350,7 +350,6 @@ class _SensorPageState extends State<SensorPage> {
     return '${minutes}min ${remainingSeconds}s';
   }
   void _savefunction() async {
-
     try {
       if (_fftRollPeriod == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1318,12 +1317,12 @@ class _SensorPageState extends State<SensorPage> {
                     ],
                     titlesData: FlTitlesData(
                       leftTitles: AxisTitles(
-                        axisNameWidget: Text(
+                        /*axisNameWidget: Text(
                           'Deg/s',
                           style: chartlabel.copyWith(color: textColor, fontWeight: FontWeight.bold),
-                        ),
+                        ),*/
                         axisNameSize: 20,
-                        /*sideTitles: SideTitles(
+                        sideTitles: SideTitles(
                           showTitles: true,
                           interval: maxY > 0 ? maxY / 3 : 1,
                           reservedSize: axereservedsize,
@@ -1331,7 +1330,7 @@ class _SensorPageState extends State<SensorPage> {
                             value.toStringAsFixed(2),
                             style: chartlabel.copyWith(color: textColor),
                           ),
-                        ),*/
+                        ),
                       ),
                       bottomTitles: AxisTitles(
                         axisNameWidget: Text(
@@ -1387,6 +1386,7 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Widget buildChartbase() {
+    print("Affichage graphique central");
     final rollChartData = _showRollData ? _rollData : <FlSpot>[];
     final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1397,8 +1397,8 @@ class _SensorPageState extends State<SensorPage> {
         ? Colors.teal
         : const Color(0xFF6F6F6F);
     final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
-    final gridColor = isDarkMode ? Colors.grey[700]!.withOpacity(0.3) : Colors.grey.withOpacity(0.1);
-    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withOpacity(0.2);
+    final gridColor = isDarkMode ? Colors.grey[700]!.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.1);
+    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withValues(alpha: 0.2);
     final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
 
     final visibleData = [

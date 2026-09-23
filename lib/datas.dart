@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
@@ -148,41 +150,43 @@ class _DataspageState extends State<Dataspage> {
     return result;
   }
 
-  Future<void> _shareData(SavedMeasurement measurement) async {
-    try {
-      final buffer = StringBuffer();
-      final now = DateTime.now();
+  String _generateCSVContent(SavedMeasurement measurement) {
+    final buffer = StringBuffer();
+    final now = DateTime.now();
 
-      final vessel = measurement.vesselProfile;
-      final loading = measurement.loadingCondition;
+    final vessel = measurement.vesselProfile;
+    final loading = measurement.loadingCondition;
 
-      /*ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${measurement.predictedRollPeriods}')),
-      );*/
+    /*ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${measurement.predictedRollPeriods}')),
+    );*/
 
-      final metadata = [
-        'Export Time: ${now.toIso8601String()}',
-        'Date: ${measurement.timestamp.toIso8601String()}',
-        'Duration (s): ${measurement.duration?.toStringAsFixed(2) ?? 'N/A'}',
-        'Roll Period (FFT)(s): ${measurement.rollPeriodFFT?.toStringAsFixed(
-            2) ?? 'N/A'}',
-        'Pitch Period (FFT)(s): ${measurement.pitchPeriodFFT?.toStringAsFixed(
-            2) ?? 'N/A'}',
-        'Max Roll (deg): ${measurement.maxRoll?.toStringAsFixed(2) ?? 'N/A'}',
-        'Max Pitch (deg): ${measurement.maxPitch?.toStringAsFixed(2) ?? 'N/A'}',
-        'RMS Roll (deg): ${measurement.rmsRoll?.toStringAsFixed(2) ?? 'N/A'}',
-        'RMS Pitch (deg): ${measurement.rmsPitch?.toStringAsFixed(2) ?? 'N/A'}',
-        'Vessel Profile: ${vessel.name}',
-        'Length (m): ${vessel.length}',
-        'Beam (m): ${vessel.beam}',
-        'Depth (m): ${vessel.depth}',
-        'Voyage Condition: ${loading.name}',
-        'GM (m): ${loading.gm}',
-        'VCG (m): ${loading.vcg}',
-        'Draft (m): ${loading.draft}',
-      ];
+    final metadataList = [
+      'Export Time: ${now.toIso8601String()}',
+      'Date: ${measurement.timestamp.toIso8601String()}',
+      'Duration (s): ${measurement.duration?.toStringAsFixed(2) ?? 'N/A'}',
+      'Roll Period (FFT)(s): ${measurement.rollPeriodFFT?.toStringAsFixed(
+          2) ?? 'N/A'}',
+      'Pitch Period (FFT)(s): ${measurement.pitchPeriodFFT?.toStringAsFixed(
+          2) ?? 'N/A'}',
+      'Max Roll (deg): ${measurement.maxRoll?.toStringAsFixed(2) ?? 'N/A'}',
+      'Max Pitch (deg): ${measurement.maxPitch?.toStringAsFixed(2) ?? 'N/A'}',
+      'RMS Roll (deg): ${measurement.rmsRoll?.toStringAsFixed(2) ?? 'N/A'}',
+      'RMS Pitch (deg): ${measurement.rmsPitch?.toStringAsFixed(2) ?? 'N/A'}',
+      'Vessel Profile: ${vessel.name}',
+      'Length (m): ${vessel.length}',
+      'Beam (m): ${vessel.beam}',
+      'Depth (m): ${vessel.depth}',
+      'IMO number: ${vessel.iso}',
+      'Boat type: ${vessel.shiptype}',
+      'Voyage Condition: ${loading.name}',
+      'GM (m): ${loading.gm}',
+      'VCG (m): ${loading.vcg}',
+      'Draft (m): ${loading.draft}',
+    ];
 
-      buffer.writeln('parameter,value');
+    final metadata = metadataList;
+    /*buffer.writeln('parameter,value');
       for (final line in metadata) {
         final separatorIndex = line.indexOf(':');
         if (separatorIndex != -1) {
@@ -200,17 +204,80 @@ class _DataspageState extends State<Dataspage> {
         buffer.writeln('${entry.key},${entry.value.toStringAsFixed(2)}');
       }
 
+      buffer.writeln();*/
+    buffer.writeln('time (s),roll (deg),pitch (deg),frequency (Hz),power_spectrum,metadata');
+
+    List<double> powerSpectrum = [];
+    List<double> frequencies = [];
+
+    /*if (measurement.fftRollSamples != null && measurement.fftRollSamples!.isNotEmpty) {
+        powerSpectrum = FFTProcessor.computePowerSpectrum(measurement.fftRollSamples!);
+
+        if (powerSpectrum.isNotEmpty && measurement.sampleRate != null && measurement.sampleRate! > 0) {
+          frequencies = List<double>.generate(
+            powerSpectrum.length,
+                (i) => i * measurement.sampleRate! / (2 * powerSpectrum.length),
+          );
+        }
+      }*/
+
+    final List<String> fullMetadata = [...metadata];
+    /*for (final entry in measurement.predictedRollPeriods.entries) {
+        print('Prediction (${entry.key}): ${entry.value.toStringAsFixed(2)} s');
+        fullMetadata.add('Prediction (${entry.key}): ${entry.value.toStringAsFixed(2)} s');
+      }*/
+
+    final int rollDataLength = measurement.dataroll?.length ?? 0;
+    final int pitchDataLength = measurement.datapitch?.length ?? 0;
+    final int spectrumLength = powerSpectrum.length;
+    final int metadataLength = fullMetadata.length;
+    final int maxLines = [rollDataLength, spectrumLength, metadataLength].reduce(max);
+
+    for (int i = 0; i < maxLines; i++) {
+      String line = '';
+      if (i < rollDataLength && measurement.dataroll != null) {
+        final rollSpot = measurement.dataroll![i];
+        final pitchSpot = i < pitchDataLength && measurement.datapitch != null
+            ? measurement.datapitch![i]
+            : FlSpot(rollSpot.x, 0);
+
+        line += '${rollSpot.x.toStringAsFixed(3)},'
+            '${rollSpot.y.toStringAsFixed(3)},'
+            '${pitchSpot.y.toStringAsFixed(3)},';
+      } else {
+        line += ',,,';
+      }
+
+      if (i < spectrumLength) {
+        line += '${frequencies[i].toStringAsFixed(4)},'
+            '${powerSpectrum[i].toStringAsFixed(6)},';
+      } else {
+        line += ',,';
+      }
+
+      if (i < metadataLength) {
+        line += fullMetadata[i];
+      }
+
+      buffer.writeln(line);
+    }
+    return buffer.toString();
+  }
+
+  Future<void> _shareData(SavedMeasurement measurement) async {
+    try {
+      final content = _generateCSVContent(measurement);
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/${measurement.vesselProfile.name}_'
           '${DateFormat("yyMMddHHmm").format(measurement.timestamp)}.csv');
 
-      await file.writeAsString(buffer.toString());
+      await file.writeAsString(content.toString());
 
       if (mounted) {
         await Share.shareXFiles(
           [XFile(file.path)],
           text: 'Exported Measurement Data',
-          subject: 'Measurement Export - ${vessel.name} / ${loading.name}',
+          subject: 'Measurement Export - ${measurement.vesselProfile.name} / ${measurement.loadingCondition.name}',
         );
       }
     } catch (e) {
@@ -418,18 +485,18 @@ class _DataspageState extends State<Dataspage> {
                   children: [
                     TextButton.icon(
                       icon: Icon(
-                          _sortAscending ? Icons.arrow_upward : Icons
-                              .arrow_downward,
-                          size: 16,
-                          color: isDarkMode ?
-                                  const Color(0xFF008EF3) :
-                                  const Color(0xFF012169),
+                        _sortAscending ? Icons.arrow_upward : Icons
+                            .arrow_downward,
+                        size: 16,
+                        color: isDarkMode ?
+                        const Color(0xFF008EF3) :
+                        const Color(0xFF012169),
                       ),
                       label: Text(
-                        _sortAscending ? 'Oldest first' : 'Newest first',
-                        style : TextStyle(color : isDarkMode ?
-                                                    Color(0xFF008EF3) :
-                                                    Color(0xFF012169))
+                          _sortAscending ? 'Oldest first' : 'Newest first',
+                          style : TextStyle(color : isDarkMode ?
+                          Color(0xFF008EF3) :
+                          Color(0xFF012169))
                       ),
                       onPressed: () {
                         setState(() {
@@ -697,16 +764,31 @@ class _DataspageState extends State<Dataspage> {
 
   Future<void> _shareSelectedMeasurements() async {
     try {
-      final selected = List<SavedMeasurement>.from(_selectedMeasurements);
-      for (final measurement in selected) {
-        await _shareData(measurement);
+      final directory = await getApplicationDocumentsDirectory();
+      final List<XFile> files = [];
+      List<SavedMeasurement> measurements = List<SavedMeasurement>.from(_selectedMeasurements);
+
+      for (final measurement in measurements) {
+        final csvContent = _generateCSVContent(measurement);
+        final fileName = '${measurement.vesselProfile.name}_'
+            '${DateFormat("yyMMddHHmm").format(measurement.timestamp)}.csv';
+
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsString(csvContent);
+        files.add(XFile(file.path));
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share measurements: $e')),
+
+      if (files.isNotEmpty && mounted) {
+        await Share.shareXFiles(
+          files,
+          text: 'Exported Measurement Data',
+          subject: 'Measurement Export (${files.length} measurements)',
         );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
     }
   }
 
@@ -816,10 +898,12 @@ class _DataspageState extends State<Dataspage> {
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 16),
                                     child: Text(
-                                      "No roll data available",
+                                      "No pitch data available",
                                       style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic),
                                     ),
                                   ),
+                                const SizedBox(height:10),
+                                buildChartbase(dataroll, datapitch)
                               ],
                             ),
                           ),
@@ -872,7 +956,6 @@ class _DataspageState extends State<Dataspage> {
         ? displayedData.reduce((a, b) => a.y > b.y ? a : b)
         : null;
     //final peakSpot = FFTProcessor.findDominantFrequencySpot(data.map((spot) => spot.y).toList(), 5);
-
     return Card(
       color: backgroundColor,
       margin: EdgeInsets.all(0),
@@ -944,10 +1027,10 @@ class _DataspageState extends State<Dataspage> {
                     ],
                     titlesData: FlTitlesData(
                       leftTitles: AxisTitles(
-                        axisNameWidget: Text(
+                        /*axisNameWidget: Text(
                           'Deg/s',
                           style: chartlabel.copyWith(color: textColor, fontWeight: FontWeight.bold),
-                        ),
+                        ),*/
                         axisNameSize: 20,
                         /*sideTitles: SideTitles(
                           showTitles: true,
@@ -1056,11 +1139,277 @@ class _DataspageState extends State<Dataspage> {
     );
   }
 
+  Widget buildChartbase( List<FlSpot>? rollData, List<FlSpot>? pitchData) {
+    final rollChartData = rollData ?? <FlSpot>[];
+    final pitchChartData = pitchData ?? <FlSpot>[];
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final rollColor = Colors.deepPurple;
+    final pitchColor = Colors.teal;
+    final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+    final gridColor = isDarkMode ? Colors.grey[700]!.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.1);
+    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withValues(alpha: 0.2);
+    final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
+
+    final visibleData = [
+      ...rollChartData,
+      ...pitchChartData,
+    ];
+
+    final maxAbsY = visibleData.isNotEmpty
+        ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
+        : 30;
+
+    final minX = visibleData.isNotEmpty ? visibleData.map((e) => e.x).reduce(min) : 0.0;
+    final maxX = visibleData.isNotEmpty ? visibleData.map((e) => e.x).reduce(max) : 60.0;
+
+    return Card(
+      color: backgroundColor,
+      margin: const EdgeInsets.all(0),
+      child: GestureDetector(
+        child: SizedBox(
+          width: double.infinity,
+          height: 300,
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: 5,
+              top: 5,
+              right: 5,
+              bottom: 5,
+            ),
+            child: LineChart(
+              LineChartData(
+                minX: minX,
+                maxX: maxX,
+                minY: -maxAbsY.toDouble(),
+                maxY: maxAbsY.toDouble(),
+                clipData: const FlClipData.all(),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: pitchChartData,
+                    color: pitchColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: rollChartData,
+                    color: rollColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: ((maxAbsY * 2) / 3).toDouble(),
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) => Text(
+                        '${value.toInt()}°',
+                        style: chartlabel.copyWith(color: textColor),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: ((maxX - minX) / 5).toDouble(),
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        int totalSeconds = value.toInt();
+                        if (totalSeconds < 60) {
+                          return Text(
+                            '${totalSeconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        } else {
+                          int minutes = totalSeconds ~/ 60;
+                          int seconds = totalSeconds % 60;
+                          return Text(
+                            '${minutes}m\n${seconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  horizontalInterval: (maxAbsY / 3).toDouble(),
+                  verticalInterval: ((maxX - minX) / 5).toDouble(),
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
+                  ),
+                  getDrawingVerticalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(
+                    color: borderColor,
+                    width: 1,
+                  ),
+                ),
+                lineTouchData: const LineTouchData(
+                  enabled: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildChart(List<FlSpot>? rollData, List<FlSpot>? pitchData) {
+    final rollChartData = rollData ?? <FlSpot>[];
+    final pitchChartData = pitchData ?? <FlSpot>[];
+
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final rollColor = Colors.deepPurple;
+    final pitchColor = Colors.teal;
+    final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+    final gridColor = isDarkMode
+        ? Colors.grey[700]!.withValues(alpha: 0.3)
+        : Colors.grey.withValues(alpha: 0.1);
+    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withValues(alpha: 0.2);
+    final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
+
+    final visibleData = [
+      ...rollChartData,
+      ...pitchChartData,
+    ];
+
+    final maxAbsY = visibleData.isNotEmpty
+        ? visibleData.map((e) => e.y.abs()).reduce(max) * 1.2
+        : 30;
+
+    final minX = visibleData.isNotEmpty ? visibleData.map((e) => e.x).reduce(min) : 0.0;
+    final maxX = visibleData.isNotEmpty ? visibleData.map((e) => e.x).reduce(max) : 60.0;
+
+    return Card(
+      color: backgroundColor,
+      margin: const EdgeInsets.all(0),
+      child: GestureDetector(
+        child: SizedBox(
+          width: double.infinity,
+          height: 300,
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: 40,
+              top: 20,
+              right: 20,
+              bottom: 40,
+            ),
+            child: LineChart(
+              LineChartData(
+                minX: minX,
+                maxX: maxX,
+                minY: -maxAbsY.toDouble(),
+                maxY: maxAbsY.toDouble(),
+                clipData: const FlClipData.all(),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: pitchChartData,
+                    color: pitchColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: rollChartData,
+                    color: rollColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: ((maxAbsY * 2) / 3).toDouble(),
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) => Text(
+                        '${value.toInt()}°',
+                        style: chartlabel.copyWith(color: textColor),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      interval: ((maxX - minX) / 5).toDouble(),
+                      getTitlesWidget: (value, meta) {
+                        int totalSeconds = value.toInt();
+                        if (totalSeconds < 60) {
+                          return Text(
+                            '${totalSeconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        } else {
+                          int minutes = totalSeconds ~/ 60;
+                          int seconds = totalSeconds % 60;
+                          return Text(
+                            '${minutes}m\n${seconds}s',
+                            textAlign: TextAlign.center,
+                            style: chartlabel.copyWith(color: textColor),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  horizontalInterval: (maxAbsY / 3).toDouble(),
+                  verticalInterval: ((maxX - minX) / 5).toDouble(),
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
+                  ),
+                  getDrawingVerticalLine: (value) => FlLine(
+                    color: gridColor,
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(
+                    color: borderColor,
+                    width: 1,
+                  ),
+                ),
+                lineTouchData: const LineTouchData(enabled: false),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final sharedData = Provider.of<SharedData>(context);
-    final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
+    //final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Return empty or loading indicator until loaded to avoid jumpy UI or wrong initial value
@@ -1070,12 +1419,12 @@ class _DataspageState extends State<Dataspage> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        /*actions: [
+        actions: [
           IconButton(
             icon: const Icon(Icons.help_outline, color: Colors.greenAccent),
             onPressed: () {
               setState(() {
-                _createTutorial();
+                //_createTutorial();
                 _scrollController.animateTo(
                   0,
                   duration: const Duration(milliseconds: 500),
@@ -1088,7 +1437,7 @@ class _DataspageState extends State<Dataspage> {
               });
             },
           ),
-        ],*/
+        ],
       ),
       body: SingleChildScrollView(
         controller: _scrollController,
@@ -1113,29 +1462,33 @@ class _DataspageState extends State<Dataspage> {
     );
   }
 
-  void _handleTargetScroll(String targetIdentify) {
-    switch (targetIdentify) {
-      case "start_button":
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-        break;
-      case "import_button":
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-        break;
-      case "clear_button":
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-        break;
-    }
+  displaydata(List<FlSpot>? dataroll, String title) {
+    return Column(
+      children: [
+        Text(
+          title,
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: [
+              DataColumn(label: Text("X")),
+              DataColumn(label: Text("Y")),
+            ],
+            rows: dataroll
+            !.asMap()
+                .entries
+                .map((entry) {
+              FlSpot spot = entry.value;
+              return DataRow(cells: [
+                DataCell(Text(spot.x.toStringAsFixed(2))),
+                DataCell(Text(spot.y.toStringAsFixed(2))),
+              ]);
+            })
+                .toList(),
+          ),
+        ),
+      ],
+    );
   }
 }

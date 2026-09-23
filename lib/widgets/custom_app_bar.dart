@@ -452,7 +452,6 @@ class _CustomAppBarState extends State<CustomAppBar> {
 
   void _saveProfile(bool isEditing, VesselProfile? profileToEdit) {
     final isoText = _isoController.text.trim();
-
     final newProfile = VesselProfile(
       name: _profileNameController.text.trim(),
       length: double.parse(_vesselLengthController.text.trim()),

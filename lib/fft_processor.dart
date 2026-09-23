@@ -1,26 +1,33 @@
+import 'dart:math';
+
 import 'package:fftea/fftea.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 
 class FFTProcessor {
   static FFT _getFFT(int n) => FFT(n);
-  
+
+  /// Center data around 0
   static List<double> _polyDetrend(List<double> y) {
     final mean = y.reduce((a, b) => a + b) / y.length;
     return y.map((v) => v - mean).toList();
   }
-  
+
+  /// Applies FFT to the data and returns the intensity of each frequency
   static List<double> computePowerSpectrum(List<double> samples) {
     if (samples.isEmpty) {return [];}
     final fft = _getFFT(samples.length);
+
     final spectrum = fft.realFft(samples);
     final powerSpectrum = List<double>.generate(spectrum.length ~/ 2, (i) {
       final c = spectrum[i];
-      return c.x * c.x + c.y * c.y;
+      return (c.x * c.x + c.y * c.y); //Maybe do the square root here ?
     });
-    return powerSpectrum;
+
+    return powerSpectrum ;
   }
-  
+
+  /// Linear interpolation between two points for better precision
   static double _splineInterpolation(List<double> spectrum, int peakIdx) {
     if (peakIdx <= 0 || peakIdx >= spectrum.length - 1) return 0.0;
 
