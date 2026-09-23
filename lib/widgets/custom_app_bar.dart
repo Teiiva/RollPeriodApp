@@ -336,8 +336,18 @@ class _CustomAppBarState extends State<CustomAppBar> {
       child: TextFormField(
         controller: controller,
         decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        // Normalize the locale's comma separator so calculations always receive a dot.
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validator: (v) => _validateNumber(v, fieldName),
+        onChanged: (value) {
+          if (!value.contains(',')) return;
+          final normalized = value.replaceAll(',', '.');
+          controller.value = controller.value.copyWith(
+            text: normalized,
+            selection: TextSelection.collapsed(offset: normalized.length),
+            composing: TextRange.empty,
+          );
+        },
+        validator: (v) => _validateNumber(v?.replaceAll(',', '.'), fieldName),
       ),
     );
   }
@@ -410,18 +420,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                   _numberField(_vesselLengthController, "Length (m)", "length"),
                   _numberField(_vesselBeamController, "Beam (m)", "beam"),
                   _numberField(_vesselDepthController, "Depth (m)", "depth"),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: TextFormField(
-                      controller: _isoController,
-                      decoration: const InputDecoration(labelText: "IMO number", border: OutlineInputBorder()),
-                      keyboardType: TextInputType.number,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return null;
-                        return int.tryParse(v.trim()) == null ? 'Please enter a valid number' : null;
-                      },
-                    ),
-                  ),
+                  _numberField(_isoController, "IMO number", "IMO number"),
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
                     child: DropdownButtonFormField<String>(
@@ -430,7 +429,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                       items: shipTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
                       onChanged: (value) => setDialogState(() => _selectedShipType = value),
                     ),
-                  ),
+                  )
                 ],
               ),
             ),

@@ -135,14 +135,14 @@ class RiskPolarPlot extends StatelessWidget {
               spacing: 16,
               runSpacing: 8,
               children: [
-                LegendItem(color: Colors.red.withOpacity(0.8), label: "T_roll ≈ 2×T_encounter"),
-                LegendItem(color: Colors.red.withOpacity(0.6), label: "T_roll ≈ 1.9×T_encounter"),
-                LegendItem(color: Colors.red.withOpacity(0.4), label: "T_roll ≈ 1.8×T_encounter"),
-                LegendItem(color: Colors.red.withOpacity(0.3), label: "Parametric roll"),
-                LegendItem(color: Colors.orange.withOpacity(0.8), label: "T_roll ≈ T_encounter"),
-                LegendItem(color: Colors.orange.withOpacity(0.6), label: "T_roll ≈ 1.1×T_encounter"),
-                LegendItem(color: Colors.orange.withOpacity(0.4), label: "T_roll ≈ 1.2×T_encounter"),
-                LegendItem(color: Colors.orange.withOpacity(0.3), label: "Resonant roll"),
+                LegendItem(color: Colors.red.withValues(alpha: 0.8), label: "T_roll ≈ 2×T_encounter"),
+                LegendItem(color: Colors.red.withValues(alpha: 0.6), label: "T_roll ≈ 1.9×T_encounter"),
+                LegendItem(color: Colors.red.withValues(alpha: 0.4), label: "T_roll ≈ 1.8×T_encounter"),
+                LegendItem(color: Colors.red.withValues(alpha: 0.3), label: "Parametric roll"),
+                LegendItem(color: Colors.orange.withValues(alpha: 0.8), label: "T_roll ≈ T_encounter"),
+                LegendItem(color: Colors.orange.withValues(alpha: 0.6), label: "T_roll ≈ 1.1×T_encounter"),
+                LegendItem(color: Colors.orange.withValues(alpha: 0.4), label: "T_roll ≈ 1.2×T_encounter"),
+                LegendItem(color: Colors.orange.withValues(alpha: 0.3), label: "Resonant roll"),
               ],
             ),
             const SizedBox(height: 20),
@@ -325,14 +325,14 @@ class PolarPlotPainter extends CustomPainter {
         }
       }
     }
-    drawRiskZone(canvas, matchRatio2Mask, Colors.red.withOpacity(0.8));
-    drawRiskZone(canvas, matchRatio19Mask, Colors.red.withOpacity(0.6));
-    drawRiskZone(canvas, matchRatio18Mask, Colors.red.withOpacity(0.4));
-    drawRiskZone(canvas, parametricRiskMask, Colors.red.withOpacity(0.3));
-    drawRiskZone(canvas, matchRatio1Mask, Colors.orange.withOpacity(0.8));
-    drawRiskZone(canvas, matchRatio11Mask, Colors.orange.withOpacity(0.6));
-    drawRiskZone(canvas, matchRatio12Mask, Colors.orange.withOpacity(0.4));
-    drawRiskZone(canvas, resonantRiskMask, Colors.orange.withOpacity(0.3));
+    drawRiskZone(canvas, matchRatio2Mask, Colors.red.withValues(alpha: 0.8));
+    drawRiskZone(canvas, matchRatio19Mask, Colors.red.withValues(alpha: 0.6));
+    drawRiskZone(canvas, matchRatio18Mask, Colors.red.withValues(alpha: 0.4));
+    drawRiskZone(canvas, parametricRiskMask, Colors.red.withValues(alpha: 0.3));
+    drawRiskZone(canvas, matchRatio1Mask, Colors.orange.withValues(alpha: 0.8));
+    drawRiskZone(canvas, matchRatio11Mask, Colors.orange.withValues(alpha: 0.6));
+    drawRiskZone(canvas, matchRatio12Mask, Colors.orange.withValues(alpha: 0.4));
+    drawRiskZone(canvas, resonantRiskMask, Colors.orange.withValues(alpha: 0.3));
     final triangleColor = (isParametricRiskHead || isParametricRiskFollow)
         ? Colors.red
         : (isResonantRisk ? Colors.orange : Colors.green);

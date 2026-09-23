@@ -786,9 +786,9 @@ class _DataspageState extends State<Dataspage> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share measurements: $e')),
+        );
     }
   }
 
@@ -1419,12 +1419,12 @@ class _DataspageState extends State<Dataspage> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        actions: [
+        /*actions: [
           IconButton(
             icon: const Icon(Icons.help_outline, color: Colors.greenAccent),
             onPressed: () {
               setState(() {
-                //_createTutorial();
+                _createTutorial();
                 _scrollController.animateTo(
                   0,
                   duration: const Duration(milliseconds: 500),
@@ -1437,7 +1437,7 @@ class _DataspageState extends State<Dataspage> {
               });
             },
           ),
-        ],
+        ],*/
       ),
       body: SingleChildScrollView(
         controller: _scrollController,
