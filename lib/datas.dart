@@ -207,10 +207,16 @@ class _DataspageState extends State<Dataspage> {
       await file.writeAsString(buffer.toString());
 
       if (mounted) {
+        final renderObject = context.findRenderObject();
+        final sharePositionOrigin = renderObject is RenderBox
+            ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+            : Rect.fromLTWH(0, 0, 1, 1);
+
         await Share.shareXFiles(
           [XFile(file.path)],
           text: 'Exported Measurement Data',
           subject: 'Measurement Export - ${vessel.name} / ${loading.name}',
+          sharePositionOrigin: sharePositionOrigin,
         );
       }
     } catch (e) {
@@ -1060,7 +1066,6 @@ class _DataspageState extends State<Dataspage> {
   @override
   Widget build(BuildContext context) {
     final sharedData = Provider.of<SharedData>(context);
-    final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Return empty or loading indicator until loaded to avoid jumpy UI or wrong initial value

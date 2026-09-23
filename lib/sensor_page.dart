@@ -211,7 +211,7 @@ class _SensorPageState extends State<SensorPage> {
       }
     });
 
-    _accelerometerSubscription = accelerometerEvents.listen((event) {
+    _accelerometerSubscription = accelerometerEventStream().listen((event) {
       _accelerometer = event;
     });
     if (_fftRollSamples.length >= _fftWindowSize) {
@@ -966,7 +966,7 @@ class _SensorPageState extends State<SensorPage> {
                       }
                     },
                     items: availableSizes.map<DropdownMenuItem<int>>((int value) {
-                      String _formatTimeRounded(int totalSeconds) {
+                      String formatTimeRounded(int totalSeconds) {
                         // Round the measurement
                         final double totalMinutes = totalSeconds / 60.0;
 
@@ -988,7 +988,7 @@ class _SensorPageState extends State<SensorPage> {
                       }
 
                       final timeEstimate = _dynamicSampleRate != null && _dynamicSampleRate! > 0
-                          ? ' ${_formatTimeRounded((value / _dynamicSampleRate!).ceil())}'
+                          ? ' ${formatTimeRounded((value / _dynamicSampleRate!).ceil())}'
                           : '';
 
                       return DropdownMenuItem<int>(
@@ -1025,7 +1025,6 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-
   Widget rollPeriodAndPitchPeriodTiles() {
     return Row(
       children: [
@@ -1034,8 +1033,6 @@ class _SensorPageState extends State<SensorPage> {
       ],
     );
   }
-
-
 
   Widget fftRollPeriodTile({Key? key}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1074,10 +1071,7 @@ class _SensorPageState extends State<SensorPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (rollFFTSpots != null)
-                      buildFFTChart(rollFFTSpots, Colors.deepPurple, label: 'Roll')
-                    else
-                      const Text("No roll data available"),
+                    buildFFTChart(rollFFTSpots, Colors.deepPurple, label: 'Roll'),
                   ],
                 ),
               ),
@@ -1168,10 +1162,7 @@ class _SensorPageState extends State<SensorPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (pitchFFTSpots != null)
-                      buildFFTChart(pitchFFTSpots, Colors.teal, label: 'Pitch')
-                    else
-                      const Text("No roll data available"),
+                    buildFFTChart(pitchFFTSpots, Colors.teal, label: 'Pitch'),
                   ],
                 ),
               ),
@@ -1240,12 +1231,9 @@ class _SensorPageState extends State<SensorPage> {
     final minX = maxX * 0.0;
     final displayedData = data.where((spot) => spot.x >= minX).toList();
     final maxY = displayedData.isNotEmpty ? displayedData.map((e) => e.y).reduce(max) * 1.2 : 1.0;
-    final test = FFTProcessor.findDominantFrequencySpot(data.map((spot) => spot.y).toList(), _dynamicSampleRate!);
     final peakSpot = displayedData.isNotEmpty
         ? displayedData.reduce((a, b) => a.y > b.y ? a : b)
         : null;
-    print("peakspot $peakSpot");
-    print(test);
 
     return Card(
       color: backgroundColor,
@@ -1397,8 +1385,8 @@ class _SensorPageState extends State<SensorPage> {
         ? Colors.teal
         : const Color(0xFF6F6F6F);
     final backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
-    final gridColor = isDarkMode ? Colors.grey[700]!.withOpacity(0.3) : Colors.grey.withOpacity(0.1);
-    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withOpacity(0.2);
+    final gridColor = isDarkMode ? Colors.grey[700]!.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.1);
+    final borderColor = isDarkMode ? Colors.grey[700]! : Colors.grey.withValues(alpha: 0.2);
     final textColor = isDarkMode ? Colors.grey[300]! : Colors.grey;
 
     final visibleData = [
@@ -1712,8 +1700,8 @@ class _SensorPageState extends State<SensorPage> {
     double absAngle = angle.abs().clamp(0, 90);
     if (absAngle <= 40) {
       return Color.lerp(Colors.green, Colors.orange, absAngle / 40);
-    } else if (absAngle <= 70) return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30);
-    else return Colors.red;
+    } else if (absAngle <= 70) {return Color.lerp(Colors.orange, Colors.red, (absAngle - 40) / 30);}
+    else {return Colors.red;}
   }
   double _getTimeInterval() {
     double totalSeconds = _rollData.isNotEmpty ? _rollData.last.x : 0;
@@ -1759,7 +1747,7 @@ class _SensorPageState extends State<SensorPage> {
     );
   }
 
-  void _FinishCollection() async {
+  void _finishCollection() async {
     if (!_isCollectingData) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('You can only finish during data capture')),
@@ -1942,7 +1930,7 @@ class _SensorPageState extends State<SensorPage> {
                       Expanded(
                         child: ElevatedButton(
                           //onPressed: _hasDataToShare ? (_isCollectingData? _FinishCollection : _shareData)  : _handleImport,
-                          onPressed: _hasDataToShare ? _FinishCollection  : _handleImport,
+                          onPressed: _hasDataToShare ? _finishCollection  : _handleImport,
                           key: _importButtonKey,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _isDarkMode ? Colors.grey[850] : Colors.white,

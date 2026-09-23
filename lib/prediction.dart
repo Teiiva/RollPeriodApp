@@ -5,11 +5,9 @@ import 'widgets/custom_app_bar.dart';
 import 'models/vessel_profile.dart';
 import 'models/loading_condition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'models/saved_measurement.dart';
 import 'package:provider/provider.dart';
 import 'shared_data.dart';
-import 'package:flutter/services.dart';
 
 class PredictionPage extends StatefulWidget {
   final VesselProfile vesselProfile;
