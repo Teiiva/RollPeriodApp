@@ -330,6 +330,12 @@ class _CustomAppBarState extends State<CustomAppBar> {
     return null;
   }
 
+  void _clearZeroOnTap(TextEditingController controller) {
+    if (controller.text.trim() == '0' || controller.text.trim() == '0.0' || controller.text.trim() == '0.00') {
+      controller.clear();
+    }
+  }
+
   Widget _numberField(TextEditingController controller, String label, String fieldName) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -348,6 +354,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
           );
         },
         validator: (v) => _validateNumber(v?.replaceAll(',', '.'), fieldName),
+        onTap: () => _clearZeroOnTap(controller),
       ),
     );
   }

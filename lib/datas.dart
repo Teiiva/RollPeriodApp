@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
@@ -157,10 +155,6 @@ class _DataspageState extends State<Dataspage> {
     final vessel = measurement.vesselProfile;
     final loading = measurement.loadingCondition;
 
-    /*ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${measurement.predictedRollPeriods}')),
-    );*/
-
     final metadataList = [
       'Export Time: ${now.toIso8601String()}',
       'Date: ${measurement.timestamp.toIso8601String()}',
@@ -186,46 +180,38 @@ class _DataspageState extends State<Dataspage> {
     ];
 
     final metadata = metadataList;
-    /*buffer.writeln('parameter,value');
-      for (final line in metadata) {
-        final separatorIndex = line.indexOf(':');
-        if (separatorIndex != -1) {
-          final key = line.substring(0, separatorIndex).trim();
-          final value = line.substring(separatorIndex + 1).trim();
-          buffer.writeln('$key,$value');
-        } else {
-          buffer.writeln(line);
-        }
+
+      buffer.writeln('time (s),roll (deg),pitch (deg),frequency (Hz),power_spectrum,metadata');
+
+      List<double> rollPowerSpectrum = [];
+      List<double> pitchPowerSpectrum = [];
+      List<double> frequencies = [];
+
+      if (measurement.dataroll != null && measurement.dataroll!.isNotEmpty) {
+        rollPowerSpectrum = FFTProcessor.computePowerSpectrum(
+            measurement.dataroll!.map((spot) => spot.y).toList()
+        );
       }
 
-      buffer.writeln();
-      buffer.writeln('prediction_method,predicted_period_s');
-      for (final entry in measurement.predictedRollPeriods.entries) {
-        buffer.writeln('${entry.key},${entry.value.toStringAsFixed(2)}');
+      if (measurement.datapitch != null && measurement.datapitch!.isNotEmpty) {
+        pitchPowerSpectrum = FFTProcessor.computePowerSpectrum(
+            measurement.datapitch!.map((spot) => spot.y).toList()
+        );
       }
 
-      buffer.writeln();*/
-    buffer.writeln('time (s),roll (deg),pitch (deg),frequency (Hz),power_spectrum,metadata');
+      final maxSpectrumLength = [rollPowerSpectrum.length, pitchPowerSpectrum.length].reduce((a, b) => a > b ? a : b);
+      List<double> powerSpectrum = List.generate(maxSpectrumLength, (i) {
+        final rollPower = i < rollPowerSpectrum.length ? rollPowerSpectrum[i] : 0.0;
+        final pitchPower = i < pitchPowerSpectrum.length ? pitchPowerSpectrum[i] : 0.0;
+        return rollPower + pitchPower;
+      });
 
-    List<double> powerSpectrum = [];
-    List<double> frequencies = [];
-
-    /*if (measurement.fftRollSamples != null && measurement.fftRollSamples!.isNotEmpty) {
-        powerSpectrum = FFTProcessor.computePowerSpectrum(measurement.fftRollSamples!);
-
-        if (powerSpectrum.isNotEmpty && measurement.sampleRate != null && measurement.sampleRate! > 0) {
-          frequencies = List<double>.generate(
-            powerSpectrum.length,
-                (i) => i * measurement.sampleRate! / (2 * powerSpectrum.length),
-          );
-        }
-      }*/
+      frequencies = List.generate(
+        powerSpectrum.length,
+            (i) => i / (2 * pi),
+      );
 
     final List<String> fullMetadata = [...metadata];
-    /*for (final entry in measurement.predictedRollPeriods.entries) {
-        print('Prediction (${entry.key}): ${entry.value.toStringAsFixed(2)} s');
-        fullMetadata.add('Prediction (${entry.key}): ${entry.value.toStringAsFixed(2)} s');
-      }*/
 
     final int rollDataLength = measurement.dataroll?.length ?? 0;
     final int pitchDataLength = measurement.datapitch?.length ?? 0;
@@ -274,10 +260,16 @@ class _DataspageState extends State<Dataspage> {
       await file.writeAsString(content.toString());
 
       if (mounted) {
+        final renderObject = context.findRenderObject();
+        final sharePositionOrigin = renderObject is RenderBox
+            ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+            : Rect.fromLTWH(0, 0, 1, 1);
+
         await Share.shareXFiles(
           [XFile(file.path)],
           text: 'Exported Measurement Data',
           subject: 'Measurement Export - ${measurement.vesselProfile.name} / ${measurement.loadingCondition.name}',
+          sharePositionOrigin: sharePositionOrigin,
         );
       }
     } catch (e) {
@@ -528,42 +520,79 @@ class _DataspageState extends State<Dataspage> {
             Card(
               margin: const EdgeInsets.symmetric(
                   vertical: 4.0, horizontal: 0),
-              color: isDarkMode ? Colors.grey[800] : const Color(0xFFe5e8f0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              color: isDarkMode ? Colors.deepPurple[900] : const Color(
+                  0xFFc5cce0),
+              child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20.0),
-                    child: Text(
-                      '${_selectedMeasurements.length} selected',
-                      style: titleStyle.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : const Color(
-                            0xFF012169),
-                      ),
-                    ),
-                  ),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        icon: const Icon(
-                            Icons.ios_share, color: Color(0xFF012169)),
-                        onPressed: _selectedMeasurements.isEmpty
-                            ? null
-                            : () => _shareSelectedMeasurements(),
+                      Row(
+                        children: [
+                          Builder(
+                            builder: (context) {
+                              final filteredMeasurements = Provider.of<SharedData>(context, listen: false)
+                                  .savedMeasurements
+                                  .where((m) {
+                                final matchesVessel = _selectedVessel == 'All' ||
+                                    m.vesselProfile.name == _selectedVessel;
+                                final matchesDateRange =
+                                    (_selectedStartDate == null || m.timestamp.isAfter(
+                                        _selectedStartDate!.subtract(const Duration(days: 1)))) &&
+                                        (_selectedEndDate == null || m.timestamp.isBefore(
+                                            _selectedEndDate!.add(const Duration(days: 1))));
+                                return matchesVessel && matchesDateRange;
+                              }).toList();
+
+                              final isAllSelected = _selectedMeasurements.length == filteredMeasurements.length &&
+                                  _selectedMeasurements.isNotEmpty;
+
+                              return IconButton(
+                                icon: Icon(isAllSelected ? Icons.check_box :
+                                    Icons.check_box_outline_blank, size: 18),
+                                color: isDarkMode ? Colors.white : Colors.deepPurple,
+                                onPressed: isAllSelected
+                                    ? _deselectAll
+                                    : () => _selectAllFiltered(filteredMeasurements),
+                              );
+
+                            },
+                          ),
+                          Text(
+                            '${_selectedMeasurements.length} selected',
+                            style: titleStyle.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : const Color(
+                                  0xFF012169),
+                            ),
+                          ),
+                        ]
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: _selectedMeasurements.isEmpty
-                            ? null
-                            : () => _showBulkDeleteConfirmationDialog(),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: _exitSelectionMode,
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                                Icons.ios_share,
+                                color: isDarkMode ? Colors.white : Color(0xFF012169)),
+                            onPressed: _selectedMeasurements.isEmpty
+                                ? null
+                                : () => _shareSelectedMeasurements(),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: _selectedMeasurements.isEmpty
+                                ? null
+                                : () => _showBulkDeleteConfirmationDialog(),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: _exitSelectionMode,
+                          ),
+                        ],
                       ),
                     ],
                   ),
+
                 ],
               ),
             ),
@@ -703,6 +732,30 @@ class _DataspageState extends State<Dataspage> {
   void _exitSelectionMode() {
     setState(() {
       _isSelectionMode = false;
+      _selectedMeasurements.clear();
+    });
+  }
+
+  void _selectAllFiltered(List<SavedMeasurement> measurements) {
+    final filteredMeasurements = measurements.where((m) {
+      final matchesVessel = _selectedVessel == 'All' ||
+          m.vesselProfile.name == _selectedVessel;
+      final matchesDateRange =
+          (_selectedStartDate == null || m.timestamp.isAfter(
+              _selectedStartDate!.subtract(
+                  const Duration(days: 1)))) &&
+              (_selectedEndDate == null || m.timestamp.isBefore(
+                  _selectedEndDate!.add(const Duration(days: 1))));
+      return matchesVessel && matchesDateRange;
+    }).toList();
+
+    setState(() {
+      _selectedMeasurements.addAll(filteredMeasurements);
+    });
+  }
+
+  void _deselectAll() {
+    setState(() {
       _selectedMeasurements.clear();
     });
   }
@@ -1081,7 +1134,7 @@ class _DataspageState extends State<Dataspage> {
                         getTooltipItems: (touchedSpots) {
                           return touchedSpots.map((spot) {
                             return LineTooltipItem(
-                              '${spot.x.toStringAsFixed(2)} Hz\n${(1.0/spot.x).toStringAsFixed(2)} s',
+                              '${spot.x.toStringAsFixed(2)} Hz\n${(spot.y/1000).toStringAsFixed(0)}k',
                               TextStyle(color: isDarkMode ? Colors.black : Colors.white),
                             );
                           }).toList();
@@ -1409,7 +1462,6 @@ class _DataspageState extends State<Dataspage> {
   @override
   Widget build(BuildContext context) {
     final sharedData = Provider.of<SharedData>(context);
-    //final currentPeriod = calculateRollPeriod(widget.loadingCondition.gm);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Return empty or loading indicator until loaded to avoid jumpy UI or wrong initial value
@@ -1418,27 +1470,7 @@ class _DataspageState extends State<Dataspage> {
     }
 
     return Scaffold(
-      appBar: CustomAppBar(
-        /*actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: Colors.greenAccent),
-            onPressed: () {
-              setState(() {
-                _createTutorial();
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                ).then((_) {
-                  if (mounted) {
-                    tutorialCoachMark.show(context: context);
-                  }
-                });
-              });
-            },
-          ),
-        ],*/
-      ),
+      appBar: CustomAppBar(),
       body: SingleChildScrollView(
         controller: _scrollController,
         child: Padding(

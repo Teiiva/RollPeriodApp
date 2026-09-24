@@ -558,8 +558,8 @@ class _SensorPageState extends State<SensorPage> {
             final roll = double.parse(parts[1]);
             final pitch = double.parse(parts[2]);
             firstTimestamp ??= timestamp;
-            importedRollData.add(FlSpot(timestamp - (firstTimestamp ?? 0), roll));
-            importedPitchData.add(FlSpot(timestamp - (firstTimestamp ?? 0), pitch));
+            importedRollData.add(FlSpot(timestamp - (firstTimestamp), roll));
+            importedPitchData.add(FlSpot(timestamp - (firstTimestamp), pitch));
           } catch (e) {
             debugPrint('Error parsing line : $line, error : $e');
           }
@@ -1125,7 +1125,7 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Widget fftPitchPeriodTile({Key? key}) {
-    final pitchFFTSpots = FFTProcessor.computePowerSpectrum(_rollData.map((spot) => spot.y).toList())
+    final pitchFFTSpots = FFTProcessor.computePowerSpectrum(_pitchData.map((spot) => spot.y).toList())
         .asMap().entries
         .map((entry) => FlSpot(entry.key.toDouble(), entry.value))
         .toList();
@@ -1309,7 +1309,7 @@ class _SensorPageState extends State<SensorPage> {
                           'Deg/s',
                           style: chartlabel.copyWith(color: textColor, fontWeight: FontWeight.bold),
                         ),*/
-                        axisNameSize: 20,
+                        /*axisNameSize: 20,
                         sideTitles: SideTitles(
                           showTitles: true,
                           interval: maxY > 0 ? maxY / 3 : 1,
@@ -1318,7 +1318,7 @@ class _SensorPageState extends State<SensorPage> {
                             value.toStringAsFixed(2),
                             style: chartlabel.copyWith(color: textColor),
                           ),
-                        ),
+                        ),*/
                       ),
                       bottomTitles: AxisTitles(
                         axisNameWidget: Text(
@@ -1356,7 +1356,7 @@ class _SensorPageState extends State<SensorPage> {
                         getTooltipItems: (touchedSpots) {
                           return touchedSpots.map((spot) {
                             return LineTooltipItem(
-                              '${spot.x.toStringAsFixed(2)} Hz\n${(1.0/spot.x).toStringAsFixed(2)} s',
+                              '${spot.x.toStringAsFixed(2)} Hz\n${(spot.y/1000).toStringAsFixed(0)}k',
                               TextStyle(color: isDarkMode ? Colors.black : Colors.white),
                             );
                           }).toList();
@@ -1374,7 +1374,6 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Widget buildChartbase() {
-    print("Affichage graphique central");
     final rollChartData = _showRollData ? _rollData : <FlSpot>[];
     final pitchChartData = _showPitchData ? _pitchData : <FlSpot>[];
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
